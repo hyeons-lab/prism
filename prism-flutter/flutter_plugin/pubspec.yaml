@@ -1,0 +1,24 @@
+name: prism_flutter
+description: Flutter plugin for the Prism 3D game engine powered by Kotlin Multiplatform and wgpu.
+version: 0.1.0
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: engine.prism.flutter
+        pluginClass: PrismFlutterPlugin
+      ios:
+        pluginClass: PrismFlutterPlugin
