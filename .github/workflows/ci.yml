@@ -18,11 +18,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 25
+      - name: Set up JDK 25 (for toolchain)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
