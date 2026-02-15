@@ -400,6 +400,45 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
 2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
 3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
 
+### Implementation Plans (devlog/plans/)
+
+When entering plan mode to design an implementation approach, write the plan to `devlog/plans/` using the **same prefix number** as the branch's devlog file.
+
+**File naming:** `devlog/plans/NNNNNN-NN-<short-description>.md`
+- The first `NNNNNN` matches the branch's devlog prefix. The second `NN` is a two-digit plan sequence (01, 02, ...) for lexicographic sorting.
+- Example: `devlog/plans/000006-01-ios-native-support.md`, then `000006-02-ios-revised-surface-api.md`
+- Single-plan branches can omit the sequence: `devlog/plans/000006-ios-native-support.md` (but prefer the numbered form for consistency)
+
+**Plan file structure:**
+
+```markdown
+# Plan: <title>
+
+## Thinking
+
+<Your reasoning process — what you considered, alternatives you weighed, questions you
+resolved, research you did to arrive at the plan. Write this as a narrative stream of
+thought. This section captures the "why behind the why" — not just the decisions, but
+how you got there.>
+
+---
+
+## Plan
+
+<The final implementation plan as presented to the user for approval. This is the
+clean, structured output — files to modify, implementation sequence, architecture
+diagrams, verification steps, etc.>
+```
+
+**Referencing in the devlog:** When you create a plan, add an entry in the devlog's "What Changed" or "Decisions" section:
+- `**[timestamp]** Created implementation plan → [devlog/plans/NNNNNN-description.md](plans/NNNNNN-description.md)`
+
+**Guidelines:**
+- The **Thinking** section is raw and exploratory — it's okay to show uncertainty, dead ends, and course corrections
+- The **Plan** section is clean and actionable — it's what gets executed
+- Keep both sections in the same file so future sessions can understand not just *what* was planned but *how* the plan was derived
+- Plans are append-only artifacts — if a plan changes during execution, note the deviation in the devlog, don't edit the plan file
+
 ### What to Log
 
 **Per-session sections** (under each `## Session N` header):
