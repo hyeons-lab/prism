@@ -435,14 +435,14 @@ The prism-renderer module had 13 source files (461+ lines in WgpuRenderer alone)
 ---
 
 ## Next Steps
-- [ ] Run `./gradlew :prism-demo:jvmRun` to visually verify the rotating cube still works through the ECS pipeline
-- [ ] Add CI configuration (GitHub Actions)
-- [x] Add unit tests for renderer (95 tests across 5 files)
-- [ ] Complete native RenderSurface implementations
-- [x] Wire up KtFmt + Detekt to subprojects
+- [x] Add CI configuration (GitHub Actions) — done in Sessions 10/12
+- [x] Add unit tests for renderer (95 tests across 5 files) — done in Session 13
+- [x] Wire up KtFmt + Detekt to subprojects — done in Sessions 7/9
+- [ ] WASM/Canvas integration for web
+- [ ] Compose Multiplatform integration (M5)
+- [ ] Complete native RenderSurface implementations (iOS, Android, Linux, Windows)
 - [ ] Re-enable MagicNumber with targeted suppressions
 - [ ] Refactor Mesh.cube() to extract vertex data
 - [ ] Reduce FlutterMethodHandler cyclomatic complexity
-- [ ] M5: Compose Desktop integration
-- [ ] M9: PBR materials (Cook-Torrance BRDF, IBL, HDR)
-- [ ] M10: glTF 2.0 asset loading
+- [ ] PBR materials — Cook-Torrance BRDF, IBL, HDR (M9)
+- [ ] glTF 2.0 asset loading (M10)
