@@ -72,6 +72,8 @@
 ### M6: Web/WASM Support ⏳
 ### M7: iOS Native Support ⏳
 ### M8: Android Support ⏳
+### M9: PBR Materials ⏳
+### M10: glTF Asset Loading ⏳
 
 ## Build Commands
 

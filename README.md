@@ -107,6 +107,8 @@ cd prism
 | M6 | Web/WASM support | Planned |
 | M7 | iOS native support | Planned |
 | M8 | Android support | Planned |
+| M9 | PBR materials | Planned |
+| M10 | glTF asset loading | Planned |
 
 See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md) for the full technical specification.
 
