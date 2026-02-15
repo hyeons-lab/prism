@@ -43,7 +43,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/wgpu4k/wgpu4k.git /tmp/wgpu4k
           cd /tmp/wgpu4k
-          ./gradlew publishToMavenLocal --no-daemon
+          ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
 
       - name: Check formatting
         run: ./gradlew ktfmtCheck
