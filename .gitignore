@@ -11,6 +11,9 @@ build/
 
 # Kotlin
 *.class
+.kotlin/
+kotlin-js-store/
+*.dylib
 
 # OS
 .DS_Store
