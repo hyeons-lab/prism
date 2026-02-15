@@ -22,7 +22,7 @@ import kotlin.math.PI
 
 private val log = Logger.withTag("DemoScene")
 
-private val rotationSpeed = PI.toFloat() / 4f
+private val defaultRotationSpeed = PI.toFloat() / 4f
 
 /** Holds the engine, ECS world, renderer, and key entity handles for the demo scene. */
 class DemoScene(
@@ -33,10 +33,17 @@ class DemoScene(
   val cameraEntity: Entity,
 ) {
   /**
-   * Advances the scene by one frame: rotates the cube at a fixed speed and runs the ECS update.
-   * Used by non-interactive demos (GLFW, WASM, native iOS) where rotation is not user-controllable.
+   * Advances the scene by one frame: rotates the cube and runs the ECS update. Used by
+   * non-interactive demos (GLFW, WASM, native iOS) where rotation is not user-controllable.
+   *
+   * @param rotationSpeed Rotation speed in radians per second. Defaults to PI/4 (~45 deg/s).
    */
-  fun tick(deltaTime: Float, elapsed: Float, frameCount: Long) {
+  fun tick(
+    deltaTime: Float,
+    elapsed: Float,
+    frameCount: Long,
+    rotationSpeed: Float = defaultRotationSpeed,
+  ) {
     val angle = elapsed * rotationSpeed
     val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
     cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)

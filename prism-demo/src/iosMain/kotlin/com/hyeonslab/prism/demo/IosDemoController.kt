@@ -17,9 +17,6 @@ import platform.darwin.NSObject
 
 private val log = Logger.withTag("PrismIOS")
 
-private const val DEFAULT_WIDTH = 800
-private const val DEFAULT_HEIGHT = 600
-
 /**
  * Handle returned by [configureDemo] that manages the lifecycle of the demo scene and GPU
  * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
@@ -50,8 +47,8 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   var height = view.drawableSize.useContents { height.toInt() }
   if (width <= 0 || height <= 0) {
     log.w { "drawableSize not ready (${width}x${height}), using defaults" }
-    width = DEFAULT_WIDTH
-    height = DEFAULT_HEIGHT
+    width = IOS_DEFAULT_WIDTH
+    height = IOS_DEFAULT_HEIGHT
   }
   log.i { "Configuring demo: ${width}x${height}" }
 
@@ -89,6 +86,7 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
       val w = width.toInt()
       val h = height.toInt()
       log.i { "Drawable size changed: ${w}x${h}" }
+      scene.renderer.resize(w, h)
       scene.updateAspectRatio(w, h)
     }
   }

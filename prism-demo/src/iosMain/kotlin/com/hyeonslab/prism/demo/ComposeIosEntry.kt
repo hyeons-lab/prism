@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -16,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
@@ -35,6 +37,7 @@ import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGSize
+import platform.Foundation.NSOperationQueue
 import platform.MetalKit.MTKView
 import platform.MetalKit.MTKViewDelegateProtocol
 import platform.QuartzCore.CACurrentMediaTime
@@ -42,9 +45,6 @@ import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 
 private val log = Logger.withTag("ComposeIOS")
-
-private const val DEFAULT_WIDTH = 800
-private const val DEFAULT_HEIGHT = 600
 
 /** Entry point called from Swift to create the Compose-based demo view controller. */
 fun composeDemoViewController(): UIViewController = ComposeUIViewController {
@@ -60,11 +60,14 @@ private fun IosComposeDemoContent() {
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var iosContext by remember { mutableStateOf<IosContext?>(null) }
   var mtkView by remember { mutableStateOf<MTKView?>(null) }
+  var initError by remember { mutableStateOf<String?>(null) }
 
-  // Clean up wgpu resources when the composable leaves the composition
+  // Clean up wgpu resources when the composable leaves the composition.
+  // Null the delegate first to stop render callbacks before shutting down.
   DisposableEffect(Unit) {
     onDispose {
       log.i { "Disposing Compose iOS demo" }
+      mtkView?.delegate = null
       scene?.shutdown()
       iosContext?.close()
     }
@@ -72,11 +75,17 @@ private fun IosComposeDemoContent() {
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(modifier = Modifier.fillMaxSize()) {
-      // MTKView embedded as a native UIKit view
+      // MTKView embedded as a native UIKit view.
+      // interactive = false: this is a display-only Metal surface; all user interaction
+      // (sliders, buttons) is handled by the Compose overlay, not the MTKView.
       @Suppress("DEPRECATION")
       UIKitView(
         factory = {
           val device = platform.Metal.MTLCreateSystemDefaultDevice()
+          if (device == null) {
+            log.e { "Metal is not supported on this device" }
+            initError = "Metal is not supported on this device"
+          }
           val view =
             MTKView().apply {
               this.device = device
@@ -94,29 +103,51 @@ private fun IosComposeDemoContent() {
       // Initialize wgpu once the MTKView is available
       LaunchedEffect(mtkView) {
         val view = mtkView ?: return@LaunchedEffect
+        if (initError != null) return@LaunchedEffect
+
         log.i { "Initializing wgpu for Compose iOS demo" }
 
         var width = view.drawableSize.useContents { width.toInt() }
         var height = view.drawableSize.useContents { height.toInt() }
         if (width <= 0 || height <= 0) {
           log.w { "drawableSize not ready (${width}x${height}), using defaults" }
-          width = DEFAULT_WIDTH
-          height = DEFAULT_HEIGHT
+          width = IOS_DEFAULT_WIDTH
+          height = IOS_DEFAULT_HEIGHT
         }
 
-        val ctx = iosContextRenderer(view, width, height)
-        iosContext = ctx
-        val s =
-          createDemoScene(
-            ctx.wgpuContext,
-            width = width,
-            height = height,
-            initialColor = store.state.value.cubeColor,
-          )
-        scene = s
+        try {
+          val ctx = iosContextRenderer(view, width, height)
+          iosContext = ctx
+          val s =
+            createDemoScene(
+              ctx.wgpuContext,
+              width = width,
+              height = height,
+              initialColor = store.state.value.cubeColor,
+            )
+          scene = s
 
-        view.delegate = ComposeRenderDelegate(s, store) { w, h -> s.updateAspectRatio(w, h) }
-        log.i { "Compose iOS demo initialized (${width}x${height})" }
+          view.delegate =
+            ComposeRenderDelegate(s, store) { w, h ->
+              s.renderer.resize(w, h)
+              s.updateAspectRatio(w, h)
+            }
+          log.i { "Compose iOS demo initialized (${width}x${height})" }
+        } catch (e: Exception) {
+          log.e(e) { "Failed to initialize wgpu: ${e.message}" }
+          initError = e.message ?: "Failed to initialize GPU"
+        }
+      }
+
+      // Show error overlay if initialization failed
+      val error = initError
+      if (error != null) {
+        Text(
+          text = error,
+          color = ComposeColor.White,
+          style = MaterialTheme.typography.bodyLarge,
+          modifier = Modifier.align(Alignment.Center).padding(32.dp),
+        )
       }
 
       // Overlay Compose UI controls
@@ -133,6 +164,9 @@ private fun IosComposeDemoContent() {
  * MTKView render delegate for the Compose iOS demo. Reads [DemoStore] state each frame to support
  * user-controllable rotation speed, pause, and material color — mirroring ComposeMain.kt's render
  * loop.
+ *
+ * FPS updates are dispatched on the main queue to avoid cross-thread Compose state mutations from
+ * the Metal display-link thread.
  */
 @OptIn(BetaInteropApi::class)
 private class ComposeRenderDelegate(
@@ -155,10 +189,12 @@ private class ComposeRenderDelegate(
 
     val currentState = store.state.value
 
-    // Update FPS (smoothed)
+    // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
     if (deltaTime > 0f) {
       val smoothedFps = currentState.fps * 0.9f + (1f / deltaTime) * 0.1f
-      store.dispatch(DemoIntent.UpdateFps(smoothedFps))
+      NSOperationQueue.mainQueue.addOperationWithBlock {
+        store.dispatch(DemoIntent.UpdateFps(smoothedFps))
+      }
     }
 
     // Update rotation (user-controllable speed + pause)

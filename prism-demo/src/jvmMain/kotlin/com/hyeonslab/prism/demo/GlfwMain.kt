@@ -21,14 +21,18 @@ fun main() = runBlocking {
   log.i { "Window opened — entering render loop" }
 
   val startTime = System.nanoTime()
+  var lastFrameTime = startTime
   var frameCount = 0L
 
   while (!glfwWindowShouldClose(glfwContext.windowHandler)) {
     glfwPollEvents()
 
-    val elapsed = (System.nanoTime() - startTime) / 1_000_000_000f
+    val now = System.nanoTime()
+    val deltaTime = (now - lastFrameTime) / 1_000_000_000f
+    lastFrameTime = now
+    val elapsed = (now - startTime) / 1_000_000_000f
     frameCount++
-    scene.tick(deltaTime = 1f / 60f, elapsed = elapsed, frameCount = frameCount)
+    scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
   }
 
   log.i { "Shutting down..." }

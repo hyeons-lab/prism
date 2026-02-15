@@ -126,6 +126,32 @@ Fix all remaining GitHub issues (#16, #17, #18) deferred from Session 2's review
 
 ---
 
+## Session 4 — Critical Review Fixes (2026-02-15 15:24 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ios-native-support`
+
+### Intent
+Fix all 11 issues found in critical self-review of the PR: 3 P0 (null guard, resize mismatch, missing error handling), 4 P1 (use-after-free, thread safety, hardcoded speed, double GPU init), 4 P2 (redundant config, duplicated constants, missing comment, hardcoded deltaTime).
+
+### What Changed
+- **[2026-02-15 15:24 PST]** `prism-demo/src/iosMain/.../ComposeIosEntry.kt` — P0 #1: Added null check for `MTLCreateSystemDefaultDevice()`, sets `initError` state and shows error overlay. P0 #2: `onResize` callback now calls `renderer.resize()` + `updateAspectRatio()`. P0 #3: Wrapped `iosContextRenderer` + `createDemoScene` in try-catch, shows error text on failure. P1 #4: `DisposableEffect.onDispose` now nulls `mtkView.delegate` before shutdown to stop render callbacks. P1 #5: FPS dispatch uses `NSOperationQueue.mainQueue` for thread-safe Compose state updates. P2 #10: Added comment explaining `interactive = false`.
+- **[2026-02-15 15:24 PST]** `prism-demo/src/iosMain/.../IosDemoController.kt` — P0 #2: `mtkView(drawableSizeWillChange:)` now calls `scene.renderer.resize()` before `updateAspectRatio()` to recreate depth texture at correct size. P2 #9: Replaced private constants with shared `IOS_DEFAULT_WIDTH/HEIGHT`.
+- **[2026-02-15 15:24 PST]** `prism-demo/src/iosMain/.../IosConstants.kt` — New. Shared `IOS_DEFAULT_WIDTH`/`IOS_DEFAULT_HEIGHT` constants used by both IosDemoController and ComposeIosEntry.
+- **[2026-02-15 15:24 PST]** `prism-demo/src/commonMain/.../DemoScene.kt` — P1 #6: `tick()` now takes `rotationSpeed` parameter with default `PI/4` rad/s. Renamed file-level constant to `defaultRotationSpeed`.
+- **[2026-02-15 15:24 PST]** `ios-demo/Sources/ViewController.swift` — P1 #7: Moved wgpu init from `viewDidLoad` to `viewDidAppear` with `isInitialized` guard. MTKView starts paused, unpauses after init. Prevents double GPU memory on launch.
+- **[2026-02-15 15:24 PST]** `ios-demo/Sources/Info.plist` — P2 #8: Removed `UISceneConfigurations` from plist (AppDelegate handles it programmatically). Kept minimal `UIApplicationSceneManifest` to opt into scene lifecycle.
+- **[2026-02-15 15:24 PST]** `prism-demo/src/jvmMain/.../GlfwMain.kt` — P2 #11: Compute actual delta time from `System.nanoTime()` diff instead of hardcoding `1f/60f`.
+
+### Decisions
+- **[2026-02-15 15:24 PST]** **Keep minimal UIApplicationSceneManifest in plist** — Removing it entirely would revert to the old UIApplicationDelegate lifecycle. Keep just `UIApplicationSupportsMultipleScenes: false` so iOS knows to use scenes, then let `AppDelegate.configurationForConnecting` provide the actual config.
+- **[2026-02-15 15:24 PST]** **NSOperationQueue.mainQueue for FPS dispatch** — `drawInMTKView` runs on the Metal display-link thread. Dispatching `DemoStore` updates to the main queue ensures Compose recomposition isn't triggered from a background thread.
+- **[2026-02-15 15:24 PST]** **MTKView.isPaused for lazy init** — Setting `isPaused = true` in `viewDidLoad` and `false` after `configureDemo` completes ensures the display link doesn't fire before wgpu is ready. Combined with `viewDidAppear`, this avoids rendering to an unconfigured surface.
+
+### Commits
+- `6bed896` — fix: address all review findings for iOS support
+
+---
+
 ## Next Steps
 - Run `xcodegen generate` in ios-demo/ and verify Xcode build on simulator with tab bar
 - Mobile platform work: Android support (M8)

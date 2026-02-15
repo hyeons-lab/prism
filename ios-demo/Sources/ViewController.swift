@@ -6,6 +6,7 @@ class ViewController: UIViewController {
 
     private var mtkView: MTKView!
     private var demoHandle: IosDemoHandle?
+    private var isInitialized = false
 
     deinit {
         demoHandle?.shutdown()
@@ -24,7 +25,17 @@ class ViewController: UIViewController {
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.depthStencilPixelFormat = .depth32Float
         mtkView.preferredFramesPerSecond = 60
+        mtkView.isPaused = true  // Paused until wgpu init in viewDidAppear
         view.addSubview(mtkView)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        // Lazy init: only create wgpu resources when the tab becomes visible for the first time.
+        // This avoids doubling GPU memory when both tabs init simultaneously on launch.
+        guard !isInitialized, mtkView != nil else { return }
+        isInitialized = true
 
         IosDemoControllerKt.configureDemo(view: mtkView) { handle, error in
             if let error = error {
@@ -32,6 +43,7 @@ class ViewController: UIViewController {
                 return
             }
             self.demoHandle = handle
+            self.mtkView.isPaused = false
         }
     }
 
