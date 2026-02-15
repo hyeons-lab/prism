@@ -9,6 +9,8 @@ class ViewController: UIViewController {
     private var isInitialized = false
 
     deinit {
+        mtkView?.isPaused = true
+        mtkView?.delegate = nil
         demoHandle?.shutdown()
     }
 

@@ -217,6 +217,7 @@ private class ComposeRenderDelegate(
     drawableSizeWillChange.useContents {
       val w = width.toInt()
       val h = height.toInt()
+      if (w <= 0 || h <= 0) return
       log.i { "Compose drawable size changed: ${w}x${h}" }
       onResize(w, h)
     }

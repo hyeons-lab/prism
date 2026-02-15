@@ -85,6 +85,7 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
     drawableSizeWillChange.useContents {
       val w = width.toInt()
       val h = height.toInt()
+      if (w <= 0 || h <= 0) return
       log.i { "Drawable size changed: ${w}x${h}" }
       scene.renderer.resize(w, h)
       scene.updateAspectRatio(w, h)
