@@ -5,6 +5,7 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(25)
     jvm {
         mainRun {
             mainClass.set("engine.prism.demo.GlfwMainKt")
