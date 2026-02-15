@@ -75,6 +75,23 @@
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
 
+## Test Coverage
+
+| Module | Tests | Classes Tested |
+|---|---|---|
+| prism-math | 75 | Vec3 (26), Mat4 (24), Quaternion (25) |
+| prism-renderer | 95 | Color (15), Mesh (25), VertexLayout (22), Camera (19), Shader (14) |
+| **Total** | **170** | |
+
+Run all tests: `./gradlew jvmTest`
+
+## Code Quality
+
+- [x] KtFmt (Google style, 100-char max width) via `./gradlew ktfmtCheck`
+- [x] Detekt (maxIssues=0) via `./gradlew detektJvmMain`
+- [x] `allWarningsAsErrors=true` on all modules
+- [x] GitHub Actions CI: ktfmtCheck + detekt + jvmTest on every push/PR
+
 ## Build Commands
 
 ```bash

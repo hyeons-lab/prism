@@ -2,11 +2,13 @@
 
 A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU.
 
+> **This is an experiment.** Prism is being vibe-coded with [Claude](https://claude.ai) — the engine, the tests, the CI, and even this README. Every design decision, debug session, and dead end is captured in the [`devlog/`](devlog/) directory. AI-assisted PRs are welcome.
+
 <!-- TODO: Add screenshot/gif of rotating cube demo -->
 
 ## Overview
 
-Prism provides a unified API for building 3D applications across desktop (JVM), web (WASM/JS), mobile (iOS, Android), and native platforms using a single Kotlin codebase. The rendering backend uses [wgpu4k](https://github.com/AskiaAI/wgpu4k) for cross-platform GPU access via WebGPU (Vulkan, Metal, DX12, WebGPU).
+Prism provides a unified API for building 3D applications across desktop (JVM), web (WASM/JS), mobile (iOS, Android), and native platforms using a single Kotlin codebase. The rendering backend uses [wgpu4k](https://github.com/wgpu4k/wgpu4k) for cross-platform GPU access via WebGPU (Vulkan, Metal, DX12, WebGPU).
 
 ## Features
 
@@ -50,7 +52,7 @@ prism-demo                   Demo app (rotating lit cube via ECS)
 Prism depends on wgpu4k 0.2.0-SNAPSHOT, which must be built and published to Maven local:
 
 ```bash
-git clone https://github.com/AskiaAI/wgpu4k.git
+git clone https://github.com/wgpu4k/wgpu4k.git
 cd wgpu4k
 ./gradlew publishToMavenLocal
 ```
@@ -59,7 +61,7 @@ cd wgpu4k
 
 ```bash
 # Clone Prism
-git clone https://github.com/prishlylab/prism.git
+git clone https://github.com/hyeons-lab/prism.git
 cd prism
 
 # Build all modules
@@ -112,6 +114,15 @@ cd prism
 
 See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md) for the full technical specification.
 
+## Testing
+
+Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. All tests run on JVM via `./gradlew jvmTest`.
+
+| Module | Tests | Coverage |
+|---|---|---|
+| prism-math | 75 | Vec3, Mat4, Quaternion |
+| prism-renderer | 95 | Color, Mesh, VertexLayout, Camera, Shader |
+
 ## Contributing
 
 ```bash
@@ -119,7 +130,7 @@ See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md
 ./gradlew ktfmtFormat
 
 # Run quality checks
-./gradlew ktfmtCheck detekt test
+./gradlew ktfmtCheck detektJvmMain jvmTest
 ```
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
