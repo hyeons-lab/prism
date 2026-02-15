@@ -358,39 +358,38 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 **Claude Code MUST maintain a development log in `devlog/` to track changes, decisions, and reasoning across sessions.**
 
-### When to Create/Update Session Logs
+### When to Create/Update
 
-- **Start of each working session:** Create a new devlog entry if one doesn't exist for today, or continue the existing one if still working on the same task
-- **During work:** Update the current session log as you make changes, add decisions, or discover new information
-- **New session trigger:** Start a new file when beginning a fresh conversation or switching to a significantly different task
+- **Start of each working session:** Create today's devlog file if it doesn't exist, or add a new `## Session` header to the existing file
+- **During work:** Update the current session as you make changes, decisions, or discoveries
+- **New day = new file.** New session on same day = new `## Session N` header in the same file.
 
 ### File Naming
 
-Format: `devlog/YYYY-MM-DD_<sequence>.md`
-- Example: `2026-02-14_01.md`
-- Increment sequence (`01`, `02`, ...) for multiple sessions on the same day
+Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
+- Example: `devlog/2026-02-14.md`
+- Multiple sessions in one day use `## Session N — Topic` headers within the file
+- Files sort chronologically by default
 
 ### What to Log
 
-**Required sections:**
-- **Agents:** Table of all AI agents that made changes (model ID, repo, branch, role)
+**Per-session sections** (under each `## Session N` header):
+- **Agent:** Model ID, repo, branch (one-liner for single agent)
 - **Intent:** The "why" — user's goal, problem being solved, or feature being built
-- **What Changed:** File-by-file list with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning (group by repo if multi-repo)
-- **Decisions:** Key architectural/implementation choices with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
-- **Research & Discoveries:** Findings that informed the work — include links to docs, APIs, source repos, issues, or examples that were useful. Future sessions can reference these instead of re-discovering them.
-- **Issues:** Problems encountered and resolutions (or open items). **CRITICAL:** Log failed attempts, reverted changes, and lessons learned. If you try an approach that doesn't work, document WHY it failed and what you learned. This prevents repeating the same mistakes in future sessions.
-- **Next Steps:** What's left or what to pick up next
+- **What Changed:** File-by-file list with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
+- **Decisions:** Key choices with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
+- **Research & Discoveries:** Findings, links to docs/APIs/repos/issues. Future sessions can reference these instead of re-discovering them.
+- **Issues:** Problems and resolutions. **CRITICAL:** Log failed attempts, reverted changes, and lessons learned. If you try an approach that doesn't work, document WHY it failed and what you learned. This prevents repeating the same mistakes in future sessions.
+- **Commits:** List commit hashes and messages created during the session
 
-**Optional sections:**
-- **Model Switches:** Log if you switch models mid-session (timestamp, reason, task context)
+**End-of-day section** (at the bottom of the file):
+- **Next Steps:** What's left or what to pick up next (shared across sessions)
 
 ### Guidelines
 
-- **Group related work** — One session = one file. Don't fragment minor edits into separate files.
+- **One file per day** — All sessions for a given day go in one file. Don't create separate files for each conversation.
 - **Keep it narrative** — Write for a human reading the timeline, not just a machine-parsable log
-- **Target 30-100 lines per file** — If a single session exceeds ~150 lines, consider splitting into `_01`, `_02`
 - **Track "why" not just "what"** — Capture reasoning behind decisions, not just file diffs
-- **Simplify for single-agent sessions** — If only one agent and one repo, skip the full table, just note agent/model/branch at top
 - **Update as you go — CRITICAL** — The devlog is a living document. Update it automatically after each significant change:
   - After creating/modifying files
   - After making decisions
@@ -398,52 +397,60 @@ Format: `devlog/YYYY-MM-DD_<sequence>.md`
   - When encountering issues
 
   **DO NOT wait for the user to ask "update devlog"** — this should happen proactively as part of your workflow. The devlog is a real-time journal, not a post-hoc summary.
-- **Record final state, not iterations** — If you change a file multiple times (e.g., iterating on a format), collapse into one entry describing the final result. Don't log each intermediate edit.
+- **Record final state, not iterations** — If you change a file multiple times, collapse into one entry describing the final result. Don't log each intermediate edit.
 - **Group similar files** — If the same change applies to multiple files (e.g., creating native stubs for 3 platforms), combine into one entry: `RenderSurface.{macos,linux,mingw}.kt`
-- **Add a topic to the title** — Use `# Session — YYYY-MM-DD (Topic)` to make sessions scannable (e.g., "Build System + WgpuRenderer", "Project Scaffolding")
 - **Log failures and lessons learned** — If you try an approach that doesn't work and have to revert or change direction, document it in the Issues section with:
   - What you tried
   - Why it didn't work (error message, conceptual problem, API limitation)
   - What you learned
   - What approach you used instead
 
-  This prevents wasting time repeating failed experiments in future sessions. Failed attempts are valuable knowledge.
+  Failed attempts are valuable knowledge.
 
 ### Example Structure
 
 ```markdown
-# Session — YYYY-MM-DD (Topic)
+# YYYY-MM-DD
 
-## Agent
-**Claude Code** (model-id) @ `repository` branch `branch-name`
+## Session 1 — Topic (HH:MM TZ, model-name)
 
-## Intent
+**Agent:** Claude Code (model-id) @ `repository` branch `branch-name`
+
+### Intent
 <Why this session exists...>
 
-## What Changed
+### What Changed
 - **[YYYY-MM-DD HH:MM TZ]** `path/to/file` — <what changed and why>
-- **[YYYY-MM-DD HH:MM TZ]** `path/to/another/file` — <what changed and why>
 
-## Decisions
+### Decisions
 - **[YYYY-MM-DD HH:MM TZ]** **<Decision>** — <reasoning>
-- **[YYYY-MM-DD HH:MM TZ]** **<Another decision>** — <reasoning>
 
-## Research & Discoveries
-- <findings>
+### Research & Discoveries
+- <findings with links>
 
-## Issues
+### Issues
 - <problems and resolutions>
 
+### Commits
+- `abc1234` — <commit message>
+
+---
+
+## Session 2 — Another Topic (HH:MM TZ, model-name)
+...
+
+---
+
 ## Next Steps
-- <what's next>
+- <what's left across all sessions>
 ```
 
-**Timestamp format:** Use `[YYYY-MM-DD HH:MM TZ]` where TZ is your local timezone (PST, EST, UTC, etc.)
+**Timestamp format:** `[YYYY-MM-DD HH:MM TZ]` where TZ is your local timezone.
 - Example: `[2026-02-14 10:30 PST]`
-- Use standard timezone abbreviations (PST/PDT, EST/EDT, UTC, CET, JST, etc.)
-- Be consistent within a session — don't mix timezones
+- Use standard abbreviations (PST/PDT, EST/EDT, UTC, CET, JST, etc.)
+- Be consistent within a session
 
-See `devlog/README.md` for full conventions and multi-agent format.
+See `devlog/README.md` for full conventions.
 
 ## Random Notes
 
