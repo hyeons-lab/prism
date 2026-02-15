@@ -49,11 +49,12 @@ prism-demo                   Demo app (rotating lit cube via ECS)
 
 ### Build wgpu4k from source
 
-Prism depends on wgpu4k 0.2.0-SNAPSHOT, which must be built and published to Maven local:
+Prism depends on wgpu4k 0.2.0-SNAPSHOT (commit `3fc6e327`), which must be built and published to Maven local:
 
 ```bash
 git clone https://github.com/wgpu4k/wgpu4k.git
 cd wgpu4k
+git checkout 3fc6e327
 ./gradlew publishToMavenLocal
 ```
 
@@ -77,7 +78,7 @@ cd prism
 |---|---|
 | Kotlin | 2.3.0 |
 | Gradle | 9.2.0 |
-| wgpu4k | 0.2.0-SNAPSHOT |
+| wgpu4k | 0.2.0-SNAPSHOT (`3fc6e327`) |
 | Compose Multiplatform | 1.10.0 |
 | kotlinx-coroutines | 1.10.2 |
 | kotlinx-serialization | 1.9.0 |
@@ -92,7 +93,7 @@ cd prism
 | JVM Desktop (macOS) | Metal via wgpu4k + GLFW | Working |
 | JVM Desktop (Linux) | Vulkan via wgpu4k + GLFW | Planned |
 | JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
-| Web (WASM/JS) | WebGPU | Planned |
+| Web (WASM/JS) | WebGPU | In Progress |
 | iOS | Metal (C-interop) | Planned |
 | Android | Vulkan (PanamaPort) | Planned |
 | macOS Native | Metal (C-interop) | Planned |
@@ -106,7 +107,7 @@ cd prism
 | M3 | Lit cube with materials | Done |
 | M4 | ECS-driven rendering | Done |
 | M5 | Compose integration (JVM) | Planned |
-| M6 | Web/WASM support | Planned |
+| M6 | Web/WASM support | In Progress |
 | M7 | iOS native support | Planned |
 | M8 | Android support | Planned |
 | M9 | PBR materials | Planned |

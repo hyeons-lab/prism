@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prism Demo</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        canvas {
+            display: block;
+        }
+        #fallback {
+            color: #e0e0e0;
+            font-family: sans-serif;
+            text-align: center;
+            padding: 2rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="prismCanvas" width="800" height="600"></canvas>
+    <div id="fallback">
+        <h2>WebGPU Not Supported</h2>
+        <p>This demo requires a browser with WebGPU support (Chrome 113+, Edge 113+).</p>
+    </div>
+    <script>
+        if (!navigator.gpu) {
+            document.getElementById('prismCanvas').style.display = 'none';
+            document.getElementById('fallback').style.display = 'block';
+        }
+    </script>
+    <script src="prism-demo.js"></script>
+</body>
+</html>
