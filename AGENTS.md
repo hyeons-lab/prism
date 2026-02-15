@@ -25,7 +25,7 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew ktfmtFormat
 
 # Check formatting + static analysis
-./gradlew ktfmtCheck detekt
+./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain
 
 # Run tests
 ./gradlew test                          # All tests
@@ -44,7 +44,7 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
 
 # Full CI quality check
-./gradlew ktfmtCheck detekt test
+./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain jvmTest
 
 # Check Gradle dependencies
 ./gradlew dependencies --configuration commonMainCompileClasspath
@@ -380,6 +380,7 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
 - **Decisions:** Key choices with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
 - **Research & Discoveries:** Findings, links to docs/APIs/repos/issues. Future sessions can reference these instead of re-discovering them.
 - **Issues:** Problems and resolutions. **CRITICAL:** Log failed attempts, reverted changes, and lessons learned. If you try an approach that doesn't work, document WHY it failed and what you learned. This prevents repeating the same mistakes in future sessions.
+- **Lessons Learned:** Reusable insights from this session — patterns that worked well, pitfalls to avoid, API quirks discovered, or conventions established. If nothing new was learned, leave this section empty or omit it. These should be things a future session would benefit from knowing.
 - **Commits:** List commit hashes and messages created during the session
 
 **End-of-day section** (at the bottom of the file):
@@ -430,6 +431,9 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
 
 ### Issues
 - <problems and resolutions>
+
+### Lessons Learned
+- <reusable insights, or leave empty if nothing new>
 
 ### Commits
 - `abc1234` — <commit message>

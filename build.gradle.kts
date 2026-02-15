@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
     alias(libs.plugins.ktfmt) apply false
     alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.maven.publish) apply false
 }
 
 subprojects {
