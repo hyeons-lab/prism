@@ -25,72 +25,71 @@ import org.lwjgl.glfw.GLFW.glfwShowWindow
 import org.lwjgl.glfw.GLFW.glfwWindowShouldClose
 
 fun main() = runBlocking {
-    Logger.i("Prism") { "Starting Prism GLFW Demo..." }
-    LibraryLoader.load()
+  Logger.i("Prism") { "Starting Prism GLFW Demo..." }
+  LibraryLoader.load()
 
-    val glfwContext = glfwContextRenderer(width = 800, height = 600, title = "Prism Demo")
-    val wgpuContext = glfwContext.wgpuContext
+  val glfwContext = glfwContextRenderer(width = 800, height = 600, title = "Prism Demo")
+  val wgpuContext = glfwContext.wgpuContext
 
-    // Create engine and register WgpuRenderer as a subsystem
-    val renderer = WgpuRenderer(wgpuContext)
-    val engine = Engine()
-    engine.addSubsystem(renderer)
-    engine.initialize()
+  // Create engine and register WgpuRenderer as a subsystem
+  val renderer = WgpuRenderer(wgpuContext)
+  val engine = Engine()
+  engine.addSubsystem(renderer)
+  engine.initialize()
 
-    // Create ECS world with RenderSystem
-    val world = World()
-    world.addSystem(RenderSystem(renderer))
+  // Create ECS world with RenderSystem
+  val world = World()
+  world.addSystem(RenderSystem(renderer))
 
-    // Camera entity
-    val cameraEntity = world.createEntity()
-    val camera = Camera()
-    camera.position = Vec3(2f, 2f, 4f)
-    camera.target = Vec3(0f, 0f, 0f)
-    camera.fovY = 60f
-    camera.aspectRatio = 800f / 600f
-    camera.nearPlane = 0.1f
-    camera.farPlane = 100f
-    world.addComponent(cameraEntity, TransformComponent(position = camera.position))
-    world.addComponent(cameraEntity, CameraComponent(camera))
+  // Camera entity
+  val cameraEntity = world.createEntity()
+  val camera = Camera()
+  camera.position = Vec3(2f, 2f, 4f)
+  camera.target = Vec3(0f, 0f, 0f)
+  camera.fovY = 60f
+  camera.aspectRatio = 800f / 600f
+  camera.nearPlane = 0.1f
+  camera.farPlane = 100f
+  world.addComponent(cameraEntity, TransformComponent(position = camera.position))
+  world.addComponent(cameraEntity, CameraComponent(camera))
 
-    // Cube entity
-    val cubeEntity = world.createEntity()
-    world.addComponent(cubeEntity, TransformComponent())
-    world.addComponent(cubeEntity, MeshComponent(mesh = Mesh.cube()))
-    world.addComponent(cubeEntity, MaterialComponent(material = Material(baseColor = Color(0.3f, 0.5f, 0.9f))))
+  // Cube entity
+  val cubeEntity = world.createEntity()
+  world.addComponent(cubeEntity, TransformComponent())
+  world.addComponent(cubeEntity, MeshComponent(mesh = Mesh.cube()))
+  world.addComponent(
+    cubeEntity,
+    MaterialComponent(material = Material(baseColor = Color(0.3f, 0.5f, 0.9f))),
+  )
 
-    // Initialize all systems (creates shader, pipeline)
-    world.initialize()
+  // Initialize all systems (creates shader, pipeline)
+  world.initialize()
 
-    glfwShowWindow(glfwContext.windowHandler)
-    Logger.i("Prism") { "Window opened — entering render loop" }
+  glfwShowWindow(glfwContext.windowHandler)
+  Logger.i("Prism") { "Window opened — entering render loop" }
 
-    val startTime = System.nanoTime()
-    val rotationSpeed = PI.toFloat() / 4f
-    var frameCount = 0L
+  val startTime = System.nanoTime()
+  val rotationSpeed = PI.toFloat() / 4f
+  var frameCount = 0L
 
-    while (!glfwWindowShouldClose(glfwContext.windowHandler)) {
-        glfwPollEvents()
+  while (!glfwWindowShouldClose(glfwContext.windowHandler)) {
+    glfwPollEvents()
 
-        val elapsed = (System.nanoTime() - startTime) / 1_000_000_000f
-        val angle = elapsed * rotationSpeed
+    val elapsed = (System.nanoTime() - startTime) / 1_000_000_000f
+    val angle = elapsed * rotationSpeed
 
-        // Update cube rotation via ECS
-        val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
-        if (cubeTransform != null) {
-            cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-        }
-
-        frameCount++
-        val time = Time(
-            deltaTime = 1f / 60f,
-            totalTime = elapsed,
-            frameCount = frameCount,
-        )
-        world.update(time)
+    // Update cube rotation via ECS
+    val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
+    if (cubeTransform != null) {
+      cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
     }
 
-    Logger.i("Prism") { "Shutting down..." }
-    world.shutdown()
-    engine.shutdown()
+    frameCount++
+    val time = Time(deltaTime = 1f / 60f, totalTime = elapsed, frameCount = frameCount)
+    world.update(time)
+  }
+
+  Logger.i("Prism") { "Shutting down..." }
+  world.shutdown()
+  engine.shutdown()
 }

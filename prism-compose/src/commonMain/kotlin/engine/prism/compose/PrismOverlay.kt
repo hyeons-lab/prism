@@ -6,17 +6,14 @@ import androidx.compose.ui.Modifier
 
 @Composable
 fun PrismOverlay(
-    engineState: EngineState,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
+  engineState: EngineState,
+  modifier: Modifier = Modifier,
+  content: @Composable () -> Unit,
 ) {
-    Box(modifier = modifier) {
-        if (engineState.isInitialized) {
-            PrismView(
-                engine = engineState.engine,
-                modifier = Modifier.matchParentSize(),
-            )
-        }
-        content()
+  Box(modifier = modifier) {
+    if (engineState.isInitialized) {
+      PrismView(engine = engineState.engine, modifier = Modifier.matchParentSize())
     }
+    content()
+  }
 }

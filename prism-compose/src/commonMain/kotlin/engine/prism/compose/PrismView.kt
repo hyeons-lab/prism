@@ -7,7 +7,7 @@ import engine.prism.core.Time
 
 @Composable
 expect fun PrismView(
-    engine: Engine,
-    modifier: Modifier = Modifier,
-    onFrame: ((Time) -> Unit)? = null,
+  engine: Engine,
+  modifier: Modifier = Modifier,
+  onFrame: ((Time) -> Unit)? = null,
 )

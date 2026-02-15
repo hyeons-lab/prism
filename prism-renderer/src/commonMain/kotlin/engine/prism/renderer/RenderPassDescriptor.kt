@@ -9,8 +9,8 @@ package engine.prism.renderer
  * @param label Optional debug label for graphics debuggers.
  */
 data class RenderPassDescriptor(
-    val clearColor: Color = Color.CORNFLOWER_BLUE,
-    val clearDepth: Float = 1f,
-    val clearStencil: Int = 0,
-    val label: String = "",
+  val clearColor: Color = Color.CORNFLOWER_BLUE,
+  val clearDepth: Float = 1f,
+  val clearStencil: Int = 0,
+  val label: String = "",
 )

@@ -1,48 +1,42 @@
 package engine.prism.renderer
 
-/**
- * Pixel format for texture data.
- */
+/** Pixel format for texture data. */
 enum class TextureFormat {
-    /** 8-bit RGBA, linear color space. */
-    RGBA8_UNORM,
+  /** 8-bit RGBA, linear color space. */
+  RGBA8_UNORM,
 
-    /** 8-bit RGBA, sRGB color space. */
-    RGBA8_SRGB,
+  /** 8-bit RGBA, sRGB color space. */
+  RGBA8_SRGB,
 
-    /** 8-bit BGRA, linear color space. */
-    BGRA8_UNORM,
+  /** 8-bit BGRA, linear color space. */
+  BGRA8_UNORM,
 
-    /** 32-bit floating-point depth buffer. */
-    DEPTH32_FLOAT,
+  /** 32-bit floating-point depth buffer. */
+  DEPTH32_FLOAT,
 
-    /** 24-bit depth + 8-bit stencil packed format. */
-    DEPTH24_STENCIL8,
+  /** 24-bit depth + 8-bit stencil packed format. */
+  DEPTH24_STENCIL8,
 }
 
-/**
- * Texture sampling filter mode.
- */
+/** Texture sampling filter mode. */
 enum class TextureFilter {
-    /** Nearest-neighbor (point) sampling. */
-    NEAREST,
+  /** Nearest-neighbor (point) sampling. */
+  NEAREST,
 
-    /** Bilinear interpolation sampling. */
-    LINEAR,
+  /** Bilinear interpolation sampling. */
+  LINEAR,
 }
 
-/**
- * Texture coordinate wrapping mode.
- */
+/** Texture coordinate wrapping mode. */
 enum class TextureWrap {
-    /** Tile the texture by repeating UV coordinates. */
-    REPEAT,
+  /** Tile the texture by repeating UV coordinates. */
+  REPEAT,
 
-    /** Clamp UV coordinates to the [0, 1] range. */
-    CLAMP_TO_EDGE,
+  /** Clamp UV coordinates to the [0, 1] range. */
+  CLAMP_TO_EDGE,
 
-    /** Tile the texture, mirroring on each repeat. */
-    MIRRORED_REPEAT,
+  /** Tile the texture, mirroring on each repeat. */
+  MIRRORED_REPEAT,
 }
 
 /**
@@ -59,29 +53,30 @@ enum class TextureWrap {
  * @param label Optional debug label.
  */
 data class TextureDescriptor(
-    val width: Int,
-    val height: Int,
-    val format: TextureFormat = TextureFormat.RGBA8_SRGB,
-    val minFilter: TextureFilter = TextureFilter.LINEAR,
-    val magFilter: TextureFilter = TextureFilter.LINEAR,
-    val wrapU: TextureWrap = TextureWrap.REPEAT,
-    val wrapV: TextureWrap = TextureWrap.REPEAT,
-    val generateMipmaps: Boolean = true,
-    val label: String = "",
+  val width: Int,
+  val height: Int,
+  val format: TextureFormat = TextureFormat.RGBA8_SRGB,
+  val minFilter: TextureFilter = TextureFilter.LINEAR,
+  val magFilter: TextureFilter = TextureFilter.LINEAR,
+  val wrapU: TextureWrap = TextureWrap.REPEAT,
+  val wrapV: TextureWrap = TextureWrap.REPEAT,
+  val generateMipmaps: Boolean = true,
+  val label: String = "",
 )
 
 /**
  * Represents a GPU texture resource.
  *
- * The [handle] property is set by the platform-specific renderer backend
- * after GPU allocation.
+ * The [handle] property is set by the platform-specific renderer backend after GPU allocation.
  *
  * @param descriptor The texture configuration used to create this texture.
  */
 class Texture(val descriptor: TextureDescriptor) {
-    /** Platform-specific GPU handle. */
-    var handle: Any? = null
+  /** Platform-specific GPU handle. */
+  var handle: Any? = null
 
-    override fun toString(): String =
-        "Texture(${descriptor.width}x${descriptor.height}, format=${descriptor.format}, label='${descriptor.label}')"
+  override fun toString(): String {
+    val d = descriptor
+    return "Texture(${d.width}x${d.height}, format=${d.format}, label='${d.label}')"
+  }
 }

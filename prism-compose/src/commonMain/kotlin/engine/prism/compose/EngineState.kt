@@ -13,27 +13,27 @@ import engine.prism.core.Time
 
 @Stable
 class EngineState internal constructor(config: EngineConfig) {
-    val engine: Engine = Engine(config)
-    var time: Time by mutableStateOf(Time())
-        internal set
-    var isInitialized: Boolean by mutableStateOf(false)
-        internal set
-    var fps: Float by mutableStateOf(0f)
-        internal set
+  val engine: Engine = Engine(config)
+  var time: Time by mutableStateOf(Time())
+    internal set
+
+  var isInitialized: Boolean by mutableStateOf(false)
+    internal set
+
+  var fps: Float by mutableStateOf(0f)
+    internal set
 }
 
 @Composable
-fun rememberEngineState(
-    config: EngineConfig = EngineConfig(),
-): EngineState {
-    val state = remember(config) { EngineState(config) }
-    DisposableEffect(state) {
-        state.engine.initialize()
-        state.isInitialized = true
-        onDispose {
-            state.engine.shutdown()
-            state.isInitialized = false
-        }
+fun rememberEngineState(config: EngineConfig = EngineConfig()): EngineState {
+  val state = remember(config) { EngineState(config) }
+  DisposableEffect(state) {
+    state.engine.initialize()
+    state.isInitialized = true
+    onDispose {
+      state.engine.shutdown()
+      state.isInitialized = false
     }
-    return state
+  }
+  return state
 }

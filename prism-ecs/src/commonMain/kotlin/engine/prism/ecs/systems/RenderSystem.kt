@@ -16,63 +16,62 @@ import engine.prism.renderer.Shaders
 import engine.prism.renderer.VertexLayout
 
 class RenderSystem(private val renderer: Renderer) : System {
-    override val name: String = "RenderSystem"
-    override val priority: Int = 100
+  override val name: String = "RenderSystem"
+  override val priority: Int = 100
 
-    private var defaultPipeline: RenderPipeline? = null
+  private var defaultPipeline: RenderPipeline? = null
 
-    override fun initialize(world: World) {
-        val shader =
-            renderer.createShaderModule(Shaders.VERTEX_SHADER, Shaders.FRAGMENT_UNLIT, "Default")
-        defaultPipeline =
-            renderer.createPipeline(
-                PipelineDescriptor(
-                    shader = shader,
-                    vertexLayout = VertexLayout.positionNormalUv(),
-                    label = "Default Pipeline",
-                )
-            )
+  override fun initialize(world: World) {
+    val shader =
+      renderer.createShaderModule(Shaders.VERTEX_SHADER, Shaders.FRAGMENT_UNLIT, "Default")
+    defaultPipeline =
+      renderer.createPipeline(
+        PipelineDescriptor(
+          shader = shader,
+          vertexLayout = VertexLayout.positionNormalUv(),
+          label = "Default Pipeline",
+        )
+      )
+  }
+
+  override fun update(world: World, time: Time) {
+    val pipeline = defaultPipeline ?: return
+
+    renderer.beginFrame()
+    renderer.beginRenderPass(RenderPassDescriptor())
+
+    // Set camera from the first CameraComponent found
+    val cameras = world.query<CameraComponent>()
+    if (cameras.isNotEmpty()) {
+      renderer.setCamera(cameras.first().second.camera)
     }
 
-    override fun update(world: World, time: Time) {
-        val pipeline = defaultPipeline ?: return
+    renderer.bindPipeline(pipeline)
 
-        renderer.beginFrame()
-        renderer.beginRenderPass(RenderPassDescriptor())
+    // Render all entities with a MeshComponent
+    val meshEntities = world.query<MeshComponent>()
+    for ((entity, meshComp) in meshEntities) {
+      val mesh = meshComp.mesh ?: continue
 
-        // Set camera from the first CameraComponent found
-        val cameras = world.query<CameraComponent>()
-        if (cameras.isNotEmpty()) {
-            renderer.setCamera(cameras.first().second.camera)
-        }
+      // Lazy-upload mesh to GPU if not yet uploaded
+      if (mesh.vertexBuffer == null) {
+        renderer.uploadMesh(mesh)
+      }
 
-        renderer.bindPipeline(pipeline)
+      // Get model matrix from TransformComponent
+      val transform = world.getComponent<TransformComponent>(entity)
+      val modelMatrix = transform?.toTransform()?.toModelMatrix() ?: Mat4.identity()
 
-        // Render all entities with a MeshComponent
-        val meshEntities = world.query<MeshComponent>()
-        for ((entity, meshComp) in meshEntities) {
-            val mesh = meshComp.mesh ?: continue
+      // Set material color if MaterialComponent is present
+      val material = world.getComponent<MaterialComponent>(entity)
+      if (material?.material != null) {
+        renderer.setMaterialColor(material.material!!.baseColor)
+      }
 
-            // Lazy-upload mesh to GPU if not yet uploaded
-            if (mesh.vertexBuffer == null) {
-                renderer.uploadMesh(mesh)
-            }
-
-            // Get model matrix from TransformComponent
-            val transform = world.getComponent<TransformComponent>(entity)
-            val modelMatrix =
-                transform?.toTransform()?.toModelMatrix() ?: Mat4.identity()
-
-            // Set material color if MaterialComponent is present
-            val material = world.getComponent<MaterialComponent>(entity)
-            if (material?.material != null) {
-                renderer.setMaterialColor(material.material!!.baseColor)
-            }
-
-            renderer.drawMesh(mesh, modelMatrix)
-        }
-
-        renderer.endRenderPass()
-        renderer.endFrame()
+      renderer.drawMesh(mesh, modelMatrix)
     }
+
+    renderer.endRenderPass()
+    renderer.endFrame()
+  }
 }

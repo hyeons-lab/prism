@@ -1,62 +1,54 @@
 package engine.prism.renderer
 
-/**
- * Primitive topology used to interpret vertex data.
- */
+/** Primitive topology used to interpret vertex data. */
 enum class PrimitiveTopology {
-    /** Every three vertices form an independent triangle. */
-    TRIANGLE_LIST,
+  /** Every three vertices form an independent triangle. */
+  TRIANGLE_LIST,
 
-    /** Vertices form a strip of connected triangles. */
-    TRIANGLE_STRIP,
+  /** Vertices form a strip of connected triangles. */
+  TRIANGLE_STRIP,
 
-    /** Every two vertices form an independent line segment. */
-    LINE_LIST,
+  /** Every two vertices form an independent line segment. */
+  LINE_LIST,
 
-    /** Vertices form a connected polyline. */
-    LINE_STRIP,
+  /** Vertices form a connected polyline. */
+  LINE_STRIP,
 
-    /** Each vertex is rendered as a separate point. */
-    POINT_LIST,
+  /** Each vertex is rendered as a separate point. */
+  POINT_LIST,
 }
 
-/**
- * Which faces to cull during rasterization.
- */
+/** Which faces to cull during rasterization. */
 enum class CullMode {
-    /** No face culling. */
-    NONE,
+  /** No face culling. */
+  NONE,
 
-    /** Cull front-facing triangles. */
-    FRONT,
+  /** Cull front-facing triangles. */
+  FRONT,
 
-    /** Cull back-facing triangles. */
-    BACK,
+  /** Cull back-facing triangles. */
+  BACK,
 }
 
-/**
- * Winding order that defines a front-facing triangle.
- */
+/** Winding order that defines a front-facing triangle. */
 enum class FrontFace {
-    /** Counter-clockwise winding is front-facing. */
-    CCW,
+  /** Counter-clockwise winding is front-facing. */
+  CCW,
 
-    /** Clockwise winding is front-facing. */
-    CW,
+  /** Clockwise winding is front-facing. */
+  CW,
 }
 
-/**
- * Blend mode controlling how fragment colors are combined with the framebuffer.
- */
+/** Blend mode controlling how fragment colors are combined with the framebuffer. */
 enum class BlendMode {
-    /** No blending; fragments overwrite the framebuffer. */
-    OPAQUE,
+  /** No blending; fragments overwrite the framebuffer. */
+  OPAQUE,
 
-    /** Standard alpha blending: srcAlpha * src + (1 - srcAlpha) * dst. */
-    ALPHA_BLEND,
+  /** Standard alpha blending: srcAlpha * src + (1 - srcAlpha) * dst. */
+  ALPHA_BLEND,
 
-    /** Additive blending: src + dst. */
-    ADDITIVE,
+  /** Additive blending: src + dst. */
+  ADDITIVE,
 }
 
 /**
@@ -73,29 +65,31 @@ enum class BlendMode {
  * @param label Optional debug label.
  */
 data class PipelineDescriptor(
-    val shader: ShaderModule,
-    val vertexLayout: VertexLayout,
-    val topology: PrimitiveTopology = PrimitiveTopology.TRIANGLE_LIST,
-    val cullMode: CullMode = CullMode.BACK,
-    val frontFace: FrontFace = FrontFace.CCW,
-    val blendMode: BlendMode = BlendMode.OPAQUE,
-    val depthTest: Boolean = true,
-    val depthWrite: Boolean = true,
-    val label: String = "",
+  val shader: ShaderModule,
+  val vertexLayout: VertexLayout,
+  val topology: PrimitiveTopology = PrimitiveTopology.TRIANGLE_LIST,
+  val cullMode: CullMode = CullMode.BACK,
+  val frontFace: FrontFace = FrontFace.CCW,
+  val blendMode: BlendMode = BlendMode.OPAQUE,
+  val depthTest: Boolean = true,
+  val depthWrite: Boolean = true,
+  val label: String = "",
 )
 
 /**
  * A fully configured GPU render pipeline ready for use in draw calls.
  *
- * The [handle] property is set by the platform-specific renderer backend
- * after pipeline creation on the GPU.
+ * The [handle] property is set by the platform-specific renderer backend after pipeline creation on
+ * the GPU.
  *
  * @param descriptor The pipeline configuration used to create this pipeline.
  */
 class RenderPipeline(val descriptor: PipelineDescriptor) {
-    /** Platform-specific GPU handle. */
-    var handle: Any? = null
+  /** Platform-specific GPU handle. */
+  var handle: Any? = null
 
-    override fun toString(): String =
-        "RenderPipeline(topology=${descriptor.topology}, cull=${descriptor.cullMode}, label='${descriptor.label}')"
+  override fun toString(): String {
+    val d = descriptor
+    return "RenderPipeline(topology=${d.topology}, cull=${d.cullMode}, label='${d.label}')"
+  }
 }

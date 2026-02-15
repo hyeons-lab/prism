@@ -5,7 +5,5 @@ import androidx.compose.ui.window.CanvasBasedWindow
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    CanvasBasedWindow(canvasElementId = "prismCanvas", title = "Prism Demo") {
-        ComposeDemoApp()
-    }
+  CanvasBasedWindow(canvasElementId = "prismCanvas", title = "Prism Demo") { ComposeDemoApp() }
 }

@@ -1,50 +1,51 @@
 package engine.prism.scene
 
 import engine.prism.math.Mat4
-import engine.prism.math.Quaternion
 import engine.prism.math.Transform
-import engine.prism.math.Vec3
 
 open class Node(val name: String = "Node") {
-    var transform: Transform = Transform()
-    var parent: Node? = null
-        private set
-    private val _children: MutableList<Node> = mutableListOf()
-    val children: List<Node> get() = _children
-    var isEnabled: Boolean = true
+  var transform: Transform = Transform()
+  var parent: Node? = null
+    private set
 
-    fun addChild(child: Node) {
-        child.parent?.removeChild(child)
-        child.parent = this
-        _children.add(child)
-    }
+  private val _children: MutableList<Node> = mutableListOf()
+  val children: List<Node>
+    get() = _children
 
-    fun removeChild(child: Node): Boolean {
-        if (_children.remove(child)) {
-            child.parent = null
-            return true
-        }
-        return false
-    }
+  var isEnabled: Boolean = true
 
-    fun worldTransformMatrix(): Mat4 {
-        val local = transform.toModelMatrix()
-        return parent?.worldTransformMatrix()?.let { it * local } ?: local
-    }
+  fun addChild(child: Node) {
+    child.parent?.removeChild(child)
+    child.parent = this
+    _children.add(child)
+  }
 
-    fun findChild(name: String): Node? {
-        if (this.name == name) return this
-        for (child in _children) {
-            val found = child.findChild(name)
-            if (found != null) return found
-        }
-        return null
+  fun removeChild(child: Node): Boolean {
+    if (_children.remove(child)) {
+      child.parent = null
+      return true
     }
+    return false
+  }
 
-    open fun update(deltaTime: Float) {
-        if (!isEnabled) return
-        for (child in _children) {
-            child.update(deltaTime)
-        }
+  fun worldTransformMatrix(): Mat4 {
+    val local = transform.toModelMatrix()
+    return parent?.worldTransformMatrix()?.let { it * local } ?: local
+  }
+
+  fun findChild(name: String): Node? {
+    if (this.name == name) return this
+    for (child in _children) {
+      val found = child.findChild(name)
+      if (found != null) return found
     }
+    return null
+  }
+
+  open fun update(deltaTime: Float) {
+    if (!isEnabled) return
+    for (child in _children) {
+      child.update(deltaTime)
+    }
+  }
 }

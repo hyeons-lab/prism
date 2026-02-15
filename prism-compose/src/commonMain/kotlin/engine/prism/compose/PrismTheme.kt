@@ -8,13 +8,6 @@ import engine.prism.core.Engine
 val LocalEngine = staticCompositionLocalOf<Engine?> { null }
 
 @Composable
-fun PrismTheme(
-    engineState: EngineState,
-    content: @Composable () -> Unit,
-) {
-    CompositionLocalProvider(
-        LocalEngine provides engineState.engine,
-    ) {
-        content()
-    }
+fun PrismTheme(engineState: EngineState, content: @Composable () -> Unit) {
+  CompositionLocalProvider(LocalEngine provides engineState.engine) { content() }
 }
