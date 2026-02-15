@@ -10,6 +10,7 @@ kotest = "6.0.7"
 ktfmt = "0.25.0"
 detekt = "1.23.8"
 wgpu4k = "0.2.0-SNAPSHOT"
+mavenPublish = "0.36.0"
 
 # SDK versions
 minSdk = "31"
@@ -38,3 +39,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
