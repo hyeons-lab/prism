@@ -7,7 +7,8 @@ class Engine(val config: EngineConfig = EngineConfig()) {
     var time: Time = Time(fixedDeltaTime = config.fixedTimeStep)
         private set
 
-    private val subsystems: MutableList<Subsystem> = mutableListOf()
+    @PublishedApi
+    internal val subsystems: MutableList<Subsystem> = mutableListOf()
     private var initialized: Boolean = false
 
     fun initialize() {

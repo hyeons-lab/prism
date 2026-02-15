@@ -31,5 +31,6 @@ kotlin {
 
     compilerOptions {
         allWarningsAsErrors.set(true)
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }

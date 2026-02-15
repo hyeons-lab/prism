@@ -9,6 +9,7 @@ kermit = "2.0.8"
 kotest = "6.0.7"
 ktfmt = "0.25.0"
 detekt = "1.23.8"
+wgpu4k = "0.2.0-SNAPSHOT"
 
 # SDK versions
 minSdk = "31"
@@ -24,6 +25,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+wgpu4k = { module = "io.ygdrasil:wgpu4k", version.ref = "wgpu4k" }
+wgpu4k-toolkit = { module = "io.ygdrasil:wgpu4k-toolkit", version.ref = "wgpu4k" }
 
 [plugins]
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

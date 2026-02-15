@@ -122,4 +122,11 @@ interface Renderer : Subsystem {
      * @param mesh The mesh whose data should be uploaded.
      */
     fun uploadMesh(mesh: Mesh)
+
+    /**
+     * Sets the material base color for subsequent draw calls.
+     *
+     * @param color The RGBA color to use as the material's base color.
+     */
+    fun setMaterialColor(color: Color) {}
 }

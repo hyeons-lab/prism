@@ -23,6 +23,8 @@ kotlin {
             api(project(":prism-core"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kermit)
+            implementation(libs.wgpu4k)
+            implementation(libs.wgpu4k.toolkit)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -32,5 +34,6 @@ kotlin {
 
     compilerOptions {
         allWarningsAsErrors.set(true)
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }

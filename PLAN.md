@@ -1,18 +1,19 @@
-# Prism Engine — Project Plan
+  # Prism Engine — Project Plan
 
 ## 1. Project Overview
 
-**Prism** is a modular, cross-platform 3D game engine built with Kotlin Multiplatform (KMP). It targets desktop (JVM), web (WASM/JS), iOS, and macOS — with a single shared codebase. The rendering backend uses **wgpu** (via wgpu4k) for cross-platform GPU access (Vulkan, Metal, DX12, WebGPU under the hood).
+**Prism** is a modular, cross-platform 3D game engine built with Kotlin Multiplatform (KMP). It targets desktop (JVM), web (WASM/JS), mobile (iOS, Android), and native (macOS) — with a single shared codebase. The rendering backend uses **wgpu** (via wgpu4k) for cross-platform GPU access (Vulkan, Metal, DX12, WebGPU under the hood).
 
 ### Target Platforms
-| Platform | Runtime | GPU Backend |
-|----------|---------|-------------|
-| macOS Desktop | JVM | Metal (via wgpu) |
-| Windows Desktop | JVM | DX12/Vulkan (via wgpu) |
-| Linux Desktop | JVM | Vulkan (via wgpu) |
-| Web | WASM/JS | WebGPU |
-| iOS | Kotlin/Native | Metal (via wgpu) |
-| macOS Native | Kotlin/Native | Metal (via wgpu) |
+| Platform | Runtime | GPU Backend | Notes |
+|----------|---------|-------------|-------|
+| macOS Desktop | JVM | Metal (via wgpu) | JDK 21+ |
+| Windows Desktop | JVM | DX12/Vulkan (via wgpu) | JDK 21+ |
+| Linux Desktop | JVM | Vulkan (via wgpu) | JDK 21+ |
+| Web | WASM/JS | WebGPU | Browser with WebGPU support |
+| iOS | Kotlin/Native | Metal (via wgpu) | iOS 13.0+ |
+| Android | Kotlin/Android | Vulkan (via wgpu + PanamaPort) | API 26+ (Android 8.0+) |
+| macOS Native | Kotlin/Native | Metal (via wgpu) | macOS 11.0+ |
 
 ### Tech Stack
 - **Language:** Kotlin 2.3.0, Kotlin Multiplatform
@@ -21,6 +22,7 @@
 - **Shaders:** WGSL (WebGPU Shading Language)
 - **UI Framework:** Jetpack Compose Multiplatform 1.10.0
 - **Windowing (JVM):** GLFW via wgpu4k's glfw-native
+- **Android FFI:** PanamaPort (Foreign Function & Memory API for Android 8.0+)
 - **Async:** kotlinx-coroutines 1.10.2
 - **Serialization:** kotlinx-serialization 1.9.0
 - **Logging:** Kermit 2.0.8
@@ -150,10 +152,15 @@ device.queue.submit(listOf(encoder.finish().bind()))
 ### wgpu4k Setup Requirements
 - **Maven group:** `io.ygdrasil`
 - **Key artifacts:** `wgpu4k` (high-level), `wgpu4k-native` (low-level FFI)
-- **JDK:** 22+ required
+- **JDK:** 21+ required (JDK 22+ preferred for native FFI on desktop)
 - **Gradle:** 9.1+
-- **Extra repo:** `https://gitlab.com/ygdrasil-io/wgpu4k-public/-/packages/generic/maven/snapshots/`
+- **Maven repo:** Maven Central (for stable releases like 0.1.1)
 - **GLFW integration:** `io.ygdrasil:glfw-native:0.0.2` for desktop windowing
+- **Android support:**
+  - Requires PanamaPort: `com.github.vova7878:PanamaPort` for FFI
+  - Android API 26+ (Android 8.0+)
+  - Android Gradle Plugin 8.6.0+
+  - compileSdk 35+
 - **Gradle properties needed:**
   ```
   kotlin.mpp.enableCInteropCommonization=true
@@ -284,7 +291,7 @@ struct MaterialUniforms {
 - Bind group 0, binding 0: `Uniforms` (viewProjection: mat4, model: mat4) = 128 bytes
 - Bind group 0, binding 1: `MaterialUniforms` (baseColor: vec4) = 16 bytes
 
-### Phase 4: RenderSurface + Windowing (JVM + WASM in parallel)
+### Phase 4: RenderSurface + Windowing (Multi-platform)
 
 **JVM — Files to modify:**
 - `prism-renderer/src/jvmMain/kotlin/engine/prism/renderer/RenderSurface.jvm.kt`
@@ -308,9 +315,35 @@ struct MaterialUniforms {
 4. Package into `WGPUContext`
 5. Use `requestAnimationFrame` for the game loop (via `GameLoop.startExternal()` + `tick()`)
 
+**iOS/macOS Native — Files to modify:**
+- `prism-renderer/src/iosMain/kotlin/engine/prism/renderer/RenderSurface.ios.kt`
+- `prism-renderer/src/macosArm64Main/kotlin/engine/prism/renderer/RenderSurface.macos.kt`
+- `prism-demo/src/iosMain/kotlin/Main.kt`
+
+**iOS/Native approach — Metal Layer:**
+1. Create CAMetalLayer via platform interop
+2. Create wgpu surface from Metal layer
+3. Request adapter (Metal backend) → device → queue
+4. Package into `WGPUContext`
+5. Integrate with UIView (iOS) or NSView (macOS)
+
+**Android — Files to modify:**
+- `prism-renderer/src/androidMain/kotlin/engine/prism/renderer/RenderSurface.android.kt`
+- `prism-demo/src/androidMain/kotlin/MainActivity.kt`
+- Add PanamaPort dependency to support FFI on Android
+
+**Android approach — SurfaceView + Vulkan:**
+1. Add PanamaPort to support Project Panama FFI on Android
+2. Create Android SurfaceView for rendering
+3. Create wgpu surface from ANativeWindow (via JNI/FFI bridge)
+4. Request adapter (Vulkan backend) → device → queue
+5. Package into `WGPUContext`
+6. Handle Android lifecycle (pause/resume)
+
 **For Compose integration** (later milestone):
 - `PrismView.jvm.kt` will embed a GLFW-backed rendering panel inside a Compose window
 - Or use `SwingPanel` with AWT Canvas → native handle → wgpu surface
+- `PrismView.android.kt` will use AndroidView with SurfaceView
 
 ### Phase 5: Wire Up RenderSystem
 **File:** `prism-ecs/src/commonMain/kotlin/engine/prism/ecs/system/RenderSystem.kt`
@@ -385,15 +418,21 @@ fun main() {
 ### Modified Files
 | File | Change |
 |------|--------|
-| `gradle/libs.versions.toml` | Add wgpu4k version + artifacts |
-| `settings.gradle.kts` | Add wgpu4k Maven repo |
+| `gradle/libs.versions.toml` | Add wgpu4k version + PanamaPort artifacts |
+| `settings.gradle.kts` | Maven Central repository |
 | `gradle/wrapper/gradle-wrapper.properties` | Upgrade to Gradle 9.1+ |
 | `gradle.properties` | Add KMP properties, JVM args |
-| `prism-renderer/build.gradle.kts` | Add wgpu4k dependency |
+| `prism-renderer/build.gradle.kts` | Add wgpu4k + PanamaPort dependencies |
 | `prism-renderer/.../RenderSurface.jvm.kt` | GLFW/wgpu surface creation |
+| `prism-renderer/.../RenderSurface.wasmJs.kt` | WebGPU canvas surface creation |
+| `prism-renderer/.../RenderSurface.ios.kt` | Metal layer surface creation |
+| `prism-renderer/.../RenderSurface.android.kt` | Android SurfaceView + Vulkan |
 | `prism-ecs/.../RenderSystem.kt` | Actual draw calls |
 | `prism-demo/.../DemoApp.kt` | Wire up WgpuRenderer |
 | `prism-demo/src/jvmMain/.../Main.kt` | GLFW window + engine bootstrap |
+| `prism-demo/src/wasmJsMain/.../Main.kt` | Browser canvas + WebGPU |
+| `prism-demo/src/iosMain/.../Main.kt` | iOS UIView integration |
+| `prism-demo/src/androidMain/.../MainActivity.kt` | Android Activity + SurfaceView |
 
 ---
 
@@ -429,16 +468,39 @@ fun main() {
 - PrismOverlay shows FPS counter on top
 - **Validates:** Compose ↔ engine integration
 
+### M6: Web/WASM Support
+- Rotating cube renders in browser via WebGPU
+- HTML Canvas integration
+- requestAnimationFrame game loop
+- **Validates:** WASM compilation, WebGPU backend, browser compatibility
+
+### M7: iOS Native Support
+- Rotating cube renders on iOS device/simulator
+- CAMetalLayer integration
+- Touch input handling
+- **Validates:** Kotlin/Native compilation, Metal backend, iOS platform integration
+
+### M8: Android Support
+- PanamaPort integration for FFI support
+- Rotating cube renders on Android device/emulator
+- SurfaceView integration with Vulkan backend
+- Touch input and lifecycle handling
+- **Validates:** Android compilation, PanamaPort FFI bridge, Vulkan backend
+
 ---
 
 ## 8. Decisions Made
-1. **wgpu4k version:** Using `wgpu4k` (high-level API, `io.ygdrasil.webgpu.*`). More ergonomic, matches the examples.
-2. **First targets:** JVM (macOS/GLFW) and WASM (WebGPU) in parallel.
-3. **Gradle/JDK upgrade:** Approved — upgrading to Gradle 9.1+ and JDK 22+.
+1. **wgpu4k version:** Using `wgpu4k` version 0.1.1 from Maven Central (high-level API, `io.ygdrasil.webgpu.*`). More ergonomic, matches the examples.
+2. **Target platforms:** JVM Desktop (macOS/Windows/Linux), WASM, iOS, Android, macOS Native
+3. **Platform priority:** Start with JVM (macOS/GLFW), then WASM, then mobile (iOS/Android)
+4. **Gradle/JDK upgrade:** Approved — upgrading to Gradle 9.1+ and JDK 21+
+5. **Android FFI:** Using PanamaPort (github.com/vova7878/PanamaPort) to enable Project Panama on Android 8.0+
 
 ## 9. Open Questions
 1. **Compose + GLFW:** Can a GLFW-rendered surface be embedded inside a Compose Desktop window, or do we need two separate windowing approaches? Investigate `SwingPanel` approach later (M5).
 2. **Suspend functions:** wgpu4k uses `suspend fun` for `initialize()` and `render()`. Our `Subsystem.initialize()` and `update()` are not suspend. We may need a `runBlocking` bridge or restructure.
+3. **PanamaPort integration:** How seamlessly does PanamaPort work with wgpu4k's FFI layer? May need adapter layer to remap `java.lang.foreign` to `com.v7878.foreign`.
+4. **Android Vulkan:** Does wgpu4k's Vulkan backend work on all Android devices, or only those with Vulkan support? Fallback strategy for older devices?
 
 ---
 

@@ -238,7 +238,7 @@ class Mat4(val data: FloatArray) {
         }
 
         /**
-         * Creates a right-handed perspective projection matrix.
+         * Creates a right-handed perspective projection matrix for WebGPU clip space [0,1].
          *
          * @param fovY  vertical field of view in radians
          * @param aspect width / height aspect ratio
@@ -256,14 +256,14 @@ class Mat4(val data: FloatArray) {
                 floatArrayOf(
                     1f / (aspect * tanHalfFov), 0f, 0f, 0f,
                     0f, 1f / tanHalfFov, 0f, 0f,
-                    0f, 0f, -(far + near) / range, -1f,
-                    0f, 0f, -(2f * far * near) / range, 0f
+                    0f, 0f, -far / range, -1f,
+                    0f, 0f, -(far * near) / range, 0f
                 )
             )
         }
 
         /**
-         * Creates a right-handed orthographic projection matrix.
+         * Creates a right-handed orthographic projection matrix for WebGPU clip space [0,1].
          */
         fun orthographic(
             left: Float,
@@ -281,8 +281,8 @@ class Mat4(val data: FloatArray) {
                 floatArrayOf(
                     2f / rl, 0f, 0f, 0f,
                     0f, 2f / tb, 0f, 0f,
-                    0f, 0f, -2f / fn, 0f,
-                    -(right + left) / rl, -(top + bottom) / tb, -(far + near) / fn, 1f
+                    0f, 0f, -1f / fn, 0f,
+                    -(right + left) / rl, -(top + bottom) / tb, -near / fn, 1f
                 )
             )
         }

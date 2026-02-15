@@ -4,7 +4,8 @@ import engine.prism.core.Time
 
 class World {
     private var nextId: UInt = 1u
-    private val entities: MutableMap<Entity, MutableMap<String, Component>> = mutableMapOf()
+    @PublishedApi
+    internal val entities: MutableMap<Entity, MutableMap<String, Component>> = mutableMapOf()
     private val systems: MutableList<System> = mutableListOf()
 
     val entityCount: Int get() = entities.size

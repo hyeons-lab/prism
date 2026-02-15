@@ -12,6 +12,7 @@ import engine.prism.scene.CameraNode
 import engine.prism.scene.LightNode
 import engine.prism.scene.LightType
 import engine.prism.scene.MeshNode
+import engine.prism.math.MathUtils
 import engine.prism.scene.Scene
 
 class DemoApp {
@@ -61,7 +62,7 @@ class DemoApp {
         rotationAngle += time.deltaTime * 45f
         val cube = scene.findNode("Cube")
         cube?.transform = cube.transform.copy(
-            rotation = Quaternion.fromEuler(0f, engine.prism.math.MathUtils.toRadians(rotationAngle), 0f),
+            rotation = Quaternion.fromEuler(0f, MathUtils.toRadians(rotationAngle), 0f),
         )
         scene.update(time.deltaTime)
     }

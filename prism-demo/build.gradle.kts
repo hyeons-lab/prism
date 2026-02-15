@@ -7,7 +7,7 @@ plugins {
 kotlin {
     jvm {
         mainRun {
-            mainClass.set("engine.prism.demo.MainKt")
+            mainClass.set("engine.prism.demo.GlfwMainKt")
         }
     }
     iosArm64()
@@ -46,6 +46,9 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            implementation(libs.wgpu4k)
+            implementation(libs.wgpu4k.toolkit)
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 
@@ -53,3 +56,18 @@ kotlin {
         allWarningsAsErrors.set(true)
     }
 }
+
+tasks.withType<JavaExec> {
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }
+    )
+    if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
+        jvmArgs("-XstartOnFirstThread")
+    }
+    jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
+val javaToolchains = extensions.getByType<JavaToolchainService>()
