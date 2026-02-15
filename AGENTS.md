@@ -221,12 +221,12 @@ prism-demo
 
 Prism depends on **wgpu4k 0.2.0-SNAPSHOT**, which must be built from source and published to Maven local.
 
-**License:** wgpu4k is licensed under Apache 2.0. See https://github.com/AskiaAI/wgpu4k
+**License:** wgpu4k is licensed under Apache 2.0. See https://github.com/wgpu4k/wgpu4k
 
 **Steps to build:**
 ```bash
 # Clone wgpu4k
-git clone https://github.com/AskiaAI/wgpu4k.git
+git clone https://github.com/wgpu4k/wgpu4k.git
 cd wgpu4k
 
 # Build and publish to Maven local
