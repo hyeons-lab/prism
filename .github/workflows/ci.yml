@@ -36,7 +36,7 @@ jobs:
       - name: Build wgpu4k from source
         if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 https://github.com/AskiaAI/wgpu4k.git /tmp/wgpu4k
+          git clone --depth 1 https://github.com/wgpu4k/wgpu4k.git /tmp/wgpu4k
           cd /tmp/wgpu4k
           ./gradlew publishToMavenLocal --no-daemon -x test
 
