@@ -10,6 +10,7 @@ import io.ygdrasil.webgpu.BindGroupEntry
 import io.ygdrasil.webgpu.BufferBinding
 import io.ygdrasil.webgpu.BufferDescriptor
 import io.ygdrasil.webgpu.ColorTargetState
+import io.ygdrasil.webgpu.CompositeAlphaMode
 import io.ygdrasil.webgpu.DepthStencilState
 import io.ygdrasil.webgpu.Extent3D
 import io.ygdrasil.webgpu.FragmentState
@@ -34,6 +35,7 @@ import io.ygdrasil.webgpu.RenderPassDepthStencilAttachment
 import io.ygdrasil.webgpu.RenderPipelineDescriptor
 import io.ygdrasil.webgpu.RenderingContext
 import io.ygdrasil.webgpu.ShaderModuleDescriptor
+import io.ygdrasil.webgpu.SurfaceConfiguration
 import io.ygdrasil.webgpu.VertexBufferLayout
 import io.ygdrasil.webgpu.VertexState
 import io.ygdrasil.webgpu.WGPUContext
@@ -42,6 +44,7 @@ import io.ygdrasil.webgpu.GPUBuffer as WGPUBuffer
 import io.ygdrasil.webgpu.GPUCommandEncoder as WGPUCommandEncoder
 import io.ygdrasil.webgpu.GPURenderPassEncoder as WGPURenderPassEncoder
 import io.ygdrasil.webgpu.GPUTexture as WGPUTexture
+import io.ygdrasil.webgpu.GPUTextureView as WGPUTextureView
 import io.ygdrasil.webgpu.RenderPassDescriptor as WGPURenderPassDescriptor
 import io.ygdrasil.webgpu.Color as WGPUColor
 import io.ygdrasil.webgpu.TextureDescriptor as WGPUTextureDescriptor
@@ -63,14 +66,17 @@ class WgpuRenderer(
 
     private val device: GPUDevice = wgpuContext.device
     private val renderingContext: RenderingContext = wgpuContext.renderingContext
-    private val autoClosableContext = AutoClosableContext()
+
+    // Per-frame AutoClosableContext — manages ephemeral GPU handles (.bind())
+    private var frameContext: AutoClosableContext? = null
 
     // Per-frame state
     private var commandEncoder: WGPUCommandEncoder? = null
     private var currentRenderPass: WGPURenderPassEncoder? = null
 
-    // Cached GPU resources
+    // Cached GPU resources (long-lived, not per-frame)
     private var depthTexture: WGPUTexture? = null
+    private var depthTextureView: WGPUTextureView? = null
     private var uniformBuffer: WGPUBuffer? = null
     private var materialUniformBuffer: WGPUBuffer? = null
     private var bindGroup: GPUBindGroup? = null
@@ -84,6 +90,23 @@ class WgpuRenderer(
     private val depthFormat = GPUTextureFormat.Depth24Plus
 
     override fun initialize(engine: Engine) {
+        // Configure the surface for presentation
+        val format = renderingContext.textureFormat
+        val alphaMode =
+            if (wgpuContext.surface.supportedAlphaMode.contains(CompositeAlphaMode.Inherit)) {
+                CompositeAlphaMode.Inherit
+            } else {
+                CompositeAlphaMode.Opaque
+            }
+        wgpuContext.surface.configure(
+            SurfaceConfiguration(
+                device = device,
+                format = format,
+                usage = GPUTextureUsage.RenderAttachment or GPUTextureUsage.CopySrc,
+                alphaMode = alphaMode,
+            )
+        )
+
         createDepthTexture()
 
         // Create uniform buffer: viewProjection (64 bytes) + model (64 bytes) = 128 bytes
@@ -119,32 +142,39 @@ class WgpuRenderer(
         bindGroup?.close()
         uniformBuffer?.close()
         materialUniformBuffer?.close()
+        depthTextureView?.close()
         depthTexture?.close()
-        autoClosableContext.close()
         wgpuContext.close()
     }
 
     override fun beginFrame() {
-        commandEncoder = device.createCommandEncoder()
+        val ctx = AutoClosableContext()
+        frameContext = ctx
+        commandEncoder = with(ctx) { device.createCommandEncoder().bind() }
     }
 
     override fun endFrame() {
         val encoder =
             commandEncoder ?: error("No active command encoder — call beginFrame() first")
+        val ctx = frameContext ?: error("No active frame context — call beginFrame() first")
         val commandBuffer = encoder.finish()
         device.queue.submit(listOf(commandBuffer))
         wgpuContext.surface.present()
+        ctx.close()
+        frameContext = null
         commandEncoder = null
     }
 
     override fun beginRenderPass(descriptor: RenderPassDescriptor) {
         val encoder =
             commandEncoder ?: error("No active command encoder — call beginFrame() first")
+        val ctx = frameContext ?: error("No active frame context — call beginFrame() first")
         val surfaceTexture = renderingContext.getCurrentTexture()
+        val surfaceView = with(ctx) { surfaceTexture.createView().bind() }
 
         val colorAttachment =
             RenderPassColorAttachment(
-                view = surfaceTexture.createView(),
+                view = surfaceView,
                 loadOp = GPULoadOp.Clear,
                 storeOp = GPUStoreOp.Store,
                 clearValue =
@@ -160,9 +190,9 @@ class WgpuRenderer(
             WGPURenderPassDescriptor(
                 colorAttachments = listOf(colorAttachment),
                 depthStencilAttachment =
-                    depthTexture?.let { depth ->
+                    depthTextureView?.let { depthView ->
                         RenderPassDepthStencilAttachment(
-                            view = depth.createView(),
+                            view = depthView,
                             depthClearValue = descriptor.clearDepth,
                             depthLoadOp = GPULoadOp.Clear,
                             depthStoreOp = GPUStoreOp.Store,
@@ -397,6 +427,7 @@ class WgpuRenderer(
     }
 
     private fun createDepthTexture() {
+        depthTextureView?.close()
         depthTexture?.close()
         depthTexture =
             device.createTexture(
@@ -407,6 +438,7 @@ class WgpuRenderer(
                     label = "Depth Texture",
                 )
             )
+        depthTextureView = depthTexture!!.createView()
     }
 
     private fun mapVertexFormat(format: VertexAttributeFormat): GPUVertexFormat =
