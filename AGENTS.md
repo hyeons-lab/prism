@@ -407,6 +407,7 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
   - What approach you used instead
 
   Failed attempts are valuable knowledge.
+- **Append-only editing** — When updating existing session entries, **only add new information**. Never delete or overwrite content written by a previous session or agent. You may update lines within your own current session to reflect the final state (e.g., correcting a "What Changed" entry you wrote minutes ago), but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
 
 ### Example Structure
 
