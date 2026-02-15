@@ -152,20 +152,32 @@ Fix all 11 issues found in critical self-review of the PR: 3 P0 (null guard, res
 
 ---
 
-## Session 5 — Repo Cleanup (2026-02-15 15:36 PST, claude-opus-4-6)
+## Session 5 — Cleanup + PR Review Fixes + Docs (2026-02-15 15:36 PST, claude-opus-4-6)
 
 **Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ios-native-support`
 
 ### Intent
-Clean up stale untracked files in the repo root that were not part of the project.
+Clean up stale untracked files, address Copilot PR review comments, and update project documentation (BUILD_STATUS.md, AGENTS.md, PLAN.md) to reflect the full M7 scope.
 
 ### What Changed
-- **[2026-02-15 15:36 PST]** Deleted stale directories at repo root: `commonMain/`, `commonNativeMain/`, `desktopNativeMain/`, `jvmMain/`, `webMain/` — these contained wgpu4k source files that were never referenced by any build file or source set. Likely leftover from an earlier copy/exploration.
-- **[2026-02-15 15:36 PST]** Deleted `plan-composeIntegration.prompt.md` — a 948-line review artifact from the previous `feat/compose-integration` branch (M5). All useful insights were already captured in auto memory and earlier devlogs. No new information needed extraction.
+- **[2026-02-15 15:36 PST]** Deleted stale directories at repo root: `commonMain/`, `commonNativeMain/`, `desktopNativeMain/`, `jvmMain/`, `webMain/` — wgpu4k source files never referenced by any build file.
+- **[2026-02-15 15:36 PST]** Deleted `plan-composeIntegration.prompt.md` — stale review artifact from previous branch, all insights already in auto memory.
+- **[2026-02-15 15:50 PST]** `BUILD_STATUS.md` — Expanded M7 section with full delivered scope: Compose iOS demo, UISceneDelegate, tick() extraction, error handling, thread safety, lazy init, renderer resize.
+- **[2026-02-15 15:50 PST]** `AGENTS.md` — Updated current project status from "M5 phase" to "M7 phase". Added iOS entries to platform implementations (MTKView native, Compose iOS, macOS native). Added iOS build commands (XCFramework, xcodegen).
+- **[2026-02-15 15:50 PST]** `PLAN.md` — Marked M7 as complete with actual delivered scope replacing placeholder items (removed "Touch input handling", added Compose iOS demo, UISceneDelegate, tick() extraction, XCFramework details).
+- **[2026-02-15 15:54 PST]** `prism-demo/src/iosMain/.../IosDemoController.kt` — Added guard for non-positive dimensions in `mtkView(drawableSizeWillChange:)` to prevent invalid aspect ratio / depth texture errors.
+- **[2026-02-15 15:54 PST]** `prism-demo/src/iosMain/.../ComposeIosEntry.kt` — Added same dimension guard in `ComposeRenderDelegate.mtkView(drawableSizeWillChange:)`.
+- **[2026-02-15 15:54 PST]** `ios-demo/Sources/ViewController.swift` — Added `mtkView.isPaused = true` and `mtkView.delegate = nil` in `deinit` before `shutdown()` to prevent render callbacks touching freed GPU resources.
 
 ### Decisions
-- **[2026-02-15 15:36 PST]** **Delete stale directories rather than gitignore** — The untracked root-level `commonMain/`, `commonNativeMain/`, etc. directories contained wgpu4k source code not referenced by any Gradle build file. Deleting is cleaner than ignoring dead files.
-- **[2026-02-15 15:36 PST]** **No devlog extraction from compose review plan** — The `plan-composeIntegration.prompt.md` review document's key insights (AWT Metal sublayer approach, thread safety, surfacePreConfigured rationale) were already captured in auto memory MEMORY.md. Deleted without extraction.
+- **[2026-02-15 15:36 PST]** **Delete stale directories rather than gitignore** — Untracked root-level source directories were dead code. Deleting is cleaner than ignoring.
+- **[2026-02-15 15:54 PST]** **Guard resize callbacks against zero dimensions** — `WgpuRenderer.resize()` recreates depth texture and updates aspect ratio; zero height would cause NaN/Inf. Early return matches the existing guard in `DemoScene.updateAspectRatio()`.
+- **[2026-02-15 15:54 PST]** **Pause + clear delegate before shutdown in deinit** — Metal display-link can fire render callbacks during teardown. Pausing and nulling the delegate prevents use-after-free of GPU resources.
+
+### Commits
+- `d1eb2de` — docs: update devlog with corrected commit hashes and cleanup session
+- `4dd05f7` — docs: update BUILD_STATUS, AGENTS, and PLAN for M7 iOS completion
+- `6382ec5` — fix: address PR review comments for iOS resize guards and teardown
 
 ---
 
