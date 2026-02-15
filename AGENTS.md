@@ -367,7 +367,13 @@ Format: `devlog/YYYY-MM-DD_<sequence>.md`
 - **Target 30-100 lines per file** — If a single session exceeds ~150 lines, consider splitting into `_01`, `_02`
 - **Track "why" not just "what"** — Capture reasoning behind decisions, not just file diffs
 - **Simplify for single-agent sessions** — If only one agent and one repo, skip the full table, just note agent/model/branch at top
-- **Update as you go** — Don't wait until the end; keep the session log current
+- **Update as you go — CRITICAL** — The devlog is a living document. Update it automatically after each significant change:
+  - After creating/modifying files
+  - After making decisions
+  - Before committing changes
+  - When encountering issues
+
+  **DO NOT wait for the user to ask "update devlog"** — this should happen proactively as part of your workflow. The devlog is a real-time journal, not a post-hoc summary.
 - **Record final state, not iterations** — If you change a file multiple times (e.g., iterating on a format), collapse into one entry describing the final result. Don't log each intermediate edit.
 - **Group similar files** — If the same change applies to multiple files (e.g., creating native stubs for 3 platforms), combine into one entry: `RenderSurface.{macos,linux,mingw}.kt`
 - **Add a topic to the title** — Use `# Session — YYYY-MM-DD (Topic)` to make sessions scannable (e.g., "Build System + WgpuRenderer", "Project Scaffolding")
