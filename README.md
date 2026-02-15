@@ -1,0 +1,137 @@
+# Prism Engine
+
+A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU.
+
+<!-- TODO: Add screenshot/gif of rotating cube demo -->
+
+## Overview
+
+Prism provides a unified API for building 3D applications across desktop (JVM), web (WASM/JS), mobile (iOS, Android), and native platforms using a single Kotlin codebase. The rendering backend uses [wgpu4k](https://github.com/AskiaAI/wgpu4k) for cross-platform GPU access via WebGPU (Vulkan, Metal, DX12, WebGPU).
+
+## Features
+
+- **Math library** — Vec2/3/4, Mat3/4, Quaternion, Transform with operator overloads
+- **Entity-Component-System** — World, Entity, Component, System with query-based iteration
+- **Renderer** — wgpu4k-backed pipeline with WGSL shaders, depth testing, and lighting
+- **Scene graph** — Node hierarchy with MeshNode, CameraNode, LightNode
+- **Engine core** — Subsystem architecture, game loop, frame timing
+- **Input system** — Cross-platform keyboard/mouse/touch abstractions
+- **Asset management** — Loader interfaces for meshes, shaders, and textures
+- **Compose integration** — Jetpack Compose Multiplatform module (in progress)
+
+## Architecture
+
+```
+prism-math              Vector/matrix math, transforms
+  └─► prism-core        Engine core, subsystems, game loop
+       ├─► prism-renderer    wgpu4k rendering backend + WGSL shaders
+       │    ├─► prism-scene       Scene graph (Node, MeshNode, CameraNode)
+       │    ├─► prism-ecs         Entity-Component-System
+       │    └─► prism-assets      Asset loading and management
+       ├─► prism-input       Cross-platform input handling
+       └─► prism-audio       Audio engine interface (stub)
+
+prism-renderer
+  └─► prism-native-widgets   Platform-specific rendering surfaces
+       └─► prism-compose     Compose Multiplatform integration
+
+prism-demo                   Demo app (rotating lit cube via ECS)
+```
+
+## Quick Start
+
+### Prerequisites
+
+- JDK 25 (for FFI in demo) or JDK 21+ (for other modules)
+- Gradle 9.2.0 (wrapper included)
+
+### Build wgpu4k from source
+
+Prism depends on wgpu4k 0.2.0-SNAPSHOT, which must be built and published to Maven local:
+
+```bash
+git clone https://github.com/AskiaAI/wgpu4k.git
+cd wgpu4k
+./gradlew publishToMavenLocal
+```
+
+### Build and run
+
+```bash
+# Clone Prism
+git clone https://github.com/prishlylab/prism.git
+cd prism
+
+# Build all modules
+./gradlew build
+
+# Run the demo (rotating lit cube)
+./gradlew :prism-demo:jvmRun
+```
+
+## Tech Stack
+
+| Dependency | Version |
+|---|---|
+| Kotlin | 2.3.0 |
+| Gradle | 9.2.0 |
+| wgpu4k | 0.2.0-SNAPSHOT |
+| Compose Multiplatform | 1.10.0 |
+| kotlinx-coroutines | 1.10.2 |
+| kotlinx-serialization | 1.9.0 |
+| kotlinx-io | 0.8.2 |
+| Kermit (logging) | 2.0.8 |
+| Kotest | 6.0.7 |
+
+## Platform Support
+
+| Platform | Backend | Status |
+|---|---|---|
+| JVM Desktop (macOS) | Metal via wgpu4k + GLFW | Working |
+| JVM Desktop (Linux) | Vulkan via wgpu4k + GLFW | Planned |
+| JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
+| Web (WASM/JS) | WebGPU | Planned |
+| iOS | Metal (C-interop) | Planned |
+| Android | Vulkan (PanamaPort) | Planned |
+| macOS Native | Metal (C-interop) | Planned |
+
+## Project Status
+
+| Milestone | Description | Status |
+|---|---|---|
+| M1 | Triangle on screen (JVM) | Done |
+| M2 | Rotating cube with camera | Done |
+| M3 | Lit cube with materials | Done |
+| M4 | ECS-driven rendering | Done |
+| M5 | Compose integration (JVM) | Planned |
+| M6 | Web/WASM support | Planned |
+| M7 | iOS native support | Planned |
+| M8 | Android support | Planned |
+
+See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md) for the full technical specification.
+
+## Contributing
+
+```bash
+# Format code (Google style via KtFmt)
+./gradlew ktfmtFormat
+
+# Run quality checks
+./gradlew ktfmtCheck detekt test
+```
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add new feature
+fix: resolve bug
+refactor: restructure code
+docs: update documentation
+test: add or update tests
+```
+
+See [AGENTS.md](AGENTS.md) for full coding standards and architecture details.
+
+## License
+
+[Apache License 2.0](LICENSE) — Copyright 2025-2026 Hyeons' Lab
