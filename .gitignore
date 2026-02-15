@@ -13,7 +13,10 @@ build/
 *.class
 .kotlin/
 kotlin-js-store/
-*.dylib
+# wgpu native libraries (downloaded at build time)
+**/libWGPU*.dylib
+**/libWGPU*.so
+**/libWGPU*.dll
 
 # OS
 .DS_Store

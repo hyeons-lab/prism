@@ -16,17 +16,13 @@ import io.ygdrasil.webgpu.CompositeAlphaMode
 import io.ygdrasil.webgpu.DepthStencilState
 import io.ygdrasil.webgpu.Extent3D
 import io.ygdrasil.webgpu.FragmentState
-import io.ygdrasil.webgpu.GPUBindGroup
-import io.ygdrasil.webgpu.GPUBuffer
 import io.ygdrasil.webgpu.GPUBufferUsage
 import io.ygdrasil.webgpu.GPUCompareFunction
 import io.ygdrasil.webgpu.GPUCullMode
 import io.ygdrasil.webgpu.GPUIndexFormat
 import io.ygdrasil.webgpu.GPULoadOp
 import io.ygdrasil.webgpu.GPUPrimitiveTopology
-import io.ygdrasil.webgpu.GPURenderPipeline
 import io.ygdrasil.webgpu.GPUStoreOp
-import io.ygdrasil.webgpu.GPUTexture
 import io.ygdrasil.webgpu.GPUTextureFormat
 import io.ygdrasil.webgpu.GPUTextureUsage
 import io.ygdrasil.webgpu.GPUVertexFormat
@@ -84,7 +80,7 @@ fun main() = runBlocking {
     val shaderModule = device.createShaderModule(ShaderModuleDescriptor(code = shaderCode))
 
     // Depth texture
-    val depthTexture: GPUTexture =
+    val depthTexture =
         device.createTexture(
             TextureDescriptor(
                 size = Extent3D(renderingContext.width, renderingContext.height),
@@ -95,7 +91,7 @@ fun main() = runBlocking {
     val depthTextureView = depthTexture.createView()
 
     // Render pipeline
-    val renderPipeline: GPURenderPipeline =
+    val renderPipeline =
         device.createRenderPipeline(
             RenderPipelineDescriptor(
                 vertex =
@@ -105,7 +101,7 @@ fun main() = runBlocking {
                         buffers =
                             listOf(
                                 VertexBufferLayout(
-                                    arrayStride = 32uL, // pos(12) + normal(12) + uv(8)
+                                    arrayStride = 32uL,
                                     attributes =
                                         listOf(
                                             VertexAttribute(
@@ -149,7 +145,7 @@ fun main() = runBlocking {
         )
 
     // Uniform buffer (VP + model = 128 bytes)
-    val uniformBuffer: GPUBuffer =
+    val uniformBuffer =
         device.createBuffer(
             BufferDescriptor(
                 size = 128uL,
@@ -158,7 +154,7 @@ fun main() = runBlocking {
         )
 
     // Material uniform buffer (baseColor vec4 = 16 bytes)
-    val materialBuffer: GPUBuffer =
+    val materialBuffer =
         device.createBuffer(
             BufferDescriptor(
                 size = 16uL,
@@ -174,7 +170,7 @@ fun main() = runBlocking {
     )
 
     // Bind group
-    val bindGroup: GPUBindGroup =
+    val bindGroup =
         device.createBindGroup(
             BindGroupDescriptor(
                 layout = renderPipeline.getBindGroupLayout(0u),
@@ -194,7 +190,7 @@ fun main() = runBlocking {
 
     // Cube mesh data
     val cube = engine.prism.renderer.Mesh.cube()
-    val vertexBuffer: GPUBuffer =
+    val vertexBuffer =
         device.createBuffer(
             BufferDescriptor(
                 size = (cube.vertices.size * Float.SIZE_BYTES).toULong(),
@@ -203,7 +199,7 @@ fun main() = runBlocking {
         )
     device.queue.writeBuffer(vertexBuffer, 0u, ArrayBuffer.of(cube.vertices))
 
-    val indexBuffer: GPUBuffer =
+    val indexBuffer =
         device.createBuffer(
             BufferDescriptor(
                 size = (cube.indices.size * Int.SIZE_BYTES).toULong(),

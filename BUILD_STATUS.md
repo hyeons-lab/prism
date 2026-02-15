@@ -1,54 +1,57 @@
 # Prism Engine - Build Status
 
-## Phase 1: Build System Setup ✅ (Partially Complete)
+## Phase 1: Build System Setup ✅ Complete
 
-### Completed
-- [x] Upgrade Gradle to 9.2.0
-- [x] Add wgpu4k dependencies to version catalog (io.ygdrasil:wgpu4k:0.1.1)
-- [x] Configure Maven Central repository
-- [x] Add wgpu4k dependency to prism-renderer
-- [x] Add KMP properties to gradle.properties
-- [x] Enable experimental macOS Compose support
-- [x] Fix prism-core compilation (inline function visibility, expect/actual classes)
-- [x] Fix prism-renderer compilation
-- [x] Create native platform implementations (Linux, macOS, Windows) for Platform and RenderSurface
-
-### Pending Fixes
-- [ ] Add `-Xexpect-actual-classes` flag to prism-assets, prism-native-widgets, prism-ecs
-- [ ] Fix inline function visibility issues in prism-ecs (same pattern as prism-core)
-
-### Modules Building Successfully
+### All Modules Compiling (JVM)
 - ✅ prism-math
 - ✅ prism-core
 - ✅ prism-renderer
+- ✅ prism-ecs
+- ✅ prism-scene
+- ✅ prism-input
+- ✅ prism-audio
+- ✅ prism-assets
+- ✅ prism-native-widgets
+- ✅ prism-compose
+- ✅ prism-demo
 
-### Modules Needing Fixes
-- ❌ prism-ecs (inline function visibility)
-- ❌ prism-assets (expect/actual warning)
-- ❌ prism-native-widgets (expect/actual warning)
-- ❌ prism-scene (not tested)
-- ❌ prism-input (not tested)
-- ❌ prism-audio (not tested)
-- ❌ prism-compose (not tested)
-- ❌ prism-demo (not tested)
+### Configuration Applied
+- [x] Gradle 9.2.0
+- [x] wgpu4k 0.2.0-SNAPSHOT (Maven local)
+- [x] KMP properties (enableCInteropCommonization, ignoreDisabledTargets)
+- [x] `-Xexpect-actual-classes` flag on modules with expect/actual declarations
+- [x] `@PublishedApi internal` for inline function field access (prism-core, prism-ecs)
+- [x] Native platform implementations (Linux, macOS, Windows) for Platform and RenderSurface
+- [x] JVM toolchain 25 for prism-demo (FFI support)
 
-## Next Steps
+## Phase 2: WgpuRenderer Implementation 🚧
 
-### Option A: Fix All Modules Now
-Complete Phase 1 by fixing all compilation errors across all modules.
+### Completed
+- [x] WgpuRenderer class implementing Renderer interface
+- [x] WGSL shaders for lit/unlit materials (Shaders.kt)
+- [x] GlfwMain.kt demo entry point with GLFW windowing
+- [x] Cube mesh with vertex/index buffers and depth testing
 
-### Option B: Focus on Renderer (Recommended)
-Proceed with Phase 2 (WgpuRenderer implementation) and fix other modules as needed.
+### Pending
+- [ ] Complete RenderSurface implementations (native stubs are TODOs)
+- [ ] WASM/Canvas integration for web
+- [ ] Test WgpuRenderer on macOS/Linux/Windows
+- [ ] Add unit tests for renderer
 
 ## Build Commands
 
 ```bash
-# Build specific module
-./gradlew :prism-renderer:build
+# Build all modules (JVM)
+./gradlew compileKotlinJvm
 
-# Build all modules
+# Full build with tests
 ./gradlew build
 
-# Clean build
-./gradlew clean build
+# Run demo app (JVM Desktop)
+./gradlew :prism-demo:run
 ```
+
+## Prerequisites
+
+- JDK 25 (for FFI in prism-demo) or JDK 21+ (for other modules)
+- wgpu4k 0.2.0-SNAPSHOT in Maven local (see AGENTS.md for setup)

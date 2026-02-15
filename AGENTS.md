@@ -217,6 +217,30 @@ prism-demo
 - targetSdk: 36
 - AGP: 8.12.3
 
+### wgpu4k Setup
+
+Prism depends on **wgpu4k 0.2.0-SNAPSHOT**, which must be built from source and published to Maven local.
+
+**License:** wgpu4k is licensed under Apache 2.0. See https://github.com/AskiaAI/wgpu4k
+
+**Steps to build:**
+```bash
+# Clone wgpu4k
+git clone https://github.com/AskiaAI/wgpu4k.git
+cd wgpu4k
+
+# Build and publish to Maven local
+./gradlew publishToMavenLocal
+```
+
+**Why SNAPSHOT?** The published releases on Maven Central may not include all the APIs Prism needs. Building from source ensures access to the latest wgpu4k-toolkit features (GLFW integration, `autoClosableContext`, `glfwContextRenderer`).
+
+**Verification:** After building, confirm the artifacts exist:
+```bash
+ls ~/.m2/repository/io/ygdrasil/wgpu4k/0.2.0-SNAPSHOT/
+ls ~/.m2/repository/io/ygdrasil/wgpu4k-toolkit/0.2.0-SNAPSHOT/
+```
+
 ## Contribution Guidelines
 
 ### Commit Messages

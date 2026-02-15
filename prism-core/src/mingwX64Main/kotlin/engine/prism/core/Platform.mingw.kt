@@ -1,8 +1,11 @@
 package engine.prism.core
 
-import kotlinx.cinterop.*
-import platform.windows.GetSystemTimeAsFileTime
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
 import platform.windows.FILETIME
+import platform.windows.GetSystemTimeAsFileTime
 
 actual object Platform {
     actual val name: String = "Windows"
@@ -11,7 +14,9 @@ actual object Platform {
     actual fun currentTimeMillis(): Long = memScoped {
         val fileTime = alloc<FILETIME>()
         GetSystemTimeAsFileTime(fileTime.ptr)
-        val time = (fileTime.dwHighDateTime.toLong() shl 32) or fileTime.dwLowDateTime.toLong()
+        val high = fileTime.dwHighDateTime.toLong() and 0xFFFFFFFFL
+        val low = fileTime.dwLowDateTime.toLong() and 0xFFFFFFFFL
+        val time = (high shl 32) or low
         // Convert from 100-nanosecond intervals since 1601 to milliseconds since 1970
         (time / 10000L) - 11644473600000L
     }
