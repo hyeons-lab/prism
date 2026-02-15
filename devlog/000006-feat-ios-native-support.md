@@ -122,7 +122,7 @@ Fix all remaining GitHub issues (#16, #17, #18) deferred from Session 2's review
 - Compose Multiplatform's iOS interop migration is sometimes ahead of the stable release — deprecated APIs may not have their replacements available yet in the same version. Always test with actual compilation, not just docs.
 
 ### Commits
-- `0603bdc` — feat: add Compose iOS demo + fix outstanding issues
+- `54ed262` — feat: add Compose iOS demo + fix outstanding issues
 
 ---
 
@@ -148,7 +148,24 @@ Fix all 11 issues found in critical self-review of the PR: 3 P0 (null guard, res
 - **[2026-02-15 15:24 PST]** **MTKView.isPaused for lazy init** — Setting `isPaused = true` in `viewDidLoad` and `false` after `configureDemo` completes ensures the display link doesn't fire before wgpu is ready. Combined with `viewDidAppear`, this avoids rendering to an unconfigured surface.
 
 ### Commits
-- `6bed896` — fix: address all review findings for iOS support
+- `f53a473` — fix: address all review findings for iOS support
+
+---
+
+## Session 5 — Repo Cleanup (2026-02-15 15:36 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ios-native-support`
+
+### Intent
+Clean up stale untracked files in the repo root that were not part of the project.
+
+### What Changed
+- **[2026-02-15 15:36 PST]** Deleted stale directories at repo root: `commonMain/`, `commonNativeMain/`, `desktopNativeMain/`, `jvmMain/`, `webMain/` — these contained wgpu4k source files that were never referenced by any build file or source set. Likely leftover from an earlier copy/exploration.
+- **[2026-02-15 15:36 PST]** Deleted `plan-composeIntegration.prompt.md` — a 948-line review artifact from the previous `feat/compose-integration` branch (M5). All useful insights were already captured in auto memory and earlier devlogs. No new information needed extraction.
+
+### Decisions
+- **[2026-02-15 15:36 PST]** **Delete stale directories rather than gitignore** — The untracked root-level `commonMain/`, `commonNativeMain/`, etc. directories contained wgpu4k source code not referenced by any Gradle build file. Deleting is cleaner than ignoring dead files.
+- **[2026-02-15 15:36 PST]** **No devlog extraction from compose review plan** — The `plan-composeIntegration.prompt.md` review document's key insights (AWT Metal sublayer approach, thread safety, surfacePreConfigured rationale) were already captured in auto memory MEMORY.md. Deleted without extraction.
 
 ---
 
