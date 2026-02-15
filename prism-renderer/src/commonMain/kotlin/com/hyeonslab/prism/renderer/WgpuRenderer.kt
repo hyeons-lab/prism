@@ -57,8 +57,14 @@ import io.ygdrasil.webgpu.beginRenderPass
  * (Metal/Vulkan) platforms.
  *
  * @param wgpuContext The wgpu4k context containing device, surface, and rendering context.
+ * @param surfacePreConfigured When true, skips surface configuration in [initialize] — the caller
+ *   is responsible for configuring the surface before rendering begins. Used for AWT Canvas
+ *   integration where the surface is configured externally.
  */
-class WgpuRenderer(private val wgpuContext: WGPUContext) : Renderer {
+class WgpuRenderer(
+  private val wgpuContext: WGPUContext,
+  private val surfacePreConfigured: Boolean = false,
+) : Renderer {
 
   override val name: String = "WgpuRenderer"
 
@@ -88,22 +94,24 @@ class WgpuRenderer(private val wgpuContext: WGPUContext) : Renderer {
   private val depthFormat = GPUTextureFormat.Depth24Plus
 
   override fun initialize(engine: Engine) {
-    // Configure the surface for presentation
-    val format = renderingContext.textureFormat
-    val alphaMode =
-      if (wgpuContext.surface.supportedAlphaMode.contains(CompositeAlphaMode.Inherit)) {
-        CompositeAlphaMode.Inherit
-      } else {
-        CompositeAlphaMode.Opaque
-      }
-    wgpuContext.surface.configure(
-      SurfaceConfiguration(
-        device = device,
-        format = format,
-        usage = GPUTextureUsage.RenderAttachment or GPUTextureUsage.CopySrc,
-        alphaMode = alphaMode,
+    if (!surfacePreConfigured) {
+      // Configure the surface for presentation
+      val format = renderingContext.textureFormat
+      val alphaMode =
+        if (wgpuContext.surface.supportedAlphaMode.contains(CompositeAlphaMode.Inherit)) {
+          CompositeAlphaMode.Inherit
+        } else {
+          CompositeAlphaMode.Opaque
+        }
+      wgpuContext.surface.configure(
+        SurfaceConfiguration(
+          device = device,
+          format = format,
+          usage = GPUTextureUsage.RenderAttachment or GPUTextureUsage.CopySrc,
+          alphaMode = alphaMode,
+        )
       )
-    )
+    }
 
     createDepthTexture()
 
@@ -142,7 +150,11 @@ class WgpuRenderer(private val wgpuContext: WGPUContext) : Renderer {
     materialUniformBuffer?.close()
     depthTextureView?.close()
     depthTexture?.close()
-    wgpuContext.close()
+    // Only close the context when we own it (i.e., not externally pre-configured).
+    // When surfacePreConfigured=true, the caller (e.g., PrismPanel) owns the WGPUContext lifecycle.
+    if (!surfacePreConfigured) {
+      wgpuContext.close()
+    }
   }
 
   override fun beginFrame() {
@@ -275,9 +287,16 @@ class WgpuRenderer(private val wgpuContext: WGPUContext) : Renderer {
     }
   }
 
+  /**
+   * Callback invoked when [resize] is called, allowing external code to reconfigure the surface
+   * with the new dimensions. Used by AWT Canvas integration to reconfigure the wgpu surface.
+   */
+  var onResize: ((width: Int, height: Int) -> Unit)? = null
+
   override fun resize(width: Int, height: Int) {
     this.width = width
     this.height = height
+    onResize?.invoke(width, height)
     createDepthTexture()
     currentCamera?.aspectRatio = width.toFloat() / height.toFloat()
   }

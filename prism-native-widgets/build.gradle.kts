@@ -4,6 +4,7 @@ plugins {
 }
 
 kotlin {
+  jvmToolchain(25)
   jvm()
   iosArm64()
   iosSimulatorArm64()
@@ -24,6 +25,11 @@ kotlin {
     commonTest.dependencies {
       implementation(libs.kotlin.test)
       implementation(libs.kotest.assertions.core)
+    }
+    jvmMain.dependencies {
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.core)
     }
   }
 

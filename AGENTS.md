@@ -174,7 +174,8 @@ prism-math
 
 prism-renderer
   └─► prism-native-widgets (platform surfaces)
-       └─► prism-compose (Compose integration)
+       ├─► prism-compose (Compose integration)
+       └─► prism-flutter (Flutter bridge)
 
 prism-demo
   └─► all engine modules
@@ -316,6 +317,7 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ⏭️ Mobile platforms (iOS/Android)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
+- ⏭️ Flutter integration (PrismBridge, platform plugins, rendering surface)
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 

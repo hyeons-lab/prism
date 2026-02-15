@@ -12,8 +12,7 @@ import com.hyeonslab.prism.core.EngineConfig
 import com.hyeonslab.prism.core.Time
 
 @Stable
-class EngineState internal constructor(config: EngineConfig) {
-  val engine: Engine = Engine(config)
+class EngineState internal constructor(val engine: Engine, internal val ownsEngine: Boolean) {
   var time: Time by mutableStateOf(Time())
     internal set
 
@@ -22,8 +21,11 @@ class EngineState internal constructor(config: EngineConfig) {
 
   var fps: Float by mutableStateOf(0f)
     internal set
+
+  internal constructor(config: EngineConfig) : this(Engine(config), ownsEngine = true)
 }
 
+/** Creates and remembers an [EngineState] that owns its [Engine] lifecycle. */
 @Composable
 fun rememberEngineState(config: EngineConfig = EngineConfig()): EngineState {
   val state = remember(config) { EngineState(config) }
@@ -31,9 +33,25 @@ fun rememberEngineState(config: EngineConfig = EngineConfig()): EngineState {
     state.engine.initialize()
     state.isInitialized = true
     onDispose {
-      state.engine.shutdown()
+      if (state.ownsEngine) {
+        state.engine.shutdown()
+      }
       state.isInitialized = false
     }
+  }
+  return state
+}
+
+/**
+ * Creates and remembers an [EngineState] wrapping an externally-created [Engine]. The engine
+ * lifecycle is managed by the caller — this state will not shut down the engine on dispose.
+ */
+@Composable
+fun rememberExternalEngineState(engine: Engine): EngineState {
+  val state = remember(engine) { EngineState(engine, ownsEngine = false) }
+  DisposableEffect(state) {
+    state.isInitialized = true
+    onDispose { state.isInitialized = false }
   }
   return state
 }

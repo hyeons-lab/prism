@@ -44,7 +44,7 @@ prism/
 ├── prism-audio         # AudioEngine interface (stub, future implementation)
 ├── prism-native-widgets# PrismSurface — native rendering surfaces per platform
 ├── prism-compose       # PrismView, PrismOverlay, EngineState — Compose integration
-├── prism-flutter       # Flutter bridge (minimal, future)
+├── prism-flutter       # Flutter bridge: PrismBridge, MethodChannel, Dart plugin + example
 └── prism-demo          # Demo app: rotating cube with camera and lighting
 ```
 
@@ -57,8 +57,9 @@ prism-math
             ├─► prism-ecs
             ├─► prism-assets
             └─► prism-native-widgets
-                 └─► prism-compose
-                      └─► prism-demo
+                 ├─► prism-compose
+                 │    └─► prism-demo
+                 └─► prism-flutter
 prism-core
   └─► prism-input
   └─► prism-audio
@@ -582,6 +583,17 @@ fun main() {
 - Animation import (skeletal + morph targets) — stretch goal
 - Demo scene with a glTF model (e.g., DamagedHelmet or FlightHelmet from Khronos sample models)
 - **Validates:** full asset pipeline, binary parsing, texture upload, PBR material integration
+
+### M11: Flutter Integration
+- Implement PrismBridge methods: `resize()`, `setClearColor()`, `frame()` wired to Engine + WgpuRenderer
+- Android native plugin: `PrismFlutterPlugin.kt` with MethodChannel handler and SurfaceView rendering
+- iOS native plugin: `PrismFlutterPlugin.swift` with MethodChannel handler and CAMetalLayer rendering
+- Connect PrismRenderView platform view callback to actual wgpu surface attachment
+- Game loop integration: Flutter ticker driving `PrismBridge.frame()` each frame
+- Dart-side scene API: create/destroy entities, set transforms, load meshes via method channels
+- Example app rendering rotating cube with Flutter UI controls (matching Compose demo)
+- **Validates:** Flutter ↔ Kotlin Multiplatform bridge, platform channel performance, native rendering in Flutter widget
+- **Depends on:** M8 (Android Support) for Android plugin, M7 (iOS Native) for iOS plugin
 
 ---
 

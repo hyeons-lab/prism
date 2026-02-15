@@ -22,7 +22,7 @@
 - [x] `-Xexpect-actual-classes` flag on modules with expect/actual declarations
 - [x] `@PublishedApi internal` for inline function field access (prism-core, prism-ecs)
 - [x] Native platform implementations (Linux, macOS, Windows) for Platform and RenderSurface
-- [x] JVM toolchain 25 for prism-demo (FFI support)
+- [x] JVM toolchain 25 for prism-demo, prism-native-widgets, prism-compose (FFI support)
 
 ## Phase 2: WgpuRenderer Implementation ✅ Complete
 
@@ -68,7 +68,15 @@
 - GlfwMain.kt rewritten to use Engine + World + ECS entities
 - **Status:** Complete — same rotating cube, now driven through Engine + ECS + WgpuRenderer pipeline
 
-### M5: Compose Integration (JVM) ⏳
+### M5: Compose Integration (JVM) ✅
+- PrismPanel: AWT Canvas subclass with native handle extraction (macOS/Windows/Linux)
+- AwtRenderingContext: custom RenderingContext bypassing GLFW glfwGetWindowSize()
+- WgpuRenderer: surfacePreConfigured flag + onResize callback for AWT integration
+- EngineState: rememberExternalEngineState() for externally-created engines
+- PrismView.jvm: SwingPanel embedding PrismPanel with coroutine render loop
+- Compose demo: Material3 UI controls driving 3D scene (rotation, color, pause)
+- Platform stubs (WASM, iOS, macOS, Linux, MinGW) updated with Kermit logging
+- **Status:** Complete — `./gradlew :prism-demo:runCompose` launches Compose window with embedded 3D rendering
 
 ### M6: Web/WASM Support ✅
 - WASM demo entry point using canvasContextRenderer()
@@ -81,6 +89,7 @@
 ### M8: Android Support ⏳
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
+### M11: Flutter Integration ⏳
 
 ## Test Coverage
 
@@ -110,6 +119,9 @@ Run all tests: `./gradlew jvmTest`
 
 # Run demo app (JVM Desktop)
 ./gradlew :prism-demo:jvmRun
+
+# Run Compose demo (JVM Desktop, embedded 3D in Compose)
+./gradlew :prism-demo:runCompose
 
 # Run demo app (WASM/Browser)
 ./gradlew :prism-demo:wasmJsBrowserDevelopmentRun
