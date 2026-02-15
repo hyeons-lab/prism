@@ -22,7 +22,7 @@
 - [x] `-Xexpect-actual-classes` flag on modules with expect/actual declarations
 - [x] `@PublishedApi internal` for inline function field access (prism-core, prism-ecs)
 - [x] Native platform implementations (Linux, macOS, Windows) for Platform and RenderSurface
-- [x] JVM toolchain 25 for prism-demo (FFI support)
+- [x] JVM toolchain 25 for prism-demo, prism-native-widgets, prism-compose (FFI support)
 
 ## Phase 2: WgpuRenderer Implementation ✅ Complete
 
@@ -68,7 +68,17 @@
 - GlfwMain.kt rewritten to use Engine + World + ECS entities
 - **Status:** Complete — same rotating cube, now driven through Engine + ECS + WgpuRenderer pipeline
 
-### M5: Compose Integration (JVM) ⏳
+### M5: Compose Integration (JVM) ✅
+- PrismPanel: AWT Canvas subclass with native handle extraction (macOS/Windows/Linux)
+- AwtRenderingContext: custom RenderingContext bypassing GLFW glfwGetWindowSize()
+- WgpuRenderer: surfacePreConfigured flag + onResize callback for AWT integration
+- MVI architecture: `Store<State, Event>` interface in prism-core, `EngineStore`/`EngineState`/`EngineStateEvent` in prism-compose
+- PrismView: stateless composable taking `EngineStore`, dispatches events through reducer (no callbacks)
+- PrismOverlay/PrismTheme: composable wrappers accepting `EngineStore`
+- Render loop: Compose `withFrameNanos` for vsync-synchronized frame timing
+- Compose demo: Material3 UI controls driving 3D scene (rotation, color, pause) via `DemoStore` MVI
+- Platform stubs (WASM, Apple) updated with Kermit logging; iosMain → appleMain for iOS + macOS coverage
+- **Status:** Complete — `./gradlew :prism-demo:runCompose` launches Compose window with embedded 3D rendering
 
 ### M6: Web/WASM Support ✅
 - WASM demo entry point using canvasContextRenderer()
@@ -81,6 +91,7 @@
 ### M8: Android Support ⏳
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
+### M11: Flutter Integration ⏳
 
 ## Test Coverage
 
@@ -88,7 +99,8 @@
 |---|---|---|
 | prism-math | 75 | Vec3 (26), Mat4 (24), Quaternion (25) |
 | prism-renderer | 95 | Color (15), Mesh (25), VertexLayout (22), Camera (19), Shader (14) |
-| **Total** | **170** | |
+| prism-demo | 8 | DemoStore (MVI reducer, 8) |
+| **Total** | **178** | |
 
 Run all tests: `./gradlew jvmTest`
 
@@ -110,6 +122,9 @@ Run all tests: `./gradlew jvmTest`
 
 # Run demo app (JVM Desktop)
 ./gradlew :prism-demo:jvmRun
+
+# Run Compose demo (JVM Desktop, embedded 3D in Compose)
+./gradlew :prism-demo:runCompose
 
 # Run demo app (WASM/Browser)
 ./gradlew :prism-demo:wasmJsBrowserDevelopmentRun

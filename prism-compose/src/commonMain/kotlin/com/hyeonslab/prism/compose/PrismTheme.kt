@@ -8,6 +8,6 @@ import com.hyeonslab.prism.core.Engine
 val LocalEngine = staticCompositionLocalOf<Engine?> { null }
 
 @Composable
-fun PrismTheme(engineState: EngineState, content: @Composable () -> Unit) {
-  CompositionLocalProvider(LocalEngine provides engineState.engine) { content() }
+fun PrismTheme(store: EngineStore, content: @Composable () -> Unit) {
+  CompositionLocalProvider(LocalEngine provides store.engine) { content() }
 }

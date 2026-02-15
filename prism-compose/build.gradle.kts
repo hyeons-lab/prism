@@ -6,6 +6,7 @@ plugins {
 }
 
 kotlin {
+  jvmToolchain(25)
   jvm()
   iosArm64()
   iosSimulatorArm64()
@@ -24,8 +25,16 @@ kotlin {
       implementation(compose.foundation)
       implementation(compose.ui)
       implementation(libs.kermit)
+      implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.lifecycle.runtime.compose)
     }
     commonTest.dependencies { implementation(libs.kotlin.test) }
+    jvmMain.dependencies {
+      implementation(compose.desktop.currentOs)
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.swing)
+    }
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }

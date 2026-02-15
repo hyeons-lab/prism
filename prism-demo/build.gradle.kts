@@ -36,30 +36,52 @@ kotlin {
       implementation(compose.ui)
       implementation(compose.material3)
       implementation(libs.kermit)
+      implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.lifecycle.runtime.compose)
     }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.kotlinx.coroutines.swing)
+    }
+    commonTest.dependencies {
+      implementation(libs.kotlin.test)
+      implementation(libs.kotest.assertions.core)
+      implementation(libs.kotlinx.coroutines.test)
     }
     wasmJsMain.dependencies {
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.core)
     }
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }
 }
 
+// Common JVM args for all demo tasks
 tasks.withType<JavaExec> {
   javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
-  if (org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
+  jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
+  jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED")
+  jvmArgs("--add-opens=java.desktop/sun.awt=ALL-UNNAMED")
+  jvmArgs("--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED")
+  jvmArgs("--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
+  jvmArgs("--enable-native-access=ALL-UNNAMED")
+  // -XstartOnFirstThread is required by GLFW on macOS but conflicts with Swing/Compose EDT.
+  // Only apply it for GLFW-based tasks (the default `run` task), not `runCompose`.
+  if (name != "runCompose" && org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
     jvmArgs("-XstartOnFirstThread")
   }
-  jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
-  jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
 val javaToolchains = extensions.getByType<JavaToolchainService>()
+
+tasks.register<JavaExec>("runCompose") {
+  group = "application"
+  description = "Run the Compose Desktop demo with embedded 3D rendering"
+  mainClass.set("com.hyeonslab.prism.demo.ComposeMainKt")
+  classpath =
+    kotlin.jvm().compilations["main"].runtimeDependencyFiles +
+      kotlin.jvm().compilations["main"].output.allOutputs
+}
