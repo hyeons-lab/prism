@@ -3,10 +3,12 @@ package com.hyeonslab.prism.demo
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposePanel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.ecs.components.MaterialComponent
@@ -24,7 +26,6 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
-import javax.swing.Timer
 
 private val log = Logger.withTag("ComposeMain")
 
@@ -49,6 +50,9 @@ fun main() {
 
 private fun createAndShowUi() {
   val store = DemoStore()
+  // `scene` is only accessed from the Swing EDT: createAndShowUi() is invoked via
+  // SwingUtilities.invokeLater, and all callbacks (onReady, onResized, withFrameNanos)
+  // run on the EDT. No additional synchronization is required.
   var scene: DemoScene? = null
 
   val frame = JFrame("Prism 3D Engine \u2014 Compose Demo")
@@ -91,7 +95,53 @@ private fun createAndShowUi() {
   val composePanel = ComposePanel()
   composePanel.preferredSize = Dimension(280, 700)
   composePanel.setContent {
-    val uiState by store.state.collectAsState()
+    val uiState by store.state.collectAsStateWithLifecycle()
+
+    // Render loop driven by Compose's frame scheduling, synchronized with the display
+    // refresh rate. withFrameNanos suspends until the next vsync, then runs on the EDT.
+    LaunchedEffect(Unit) {
+      val startTimeNs = System.nanoTime()
+      var frameCount = 0L
+      var lastFrameTimeNs = startTimeNs
+      var rotationAngle = 0f
+
+      while (true) {
+        withFrameNanos {
+          val s = scene ?: return@withFrameNanos
+          if (!prismPanel.isReady) return@withFrameNanos
+
+          val nowNs = System.nanoTime()
+          val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
+          val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
+          lastFrameTimeNs = nowNs
+          frameCount++
+
+          val currentState = store.state.value
+
+          // Update FPS (smoothed)
+          if (deltaSec > 0f) {
+            val smoothedFps = currentState.fps * 0.9f + (1f / deltaSec) * 0.1f
+            store.dispatch(DemoIntent.UpdateFps(smoothedFps))
+          }
+
+          // Update rotation
+          if (!currentState.isPaused) {
+            rotationAngle += deltaSec * MathUtils.toRadians(currentState.rotationSpeed)
+          }
+          val cubeTransform = s.world.getComponent<TransformComponent>(s.cubeEntity)
+          cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
+
+          // Update material color
+          val cubeMaterial = s.world.getComponent<MaterialComponent>(s.cubeEntity)
+          cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
+
+          // Run ECS update (triggers RenderSystem)
+          val time = Time(deltaTime = deltaSec, totalTime = totalSec, frameCount = frameCount)
+          s.world.update(time)
+        }
+      }
+    }
+
     MaterialTheme(colorScheme = darkColorScheme()) {
       ComposeDemoControls(
         state = uiState,
@@ -106,53 +156,10 @@ private fun createAndShowUi() {
   frame.setLocationRelativeTo(null)
   frame.isVisible = true
 
-  // Render loop via Swing Timer (fires on EDT, ~unlimited FPS, GPU-limited)
-  val startTimeNs = System.nanoTime()
-  var frameCount = 0L
-  var lastFrameTimeNs = startTimeNs
-  var rotationAngle = 0f
-
-  val renderTimer =
-    Timer(1) {
-      val s = scene ?: return@Timer
-      if (!prismPanel.isReady) return@Timer
-
-      val nowNs = System.nanoTime()
-      val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
-      val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
-      lastFrameTimeNs = nowNs
-      frameCount++
-
-      val currentState = store.state.value
-
-      // Update FPS (smoothed)
-      if (deltaSec > 0f) {
-        val smoothedFps = currentState.fps * 0.9f + (1f / deltaSec) * 0.1f
-        store.dispatch(DemoIntent.UpdateFps(smoothedFps))
-      }
-
-      // Update rotation
-      if (!currentState.isPaused) {
-        rotationAngle += deltaSec * MathUtils.toRadians(currentState.rotationSpeed)
-      }
-      val cubeTransform = s.world.getComponent<TransformComponent>(s.cubeEntity)
-      cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
-
-      // Update material color
-      val cubeMaterial = s.world.getComponent<MaterialComponent>(s.cubeEntity)
-      cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
-
-      // Run ECS update (triggers RenderSystem)
-      val time = Time(deltaTime = deltaSec, totalTime = totalSec, frameCount = frameCount)
-      s.world.update(time)
-    }
-  renderTimer.start()
-
   // Shut down gracefully when window closes
   frame.addWindowListener(
     object : WindowAdapter() {
       override fun windowClosing(e: WindowEvent) {
-        renderTimer.stop()
         scene?.let { s ->
           log.i { "Shutting down scene..." }
           s.shutdown()

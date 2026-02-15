@@ -19,7 +19,7 @@ Prism provides a unified API for building 3D applications across desktop (JVM), 
 - **Engine core** — Subsystem architecture, game loop, frame timing
 - **Input system** — Cross-platform keyboard/mouse/touch abstractions
 - **Asset management** — Loader interfaces for meshes, shaders, and textures
-- **Compose integration** — Jetpack Compose Multiplatform module (in progress)
+- **Compose integration** — Embedded 3D rendering in Compose Desktop via MVI architecture (Store, State, Events)
 
 ## Architecture
 
@@ -91,6 +91,7 @@ cd prism
 | Platform | Backend | Status |
 |---|---|---|
 | JVM Desktop (macOS) | Metal via wgpu4k + GLFW | Working |
+| JVM Desktop (macOS) | Metal via wgpu4k + Compose/AWT | Working |
 | JVM Desktop (Linux) | Vulkan via wgpu4k + GLFW | Planned |
 | JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
 | Web (WASM/JS) | WebGPU | Working |
@@ -106,7 +107,7 @@ cd prism
 | M2 | Rotating cube with camera | Done |
 | M3 | Lit cube with materials | Done |
 | M4 | ECS-driven rendering | Done |
-| M5 | Compose integration (JVM) | Planned |
+| M5 | Compose integration (JVM) | Done |
 | M6 | Web/WASM support | Done |
 | M7 | iOS native support | Planned |
 | M8 | Android support | Planned |
@@ -123,6 +124,7 @@ Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. Al
 |---|---|---|
 | prism-math | 75 | Vec3, Mat4, Quaternion |
 | prism-renderer | 95 | Color, Mesh, VertexLayout, Camera, Shader |
+| prism-demo | 8 | DemoStore (MVI reducer) |
 
 ## Contributing
 

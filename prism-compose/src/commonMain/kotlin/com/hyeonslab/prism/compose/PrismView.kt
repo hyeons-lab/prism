@@ -2,25 +2,20 @@ package com.hyeonslab.prism.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.hyeonslab.prism.core.Engine
-import com.hyeonslab.prism.core.Time
 
 /**
  * Embeds a Prism 3D rendering surface inside a Compose layout.
  *
- * Platform implementations create a GPU-backed surface and run a render loop that calls [onFrame]
- * each frame with timing information.
+ * Platform implementations create a GPU-backed surface and drive the engine's game loop each frame
+ * via [com.hyeonslab.prism.core.GameLoop.tick]. Frame timing, FPS, and surface dimensions are
+ * dispatched as [EngineStateEvent]s through [EngineStore.dispatch].
  *
- * @param engine The Prism engine instance (used for lifecycle management).
+ * Consumers register per-frame logic through the [com.hyeonslab.prism.core.Engine] API (subsystems
+ * or game-loop callbacks) rather than through view-level callbacks, keeping the composable
+ * stateless.
+ *
+ * @param store The MVI store managing engine state. Must be created via [rememberEngineStore] or
+ *   [rememberExternalEngineStore].
  * @param modifier Compose modifier for layout and sizing.
- * @param onFrame Called each frame with [Time] data. Callers typically update ECS systems here.
- * @param onResize Called when the rendering surface is resized with the new width and height in
- *   pixels. Callers should propagate this to their renderer (e.g., `renderer.resize(w, h)`).
  */
-@Composable
-expect fun PrismView(
-  engine: Engine,
-  modifier: Modifier = Modifier,
-  onFrame: ((Time) -> Unit)? = null,
-  onResize: ((width: Int, height: Int) -> Unit)? = null,
-)
+@Composable expect fun PrismView(store: EngineStore, modifier: Modifier = Modifier)

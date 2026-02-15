@@ -20,23 +20,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hyeonslab.prism.compose.PrismOverlay
 import com.hyeonslab.prism.compose.PrismTheme
-import com.hyeonslab.prism.compose.rememberEngineState
+import com.hyeonslab.prism.compose.rememberEngineStore
 import com.hyeonslab.prism.core.EngineConfig
 
 @Composable
 fun ComposeDemoApp() {
-  val engineState =
-    rememberEngineState(
+  val engineStore =
+    rememberEngineStore(
       config = EngineConfig(appName = "Prism Compose Demo", targetFps = 60, enableDebug = true)
     )
+  val engineState by engineStore.state.collectAsStateWithLifecycle()
   var showOverlay by remember { mutableStateOf(true) }
 
   MaterialTheme {
-    PrismTheme(engineState) {
+    PrismTheme(engineStore) {
       Box(modifier = Modifier.fillMaxSize()) {
-        PrismOverlay(engineState = engineState, modifier = Modifier.fillMaxSize()) {
+        PrismOverlay(store = engineStore, modifier = Modifier.fillMaxSize()) {
           if (showOverlay) {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
               Surface(color = Color.Black.copy(alpha = 0.6f), shape = MaterialTheme.shapes.medium) {

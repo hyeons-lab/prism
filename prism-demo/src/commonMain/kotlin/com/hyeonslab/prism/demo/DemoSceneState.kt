@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.demo
 
+import com.hyeonslab.prism.core.Store
 import com.hyeonslab.prism.renderer.Color
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,19 +30,19 @@ sealed interface DemoIntent {
  * MVI store for the demo scene. Holds the current [DemoUiState] and processes [DemoIntent]s through
  * a pure reduce function.
  */
-class DemoStore {
+class DemoStore : Store<DemoUiState, DemoIntent> {
   private val _state = MutableStateFlow(DemoUiState())
-  val state: StateFlow<DemoUiState> = _state.asStateFlow()
+  override val state: StateFlow<DemoUiState> = _state.asStateFlow()
 
-  fun dispatch(intent: DemoIntent) {
-    _state.update { reduce(it, intent) }
+  override fun dispatch(event: DemoIntent) {
+    _state.update { reduce(it, event) }
   }
 
-  private fun reduce(state: DemoUiState, intent: DemoIntent): DemoUiState =
-    when (intent) {
-      is DemoIntent.SetRotationSpeed -> state.copy(rotationSpeed = intent.speed)
+  private fun reduce(state: DemoUiState, event: DemoIntent): DemoUiState =
+    when (event) {
+      is DemoIntent.SetRotationSpeed -> state.copy(rotationSpeed = event.speed)
       is DemoIntent.TogglePause -> state.copy(isPaused = !state.isPaused)
-      is DemoIntent.SetCubeColor -> state.copy(cubeColor = intent.color)
-      is DemoIntent.UpdateFps -> state.copy(fps = intent.fps)
+      is DemoIntent.SetCubeColor -> state.copy(cubeColor = event.color)
+      is DemoIntent.UpdateFps -> state.copy(fps = event.fps)
     }
 }

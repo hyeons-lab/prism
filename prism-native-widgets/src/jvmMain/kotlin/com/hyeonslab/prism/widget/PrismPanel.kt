@@ -2,6 +2,7 @@ package com.hyeonslab.prism.widget
 
 import co.touchlab.kermit.Logger
 import com.sun.jna.Native
+import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
 import darwin.CAMetalLayer
 import darwin.NSView
@@ -60,6 +61,7 @@ class PrismPanel : Canvas() {
 
   private var wgpuInstance: WGPU? = null
   private var nativeSurface: NativeSurface? = null
+  private var metalLayerPtr: Pointer? = null
 
   init {
     addComponentListener(
@@ -70,6 +72,7 @@ class PrismPanel : Canvas() {
           val h = height
           if (w > 0 && h > 0) {
             log.d { "Canvas resized to ${w}x${h}" }
+            updateMetalLayerFrame()
             reconfigureSurface(ctx, w, h)
             // If onReady was deferred (Canvas had 0x0 size during init), fire it now
             if (!isReady) {
@@ -98,6 +101,9 @@ class PrismPanel : Canvas() {
   override fun removeNotify() {
     log.i { "Canvas peer removed, cleaning up wgpu surface..." }
     isReady = false
+    // Tear down in reverse order of construction: sublayer → wgpu context → wgpu instance
+    metalLayerPtr?.let { ObjCBridge.removeFromSuperlayer(it) }
+    metalLayerPtr = null
     wgpuContext?.close()
     wgpuContext = null
     nativeSurface = null
@@ -164,13 +170,39 @@ class PrismPanel : Canvas() {
     val nsViewAddr = resolveNsViewPointer()
     log.d { "NSView address: 0x${nsViewAddr.toString(16)}" }
 
+    // Make the content view layer-backed (preserves AWT's own rendering)
     val nsView = Rococoa.wrap(ID.fromLong(nsViewAddr), NSView::class.java)
     nsView.setWantsLayer(true)
+
+    // The AWT reflection fallback returns the window's content NSView, not a
+    // Canvas-specific view (macOS LW AWT shares one NSView for all components).
+    // Adding the Metal layer as a SUBLAYER — positioned at Canvas bounds — instead
+    // of replacing the content view's backing layer ensures the layer only covers
+    // this Canvas, not the entire window.
+    val contentLayer =
+      ObjCBridge.getLayer(Pointer(nsViewAddr))
+        ?: error("NSView has no backing layer after setWantsLayer(true)")
+
     val layer = CAMetalLayer.layer()
-    nsView.setLayer(Pointer(layer.id().toLong()))
+    val layerPtr = Pointer(layer.id().toLong())
+    metalLayerPtr = layerPtr
+    updateMetalLayerFrame()
+    ObjCBridge.addSublayer(contentLayer, layerPtr)
 
     return wgpu.getSurfaceFromMetalLayer(layer.id().toLong().toNativeAddress())
       ?: error("Failed to create surface from Metal layer")
+  }
+
+  /** Updates the Metal sublayer's frame to match the Canvas position and size within the window. */
+  private fun updateMetalLayerFrame() {
+    val layerPtr = metalLayerPtr ?: return
+    ObjCBridge.setFrame(
+      layerPtr,
+      x.toDouble(),
+      y.toDouble(),
+      width.coerceAtLeast(1).toDouble(),
+      height.coerceAtLeast(1).toDouble(),
+    )
   }
 
   /**
@@ -250,7 +282,12 @@ class PrismPanel : Canvas() {
 
   @Suppress("UnusedPrivateMember")
   private fun createWindowsSurface(wgpu: WGPU): NativeSurface {
-    val hwndPtr = Native.getComponentPointer(this)
+    val hwndPtr =
+      Native.getComponentPointer(this)
+        ?: error(
+          "Failed to obtain native HWND for this Canvas. " +
+            "Ensure the component is displayable and peer is initialized."
+        )
     val hwnd = Pointer.nativeValue(hwndPtr).toNativeAddress()
     val hinstance =
       com.sun.jna.platform.win32.Kernel32.INSTANCE.GetModuleHandle(null).pointer.toNativeAddress()
@@ -260,7 +297,13 @@ class PrismPanel : Canvas() {
 
   @Suppress("UnusedPrivateMember")
   private fun createLinuxSurface(wgpu: WGPU): NativeSurface {
-    val windowPtr = Native.getComponentPointer(this)
+    val windowPtr =
+      Native.getComponentPointer(this)
+        ?: error(
+          "Failed to obtain native X11 window handle for this Canvas. " +
+            "Ensure the component is displayable and that X11 is being used " +
+            "(Wayland is not yet supported)."
+        )
     val windowId = Pointer.nativeValue(windowPtr).toULong()
 
     // Extract X11 Display pointer via reflection on AWT's internal Toolkit.
@@ -330,6 +373,69 @@ class PrismPanel : Canvas() {
     renderingContext.updateSize(w, h)
     val format = renderingContext.textureFormat
     configureSurface(surface, ctx.device, format, ctx.surface.supportedAlphaMode, w, h)
+  }
+}
+
+/**
+ * Minimal Objective-C runtime bridge via JNA for CALayer frame manipulation.
+ *
+ * The macOS LW AWT architecture shares a single NSView (the window's content view) for all
+ * components. To scope the Metal rendering layer to just the Canvas area, we add the CAMetalLayer
+ * as a sublayer and set its frame to the Canvas bounds. This requires direct Objective-C runtime
+ * calls since Rococoa 0.0.1 doesn't expose `layer`, `addSublayer:`, `setFrame:`, or
+ * `removeFromSuperlayer`.
+ *
+ * On arm64, CGRect (4 doubles) is a Homogeneous Floating-point Aggregate passed in FP registers
+ * d0–d3. JNA's [com.sun.jna.Function.invoke] places [Double] arguments in FP registers, matching
+ * the arm64 calling convention for `objc_msgSend` dispatching to typed method implementations.
+ */
+private object ObjCBridge {
+  private val runtime by lazy { NativeLibrary.getInstance("objc") }
+  private val msgSend by lazy { runtime.getFunction("objc_msgSend") }
+  private val selRegisterName by lazy { runtime.getFunction("sel_registerName") }
+  private val objcGetClass by lazy { runtime.getFunction("objc_getClass") }
+
+  // Cached selectors and class pointers — these are immutable runtime constants.
+  // Caching avoids repeated JNA native calls on every resize (14 → 4 calls per frame).
+  private val selLayer by lazy { sel("layer") }
+  private val selAddSublayer by lazy { sel("addSublayer:") }
+  private val selRemoveFromSuperlayer by lazy { sel("removeFromSuperlayer") }
+  private val selSetFrame by lazy { sel("setFrame:") }
+  private val selBegin by lazy { sel("begin") }
+  private val selCommit by lazy { sel("commit") }
+  private val selSetDisableActions by lazy { sel("setDisableActions:") }
+  private val caTransaction by lazy { cls("CATransaction") }
+
+  private fun sel(name: String): Pointer =
+    selRegisterName.invoke(Pointer::class.java, arrayOf(name)) as Pointer
+
+  private fun cls(name: String): Pointer =
+    objcGetClass.invoke(Pointer::class.java, arrayOf(name)) as Pointer
+
+  /** Returns `[view layer]`. */
+  fun getLayer(view: Pointer): Pointer? =
+    msgSend.invoke(Pointer::class.java, arrayOf(view, selLayer)) as? Pointer
+
+  /** Calls `[parentLayer addSublayer:childLayer]`. */
+  fun addSublayer(parentLayer: Pointer, childLayer: Pointer) {
+    msgSend.invoke(Void::class.java, arrayOf(parentLayer, selAddSublayer, childLayer))
+  }
+
+  /** Calls `[layer removeFromSuperlayer]`. */
+  fun removeFromSuperlayer(layer: Pointer) {
+    msgSend.invoke(Void::class.java, arrayOf(layer, selRemoveFromSuperlayer))
+  }
+
+  /**
+   * Calls `[layer setFrame:CGRect(x,y,w,h)]` inside a CATransaction that disables implicit
+   * animations, so the layer repositions immediately during resize instead of animating over 0.25s.
+   */
+  @Suppress("ArrayPrimitive") // JNA Function.invoke requires Object[] — boxing is unavoidable
+  fun setFrame(layer: Pointer, x: Double, y: Double, width: Double, height: Double) {
+    msgSend.invoke(Void::class.java, arrayOf(caTransaction, selBegin))
+    msgSend.invoke(Void::class.java, arrayOf(caTransaction, selSetDisableActions, true))
+    msgSend.invoke(Void::class.java, arrayOf(layer, selSetFrame, x, y, width, height))
+    msgSend.invoke(Void::class.java, arrayOf(caTransaction, selCommit))
   }
 }
 

@@ -208,10 +208,168 @@ Fix the Compose Desktop demo which failed to render on macOS due to a fundamenta
 - AWT reflection for native handles is fragile but is the only way to avoid `-XstartOnFirstThread` on macOS for JNA-based handle extraction.
 
 ### Commits
+- Commits from Session 5 are part of PR #7
+
+---
+
+## Session 6 — Fix Metal sublayer sizing for correct resize behavior (2026-02-15, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
+
+### Intent
+Fix the inverted resize behavior in the Compose demo: when the user narrows the window, 3D content appeared wider instead of narrower. Root cause analysis and fix.
+
+### What Changed
+- **[2026-02-15]** `prism-native-widgets/.../PrismPanel.kt` — Major fix to macOS surface creation:
+  - **Root cause:** The AWT reflection fallback (`resolveNsViewViaReflection()`) navigates to the *window's* content NSView, not a Canvas-specific view (macOS LW AWT shares one NSView for all components). The old code called `nsView.setLayer(metalLayer)` which replaced the content view's backing layer with the CAMetalLayer. This made the Metal layer cover the *entire window* (including the ComposePanel area), causing the rendered texture (at Canvas dimensions) to be stretched to the full window size.
+  - **Fix:** Changed from `setLayer` (replacing backing layer) to `addSublayer` (adding a positioned sublayer). The CAMetalLayer is now added as a sublayer of the content view's auto-created backing layer, with its frame set to the Canvas bounds. On resize, `updateMetalLayerFrame()` repositions the sublayer.
+  - Added `ObjCBridge` private object — minimal Objective-C runtime bridge via JNA for CALayer operations (`layer`, `addSublayer:`, `setFrame:`, `removeFromSuperlayer`). Rococoa 0.0.1 doesn't expose these methods. Uses `CATransaction` to suppress Core Animation's default 0.25s implicit animation during frame changes.
+  - Added `metalLayerPtr` property and `updateMetalLayerFrame()` method.
+  - `componentResized` now calls `updateMetalLayerFrame()` before `reconfigureSurface()`.
+  - `removeNotify` cleans up the sublayer via `removeFromSuperlayer`.
+
+### Decisions
+- **[2026-02-15]** **Sublayer approach over child NSView** — Creating a child NSView would be more architecturally correct but requires more ObjC runtime calls (alloc, init, addSubview, setFrame, release). The sublayer approach achieves the same visual result with fewer calls and no memory management concerns.
+- **[2026-02-15]** **Direct JNA `objc_msgSend` over Rococoa extension** — Rococoa 0.0.1 (from wgpu4k) only exposes `setWantsLayer`, `setLayer`, and `CAMetalLayer.layer()`. Rather than trying to extend Rococoa interfaces, direct JNA calls to the ObjC runtime are simpler and fully explicit.
+- **[2026-02-15]** **CATransaction for animation suppression** — CALayer property changes (including `setFrame:`) trigger implicit 0.25s Core Animation transitions by default. Wrapping in `CATransaction.begin()`/`setDisableActions:`/`commit` ensures instant repositioning during window resize.
+
+### Research & Discoveries
+- **macOS LW AWT shares a single NSView for all components:** In the lightweight AWT peer system on macOS, `CPlatformWindow.contentView → CPlatformView.getAWTView()` returns the *window-level* content NSView. Individual heavyweight Canvas components do NOT have their own NSViews. Multiple Canvas components in the same window would all resolve to the same NSView.
+- **`setLayer:` vs sublayer on NSView:**
+  - `nsView.setLayer(layer)` makes the view "layer-hosting" — it replaces the view's backing layer entirely. This breaks AWT's own rendering for other components in the same window.
+  - `nsView.setWantsLayer(true)` makes the view "layer-backed" — AppKit creates and manages the backing layer, and AWT rendering works normally. Adding our CAMetalLayer as a sublayer preserves this.
+- **arm64 `objc_msgSend` calling convention for CGRect:**
+  - CGRect (4 doubles, 32 bytes) is a Homogeneous Floating-point Aggregate (HFA)
+  - On arm64, HFA arguments go in FP registers d0–d3
+  - JNA's `Function.invoke` places `Double` arguments in FP registers, which matches this convention
+  - JNA doesn't know `objc_msgSend` is variadic, so it uses the standard (non-variadic) calling convention — this is actually correct for ObjC message dispatch since `objc_msgSend` is a trampoline that tail-calls the typed method implementation
+- **CALayer implicit animation:** All CALayer property changes trigger Core Animation implicit animations (0.25s by default). Must use `CATransaction.setDisableActions(true)` for immediate property changes.
+- **No per-Canvas native surface on macOS:** Investigated JAWT (`JAWT_SurfaceLayers`), `sun.java2d.opengl.OGLSurfaceData`, and AWT peer internals — none provide Canvas-specific native handles. The sublayer approach is the only viable solution short of using a separate window.
+
+### Issues
+- **Inverted resize behavior (narrowing window → wider content):** Root cause was the CAMetalLayer covering the entire window. The rendered texture (at Canvas dimensions, e.g., 600x700) was stretched by macOS to fill the Metal layer's bounds (full window, e.g., 880x700). When the window narrowed, the stretch ratio increased, making content appear wider. Fixed by scoping the Metal layer to Canvas bounds via sublayer positioning.
+
+### Lessons Learned
+- On macOS LW AWT, `CPlatformView.getAWTView()` returns the WINDOW's content NSView, not a per-component view. Any Metal layer attached to it covers the entire window, causing rendering to be stretched across all components.
+- `nsView.setLayer()` replaces the backing layer (layer-hosting mode) and breaks AWT rendering for other components. Use `addSublayer` on the existing backing layer instead.
+- JNA `objc_msgSend` on arm64 macOS works correctly for struct-by-value arguments (like CGRect) because JNA places typed arguments in the correct registers without variadic promotion.
+- CALayer frame changes need `CATransaction.setDisableActions(true)` to avoid laggy 0.25s animated transitions during resize.
+
+### Commits
+- (pending)
+
+---
+
+## Session 7 — PR Review Fixes & Render Loop Improvements (2026-02-15, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/compose-integration`
+
+### Intent
+Address PR #7 review feedback: null checks, render loop pacing, EDT safety, `collectAsStateWithLifecycle`, and replace Swing Timer with Compose's `withFrameNanos` for display-refresh-synchronized rendering.
+
+### What Changed
+- **[2026-02-15]** `prism-native-widgets/.../PrismPanel.kt` — Added null checks with descriptive error messages for `Native.getComponentPointer()` on Windows and Linux. Cached ObjC selectors/class pointers via `by lazy` properties in `ObjCBridge` (14→4 JNA calls per resize). Fixed cleanup ordering in `removeNotify()`: sublayer removed before wgpu context. Added `@Suppress("ArrayPrimitive")` for JNA `Function.invoke` requiring `Object[]`.
+- **[2026-02-15]** `prism-demo/.../ComposeMain.kt` — Replaced Swing Timer render loop with `LaunchedEffect` + `withFrameNanos` inside `composePanel.setContent`. Render loop now synchronizes with display refresh rate via Compose's frame scheduling. Switched `collectAsState()` to `collectAsStateWithLifecycle()`. Added EDT safety comment on `scene` variable.
+- **[2026-02-15]** `prism-compose/.../PrismView.jvm.kt` — Changed `delay(1)` to `delay(16)` for ~60fps target.
+- **[2026-02-15]** `prism-demo/build.gradle.kts` — Added `lifecycle-runtime-compose` to commonMain, `kotlinx-coroutines-swing` to jvmMain (required by `collectAsStateWithLifecycle` for `Dispatchers.Main` on Desktop).
+
+### Decisions
+- **[2026-02-15]** **`withFrameNanos` over Swing Timer** — Compose's `withFrameNanos` suspends until the next vsync and runs on the EDT. This replaces the Swing Timer(16ms) approach with proper display-refresh synchronization and zero wasted CPU cycles between frames.
+- **[2026-02-15]** **`kotlinx-coroutines-swing` for Desktop Main dispatcher** — `collectAsStateWithLifecycle` uses `Dispatchers.Main.immediate` internally via `Lifecycle.coroutineScope`. On JVM Desktop, `kotlinx-coroutines-swing` provides this dispatcher (analogous to `kotlinx-coroutines-android` on Android).
+
+### Issues
+- **`collectAsStateWithLifecycle` crash on Desktop:** Threw `IllegalStateException: Module with the Main dispatcher is missing`. Root cause: lifecycle-runtime-compose uses `Dispatchers.Main.immediate` which requires a platform-specific coroutines dispatcher module. Fixed by adding `kotlinx-coroutines-swing` to jvmMain dependencies.
+
+### Lessons Learned
+- `collectAsStateWithLifecycle` is truly multiplatform (lifecycle 2.8.0+), but requires a platform-specific coroutines module for `Dispatchers.Main`: `kotlinx-coroutines-android` on Android, `kotlinx-coroutines-swing` on JVM Desktop.
+- Compose's `withFrameNanos` (inside a `LaunchedEffect` coroutine) is the preferred render loop mechanism — it automatically synchronizes with the display refresh rate and handles suspend/resume correctly.
+
+### Commits
+- (pending)
+
+---
+
+## Session 8 — MVI Refactor for Compose Layer (2026-02-15, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/compose-integration`
+
+### Intent
+Refactor all prism-compose composables to follow the MVI (Model-View-Intent) pattern. PrismView was using callbacks (`onFrame`, `onResize`), and after removing them the state was being mutated directly by the view — violating separation of concerns. Extract a proper `Store<State, Event>` interface, split `EngineState` into an immutable data class + `EngineStore`, and align all composables with the existing `DemoStore` pattern.
+
+### What Changed
+- **[2026-02-15]** `prism-core/.../Store.kt` — New file. `Store<State, Event>` interface with `val state: StateFlow<State>` and `fun dispatch(event: Event)`. Lives in prism-core so both prism-compose and prism-demo can implement it.
+- **[2026-02-15]** `prism-compose/.../EngineState.kt` — Complete rewrite:
+  - `EngineState` is now a `data class` (immutable snapshot) with `time`, `isInitialized`, `fps`, `surfaceWidth`, `surfaceHeight`.
+  - `EngineStore` implements `Store<EngineState, EngineStateEvent>` — holds `MutableStateFlow<EngineState>`, `engine` reference, and `reduce()` function.
+  - `EngineStateEvent` sealed interface: `Initialized`, `Disposed`, `SurfaceResized`, `FrameTick`.
+  - `rememberEngineState()` → `rememberEngineStore()`, `rememberExternalEngineState()` → `rememberExternalEngineStore()`.
+  - All state mutations go through `dispatch()` → `reduce()`. Properties are `private set` (before) / immutable `val` (now).
+- **[2026-02-15]** `prism-compose/.../PrismView.kt` (expect) — Changed signature from `(Engine, onFrame, onResize)` to `(EngineStore, Modifier)`. No callbacks.
+- **[2026-02-15]** `prism-compose/.../PrismView.jvm.kt` — Takes `EngineStore`, dispatches `SurfaceResized` and `FrameTick` events. Reads current fps via `store.state.value.fps` for smoothing. Drives game loop via `engine.gameLoop.startExternal()` + `tick()`.
+- **[2026-02-15]** `prism-compose/.../PrismView.wasmJs.kt` — Updated signature to `(EngineStore, Modifier)`.
+- **[2026-02-15]** `prism-compose/src/appleMain/.../PrismView.apple.kt` — Moved from `iosMain` to `appleMain` to cover both iOS and macOS native targets. Updated signature.
+- **[2026-02-15]** `prism-compose/.../PrismOverlay.kt` — Takes `EngineStore`, collects state via `store.state.collectAsState()`.
+- **[2026-02-15]** `prism-compose/.../PrismTheme.kt` — Takes `EngineStore`, provides `store.engine` via `LocalEngine`.
+- **[2026-02-15]** `prism-compose/build.gradle.kts` — Added `kotlinx-coroutines-core` to commonMain (for `StateFlow`/`MutableStateFlow`).
+- **[2026-02-15]** `prism-demo/.../DemoSceneState.kt` — `DemoStore` now implements `Store<DemoUiState, DemoIntent>`. Parameter renamed `intent` → `event` for consistency.
+- **[2026-02-15]** `prism-demo/.../ComposeDemoApp.kt` — Uses `rememberEngineStore()`, collects state via `engineStore.state.collectAsState()`.
+
+### Decisions
+- **[2026-02-15]** **`Store<State, Event>` in prism-core** — Both EngineStore (prism-compose) and DemoStore (prism-demo) follow the same pattern. The interface lives in prism-core since both modules depend on it. The interface is minimal: `state: StateFlow<S>` + `dispatch(event: E)`.
+- **[2026-02-15]** **EngineState as data class** — The `Engine` reference is infrastructure, not observable state. It belongs on the Store, not in the state snapshot. This makes `EngineState` a pure value type with `copy()`, `equals()`, and `hashCode()`.
+- **[2026-02-15]** **dispatch() promoted to public** — Was `internal` on EngineStore. Now `public` to satisfy the `Store` interface. Safe because `EngineStateEvent` is sealed — only defined events exist.
+- **[2026-02-15]** **iosMain → appleMain** — The PrismView stub was in `iosMain` but `macosArm64Main` had no actual. Moved to `appleMain` which covers both iOS and macOS native via `applyDefaultHierarchyTemplate()`.
+
+### Lessons Learned
+- Compose `@Stable` classes with `mutableStateOf` are convenient but conflate state with store behavior. For MVI, prefer immutable `data class` state + separate Store class with `StateFlow`, matching the standard pattern (`DemoStore`/`DemoUiState`).
+- `applyDefaultHierarchyTemplate()` creates intermediate source sets: `appleMain` covers both `iosMain` and `macosMain`. A single actual in `appleMain` satisfies both `iosArm64Main`, `iosSimulatorArm64Main`, and `macosArm64Main` targets.
+- The `Store<State, Event>` interface enables consistent MVI across all modules — any composable can accept `store.state` + `store::dispatch` without knowing the concrete store type.
+
+### Commits
+- (pending)
+
+---
+
+## Session 9 — Critical Review Fixes & Lifecycle-Aware State Collection (2026-02-15 12:30 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/compose-integration`
+
+### Intent
+Fix 5 issues identified during critical review of the MVI refactor, then migrate all composables from `collectAsState()` to `collectAsStateWithLifecycle()` for lifecycle-aware state collection.
+
+### What Changed
+
+**Critical review fixes:**
+- **[2026-02-15 12:30 PST]** `prism-compose/.../EngineState.kt` — Added `@Stable` annotation to `EngineStore`. Without it, Compose compiler treats EngineStore as unstable (has mutable `MutableStateFlow` internally), causing all composables accepting it to always recompose.
+- **[2026-02-15 12:30 PST]** `prism-compose/.../PrismOverlay.kt` — Changed from collecting full `EngineState` to `store.state.map { it.isInitialized }.distinctUntilChanged()`. PrismOverlay only needs `isInitialized` — collecting the full state caused recomposition every frame when `fps` or `time` changed.
+- **[2026-02-15 12:30 PST]** `prism-demo/.../DemoSceneState.kt` — Renamed `reduce(state, intent)` parameter to `reduce(state, event)` for consistency with `dispatch(event)` and the `Store<State, Event>` interface.
+- **[2026-02-15 12:30 PST]** `prism-compose/.../PrismView.{wasmJs,apple}.kt` — Wrapped `log.w {}` in `LaunchedEffect(Unit)` to prevent logging on every recomposition. Previously the log call was in the composable body, firing on every recomposition.
+- **[2026-02-15 12:30 PST]** `prism-compose/build.gradle.kts` — Removed duplicate `kotlinx-coroutines-core` from jvmMain (already in commonMain).
+
+**Lifecycle-aware state collection:**
+- **[2026-02-15 12:30 PST]** `prism-compose/build.gradle.kts` — Added `lifecycle-runtime-compose` to commonMain and `kotlinx-coroutines-swing` to jvmMain. These were previously only in prism-demo; now prism-compose's own composables can use `collectAsStateWithLifecycle()`.
+- **[2026-02-15 12:30 PST]** `prism-compose/.../PrismOverlay.kt` — `collectAsState(false)` → `collectAsStateWithLifecycle(false)`.
+- **[2026-02-15 12:30 PST]** `prism-demo/.../ComposeDemoApp.kt` — `engineStore.state.collectAsState()` → `collectAsStateWithLifecycle()`.
+
+### Decisions
+- **[2026-02-15 12:30 PST]** **`lifecycle-runtime-compose` in prism-compose, not just prism-demo** — Since PrismOverlay (a library composable) uses `collectAsStateWithLifecycle`, the dependency belongs in the library module. Consumers inherit it transitively.
+- **[2026-02-15 12:30 PST]** **`kotlinx-coroutines-swing` in prism-compose jvmMain** — `collectAsStateWithLifecycle` requires `Dispatchers.Main` at runtime. On JVM Desktop, this comes from `kotlinx-coroutines-swing`. Without it, `IllegalStateException: Module with the Main dispatcher is missing` at runtime.
+
+### Issues
+- **`@Stable` missing on EngineStore (fixed):** Compose compiler couldn't prove stability of `EngineStore` (it holds `MutableStateFlow` internally). Every composable taking `EngineStore` was recomposing unconditionally — catastrophic for a 60fps render loop.
+- **PrismOverlay recomposing every frame (fixed):** Collected full `EngineState` but only read `isInitialized`. Since `fps` and `time` change every frame, the composable recomposed every frame even though its output never changed.
+
+### Lessons Learned
+- `@Stable` is critical for any class passed to composables that holds mutable internal state (like `MutableStateFlow`). Without it, Compose assumes instability and skips smart recomposition.
+- Always use `map {}` + `distinctUntilChanged()` when a composable only needs a subset of a StateFlow's state — collecting the full state triggers unnecessary recomposition.
+- Library modules that use `collectAsStateWithLifecycle` must include both `lifecycle-runtime-compose` and the platform-specific coroutines module (`kotlinx-coroutines-swing` for JVM Desktop).
+
+### Commits
+- (pending)
 
 ---
 
 ## Next Steps
-- Manual testing: verify Compose controls (slider, buttons, pause) drive the 3D scene
-- Commit all changes on `feat/compose-integration` branch and create PR
+- Test: `./gradlew :prism-demo:runCompose` — verify all changes work at runtime
+- Commit and update PR #7
 - Future: Implement Flutter integration (M11) after mobile platform support is complete

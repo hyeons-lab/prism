@@ -2,17 +2,23 @@ package com.hyeonslab.prism.compose
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun PrismOverlay(
-  engineState: EngineState,
+  store: EngineStore,
   modifier: Modifier = Modifier,
   content: @Composable () -> Unit,
 ) {
+  val isInitialized by
+    store.state.map { it.isInitialized }.distinctUntilChanged().collectAsStateWithLifecycle(false)
   Box(modifier = modifier) {
-    if (engineState.isInitialized) {
-      PrismView(engine = engineState.engine, modifier = Modifier.matchParentSize())
+    if (isInitialized) {
+      PrismView(store = store, modifier = Modifier.matchParentSize())
     }
     content()
   }

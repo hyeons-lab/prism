@@ -72,10 +72,12 @@
 - PrismPanel: AWT Canvas subclass with native handle extraction (macOS/Windows/Linux)
 - AwtRenderingContext: custom RenderingContext bypassing GLFW glfwGetWindowSize()
 - WgpuRenderer: surfacePreConfigured flag + onResize callback for AWT integration
-- EngineState: rememberExternalEngineState() for externally-created engines
-- PrismView.jvm: SwingPanel embedding PrismPanel with coroutine render loop
-- Compose demo: Material3 UI controls driving 3D scene (rotation, color, pause)
-- Platform stubs (WASM, iOS, macOS, Linux, MinGW) updated with Kermit logging
+- MVI architecture: `Store<State, Event>` interface in prism-core, `EngineStore`/`EngineState`/`EngineStateEvent` in prism-compose
+- PrismView: stateless composable taking `EngineStore`, dispatches events through reducer (no callbacks)
+- PrismOverlay/PrismTheme: composable wrappers accepting `EngineStore`
+- Render loop: Compose `withFrameNanos` for vsync-synchronized frame timing
+- Compose demo: Material3 UI controls driving 3D scene (rotation, color, pause) via `DemoStore` MVI
+- Platform stubs (WASM, Apple) updated with Kermit logging; iosMain → appleMain for iOS + macOS coverage
 - **Status:** Complete — `./gradlew :prism-demo:runCompose` launches Compose window with embedded 3D rendering
 
 ### M6: Web/WASM Support ✅
@@ -97,7 +99,8 @@
 |---|---|---|
 | prism-math | 75 | Vec3 (26), Mat4 (24), Quaternion (25) |
 | prism-renderer | 95 | Color (15), Mesh (25), VertexLayout (22), Camera (19), Shader (14) |
-| **Total** | **170** | |
+| prism-demo | 8 | DemoStore (MVI reducer, 8) |
+| **Total** | **178** | |
 
 Run all tests: `./gradlew jvmTest`
 

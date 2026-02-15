@@ -111,6 +111,7 @@ module-name/src/
 - `Time` - Delta time, FPS tracking, total elapsed time
 - `Subsystem` - Plugin interface for engine extensions
 - `Platform` - Platform detection and capabilities
+- `Store<State, Event>` - MVI store interface (`state: StateFlow<State>`, `dispatch(event)`)
 
 **Math (prism-math):**
 - `Vec2`, `Vec3`, `Vec4` - Vector types with operators
@@ -152,9 +153,23 @@ module-name/src/
 - `MeshLoader`, `ShaderLoader`, `TextureLoader` - Specific loaders
 - `FileReader` - Platform-specific file I/O
 
+**Compose Integration (prism-compose):**
+- `EngineState` - Immutable data class (time, fps, surfaceWidth/Height, isInitialized)
+- `EngineStateEvent` - Sealed interface (Initialized, Disposed, SurfaceResized, FrameTick)
+- `EngineStore` - MVI store implementing `Store<EngineState, EngineStateEvent>` with pure reducer
+- `PrismView` - Stateless expect/actual composable: embeds GPU surface, takes `EngineStore`, dispatches events
+- `PrismOverlay` - Composable wrapper: 3D surface + UI content overlay
+- `PrismTheme` - CompositionLocal provider for Engine via `LocalEngine`
+- `rememberEngineStore()` / `rememberExternalEngineStore()` - Lifecycle-aware store creation
+
+**Native Widgets (prism-native-widgets):**
+- `PrismPanel` - AWT Canvas subclass with wgpu surface creation from native handles (macOS/Windows/Linux)
+- `AwtRenderingContext` - Custom RenderingContext bypassing GLFW's glfwGetWindowSize()
+
 ### Platform Implementations
 
-- **JVM Desktop**: GLFW windowing (via wgpu4k's glfw-native) with Metal (macOS), Vulkan/DX12 (Windows/Linux)
+- **JVM Desktop (GLFW)**: GLFW windowing (via wgpu4k's glfw-native) with Metal (macOS), Vulkan/DX12 (Windows/Linux)
+- **JVM Desktop (Compose)**: AWT Canvas embedded via SwingPanel, wgpu surface from native handle, Compose `withFrameNanos` render loop
 - **Web/WASM**: HTML Canvas with WebGPU API, requestAnimationFrame game loop
 - **iOS/macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop)
 - **Android**: SurfaceView with Vulkan backend, PanamaPort for FFI (planned)
@@ -291,11 +306,11 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Current Project Status
 
-**Phase:** Renderer implementation (Phase 2, mostly complete)
+**Phase:** Compose integration complete (M5), renderer mature
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
-- ✅ Engine core with subsystem architecture
+- ✅ Engine core with subsystem architecture + `Store<State, Event>` MVI interface
 - ✅ ECS with query system and built-in components
 - ✅ Scene graph with node hierarchy
 - ✅ Input event system (interfaces defined)
@@ -305,15 +320,17 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ GLFW windowing on JVM Desktop (macOS Metal)
 - ✅ ECS-driven rendering pipeline (M4 complete)
 - ✅ Demo app: rotating lit cube via Engine + ECS + WgpuRenderer
-- ✅ Unit tests: 170 tests across prism-math (75) and prism-renderer (95)
+- ✅ Compose Desktop integration with MVI architecture (M5 complete)
+- ✅ PrismPanel: AWT Canvas with native handle → wgpu surface (macOS Metal, Windows/Linux stubs)
+- ✅ Compose demo: Material3 UI controls driving 3D scene via EngineStore/DemoStore
+- ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo (8)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
 
 **What's in progress:**
-- 🚧 Platform-specific RenderSurface implementations (native stubs are TODOs)
+- 🚧 Platform-specific RenderSurface implementations (Windows/Linux surfaces untested)
 
 **What's next:**
-- ⏭️ Compose Multiplatform integration
 - ⏭️ Mobile platforms (iOS/Android)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading

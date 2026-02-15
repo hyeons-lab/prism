@@ -37,11 +37,13 @@ kotlin {
       implementation(compose.material3)
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.lifecycle.runtime.compose)
     }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.swing)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)

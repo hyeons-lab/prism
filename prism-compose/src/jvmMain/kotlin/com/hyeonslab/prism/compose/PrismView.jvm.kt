@@ -7,13 +7,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Engine
-import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.widget.PrismPanel
-import kotlinx.coroutines.delay
 
 private val log = Logger.withTag("PrismView.JVM")
 
@@ -22,15 +20,12 @@ private val log = Logger.withTag("PrismView.JVM")
  * wgpu surface) inside Compose via [SwingPanel].
  *
  * The PrismPanel initializes the wgpu surface from the Canvas's native handle when it becomes
- * visible. Once ready, a coroutine-based render loop calls [onFrame] at ~60fps.
+ * visible. Once ready, a render loop driven by Compose's frame scheduling calls
+ * [com.hyeonslab.prism.core.GameLoop.tick] each frame, synchronized with the display refresh rate.
+ * All state changes are dispatched as [EngineStateEvent]s through [EngineStore.dispatch].
  */
 @Composable
-actual fun PrismView(
-  engine: Engine,
-  modifier: Modifier,
-  onFrame: ((Time) -> Unit)?,
-  onResize: ((width: Int, height: Int) -> Unit)?,
-) {
+actual fun PrismView(store: EngineStore, modifier: Modifier) {
   var panel by remember { mutableStateOf<PrismPanel?>(null) }
   var isReady by remember { mutableStateOf(false) }
 
@@ -42,47 +37,44 @@ actual fun PrismView(
           log.i { "PrismPanel surface ready" }
           isReady = true
         }
-        p.onResized = { w, h -> onResize?.invoke(w, h) }
+        p.onResized = { w, h -> store.dispatch(EngineStateEvent.SurfaceResized(w, h)) }
         panel = p
       }
     },
   )
 
-  // Render loop — runs when the panel's wgpu surface is ready
-  if (isReady && onFrame != null) {
+  // Render loop — synchronized with display refresh rate via Compose's frame scheduling.
+  // withFrameNanos suspends until the next vsync, then runs on the EDT.
+  if (isReady) {
     LaunchedEffect(panel, isReady) {
       val p = panel ?: return@LaunchedEffect
       log.i { "Starting render loop" }
 
-      val startTimeNs = System.nanoTime()
-      var frameCount = 0L
-      var lastFrameTimeNs = startTimeNs
+      val engine = store.engine
+      engine.gameLoop.startExternal()
 
       while (true) {
-        val ctx = p.wgpuContext
-        if (ctx == null || !p.isReady) {
-          delay(16)
-          continue
+        withFrameNanos {
+          val ctx = p.wgpuContext
+          if (ctx == null || !p.isReady) return@withFrameNanos
+
+          engine.gameLoop.tick()
+
+          val time = engine.time
+          val currentFps = store.state.value.fps
+          val smoothedFps =
+            if (time.deltaTime > 0f) currentFps * 0.9f + (1f / time.deltaTime) * 0.1f
+            else currentFps
+          store.dispatch(EngineStateEvent.FrameTick(time, smoothedFps))
         }
-
-        val nowNs = System.nanoTime()
-        val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
-        val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
-        lastFrameTimeNs = nowNs
-        frameCount++
-
-        val time = Time(deltaTime = deltaSec, totalTime = totalSec, frameCount = frameCount)
-        onFrame(time)
-
-        // Yield to Compose's frame scheduling (~16ms for 60fps)
-        delay(1)
       }
     }
   }
 
-  DisposableEffect(engine) {
+  DisposableEffect(store) {
     onDispose {
       log.i { "PrismView disposing" }
+      store.engine.gameLoop.stop()
       isReady = false
     }
   }
