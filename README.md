@@ -2,6 +2,8 @@
 
 A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU.
 
+> **This is an experiment.** Prism is being vibe-coded with [Claude](https://claude.ai) — the engine, the tests, the CI, and even this README. Every design decision, debug session, and dead end is captured in the [`devlog/`](devlog/) directory. AI-assisted PRs are welcome.
+
 <!-- TODO: Add screenshot/gif of rotating cube demo -->
 
 ## Overview
