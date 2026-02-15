@@ -3,12 +3,7 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
 import io.ygdrasil.webgpu.canvasContextRenderer
-import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -77,7 +72,6 @@ fun main() {
     log.i { "WebGPU initialized — starting render loop" }
 
     val startTime = performanceNow()
-    val rotationSpeed = PI.toFloat() / 4f
     var frameCount = 0L
     var lastFrameTime = startTime
 
@@ -87,16 +81,9 @@ fun main() {
         val deltaTime = ((timestamp - lastFrameTime) / 1000.0).toFloat()
         lastFrameTime = timestamp
         val elapsed = ((timestamp - startTime) / 1000.0).toFloat()
-        val angle = elapsed * rotationSpeed
-
-        val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-        if (cubeTransform != null) {
-          cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-        }
 
         frameCount++
-        val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-        scene.world.update(time)
+        scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
 
         requestAnimationFrame(::renderFrame)
       } catch (e: Throwable) {

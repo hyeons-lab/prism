@@ -81,9 +81,53 @@ Address critical review findings from self-review of PR #15. The review found 3 
 
 ---
 
+## Session 3 — Fix Outstanding Issues + Compose iOS Demo (2026-02-15 15:10 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ios-native-support`
+
+### Intent
+Fix all remaining GitHub issues (#16, #17, #18) deferred from Session 2's review, and add a Compose Multiplatform iOS demo with a tab bar for switching between native MTKView and Compose demos.
+
+### What Changed
+- **[2026-02-15 15:10 PST]** Created implementation plan → [devlog/plans/000006-03-ios-remaining-fixes.md](plans/000006-03-ios-remaining-fixes.md)
+- **[2026-02-15 15:10 PST]** `prism-demo/src/commonMain/.../DemoScene.kt` — Added `tick(deltaTime, elapsed, frameCount)` method encapsulating rotation (PI/4 rad/s), Quaternion update, and `world.update(time)`. Added imports for `Time`, `Quaternion`, `kotlin.math.PI`. Added file-level `rotationSpeed` constant.
+- **[2026-02-15 15:10 PST]** `prism-demo/src/jvmMain/.../GlfwMain.kt` — Replaced 7-line inline rotation+update block with `scene.tick()`. Removed unused imports: `Time`, `TransformComponent`, `Quaternion`, `Vec3`, `PI`.
+- **[2026-02-15 15:10 PST]** `prism-demo/src/wasmJsMain/.../Main.kt` — Replaced inline rotation+update block in `renderFrame()` with `scene.tick()`. Removed unused imports: `Time`, `TransformComponent`, `Quaternion`, `Vec3`, `PI`.
+- **[2026-02-15 15:10 PST]** `prism-demo/src/iosMain/.../IosDemoController.kt` — Replaced inline rotation+update block in `DemoRenderDelegate.drawInMTKView()` with `scene.tick()`. Removed file-level `rotationSpeed` val and unused imports.
+- **[2026-02-15 15:10 PST]** `prism-demo/src/commonMain/.../NativeDemoApp.kt` → `prism-demo/src/jvmMain/` — Moved dead code (uses JVM-only `PrismSurface`) via `git mv`.
+- **[2026-02-15 15:10 PST]** `prism-demo/src/commonMain/.../DemoApp.kt` → `prism-demo/src/jvmMain/` — Moved dead code (old scene-graph demo, not called by any entry point) via `git mv`.
+- **[2026-02-15 15:10 PST]** `prism-demo/build.gradle.kts` — Removed `implementation(project(":prism-native-widgets"))` from commonMain deps (available transitively via `:prism-compose`'s `api()` dependency).
+- **[2026-02-15 15:10 PST]** `prism-demo/src/iosMain/.../ComposeIosEntry.kt` — New. Compose iOS demo entry point: `composeDemoViewController()` returns `ComposeUIViewController`, `IosComposeDemoContent` composable embeds MTKView via `UIKitView`, initializes wgpu in `LaunchedEffect`, installs `ComposeRenderDelegate` that reads `DemoStore` for user-controllable rotation/color/pause. Overlays `ComposeDemoControls` (Material3).
+- **[2026-02-15 15:10 PST]** `ios-demo/Sources/ComposeViewController.swift` — New. Hosts Compose demo as child UIViewController via `ComposeIosEntryKt.composeDemoViewController()`.
+- **[2026-02-15 15:10 PST]** `ios-demo/Sources/SceneDelegate.swift` — New. `UIWindowSceneDelegate` creating `UITabBarController` with "Native" (ViewController) and "Compose" (ComposeViewController) tabs.
+- **[2026-02-15 15:10 PST]** `ios-demo/Sources/AppDelegate.swift` — Rewritten to minimal scene-based delegate: removed `var window` and `didFinishLaunchingWithOptions`, added `configurationForConnecting` returning `UISceneConfiguration` pointing to `SceneDelegate`.
+- **[2026-02-15 15:10 PST]** `ios-demo/Sources/Info.plist` — Added `UIApplicationSceneManifest` with scene configuration pointing to `SceneDelegate`.
+- **[2026-02-15 15:10 PST]** `ios-demo/project.yml` — Removed redundant `embed: false` (static frameworks don't need it).
+
+### Decisions
+- **[2026-02-15 15:10 PST]** **Direct MTKView management in Compose iOS demo** — Rather than routing through `PrismView` (which is a stub on Apple targets), directly manage MTKView + DemoScene. Mirrors ComposeMain.kt's approach. Implementing `PrismView` properly is a separate task.
+- **[2026-02-15 15:10 PST]** **`@Suppress("DEPRECATION")` for UIKitView** — Compose 1.10.0 deprecates the old `UIKitView` signature in favor of `UIKitInteropProperties`, but the new API classes aren't available in 1.10.0. Used old API with suppression. Can migrate when upgrading Compose.
+- **[2026-02-15 15:10 PST]** **NonCooperative interaction mode equivalent** — Set `interactive = false` on `UIKitView` so touches go directly to MTKView rather than being delayed 150ms by Compose's cooperative mode.
+
+### Research & Discoveries
+- Compose Multiplatform 1.10.0 `UIKitView` deprecated signature includes `background`, `onResize`, `interactive`, `accessibilityEnabled` params — but the replacement `UIKitInteropProperties` class is not yet available in 1.10.0
+- `ComposeUIViewController` from `androidx.compose.ui.window` creates a `UIViewController` hosting Compose content
+- `UIKitView` from `androidx.compose.ui.interop` embeds native UIKit views in Compose hierarchy
+- Tab bar icons available via SF Symbols: `cube` for native, `slider.horizontal.3` for compose
+
+### Issues
+- **UIKitView deprecation warning** — Compose 1.10.0 marks old UIKitView as deprecated but new API (`UIKitInteropProperties`) not available. Resolved with `@Suppress("DEPRECATION")`.
+
+### Lessons Learned
+- Compose Multiplatform's iOS interop migration is sometimes ahead of the stable release — deprecated APIs may not have their replacements available yet in the same version. Always test with actual compilation, not just docs.
+
+### Commits
+- `0603bdc` — feat: add Compose iOS demo + fix outstanding issues
+
+---
+
 ## Next Steps
-- Run `xcodegen generate` in ios-demo/ and verify Xcode build on simulator
-- #16: Modernize to UISceneDelegate lifecycle
-- #17: Move Compose deps out of commonMain
-- #18: Extract shared rotation logic to DemoScene.tick()
+- Run `xcodegen generate` in ios-demo/ and verify Xcode build on simulator with tab bar
 - Mobile platform work: Android support (M8)
+- PBR materials (Cook-Torrance BRDF, IBL, HDR)
+- glTF 2.0 asset loading

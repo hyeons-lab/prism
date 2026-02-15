@@ -38,7 +38,6 @@ kotlin {
       implementation(project(":prism-input"))
       implementation(project(":prism-assets"))
       implementation(project(":prism-audio"))
-      implementation(project(":prism-native-widgets"))
       implementation(project(":prism-compose"))
       implementation(compose.runtime)
       implementation(compose.foundation)

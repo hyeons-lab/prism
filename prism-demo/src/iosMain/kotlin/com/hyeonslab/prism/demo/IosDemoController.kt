@@ -3,13 +3,8 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
 import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.iosContextRenderer
-import kotlin.math.PI
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -21,7 +16,6 @@ import platform.QuartzCore.CACurrentMediaTime
 import platform.darwin.NSObject
 
 private val log = Logger.withTag("PrismIOS")
-private val rotationSpeed = PI.toFloat() / 4f
 
 private const val DEFAULT_WIDTH = 800
 private const val DEFAULT_HEIGHT = 600
@@ -86,13 +80,8 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
     lastFrameTime = now
     val elapsed = (now - startTime).toFloat()
 
-    val angle = elapsed * rotationSpeed
-    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-
     frameCount++
-    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-    scene.world.update(time)
+    scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {

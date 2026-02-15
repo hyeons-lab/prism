@@ -27,6 +27,5 @@ targets:
           - "$(SRCROOT)/../prism-demo/build/XCFrameworks/release"
     dependencies:
       - framework: "../prism-demo/build/XCFrameworks/release/PrismDemo.xcframework"
-        embed: false
       - sdk: MetalKit.framework
       - sdk: Metal.framework

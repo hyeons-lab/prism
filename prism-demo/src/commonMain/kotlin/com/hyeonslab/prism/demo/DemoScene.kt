@@ -2,6 +2,7 @@ package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.core.Engine
+import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.ecs.Entity
 import com.hyeonslab.prism.ecs.World
 import com.hyeonslab.prism.ecs.components.CameraComponent
@@ -9,6 +10,7 @@ import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.ecs.components.MeshComponent
 import com.hyeonslab.prism.ecs.components.TransformComponent
 import com.hyeonslab.prism.ecs.systems.RenderSystem
+import com.hyeonslab.prism.math.Quaternion
 import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Camera
 import com.hyeonslab.prism.renderer.Color
@@ -16,8 +18,11 @@ import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.Mesh
 import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
+import kotlin.math.PI
 
 private val log = Logger.withTag("DemoScene")
+
+private val rotationSpeed = PI.toFloat() / 4f
 
 /** Holds the engine, ECS world, renderer, and key entity handles for the demo scene. */
 class DemoScene(
@@ -27,6 +32,19 @@ class DemoScene(
   val cubeEntity: Entity,
   val cameraEntity: Entity,
 ) {
+  /**
+   * Advances the scene by one frame: rotates the cube at a fixed speed and runs the ECS update.
+   * Used by non-interactive demos (GLFW, WASM, native iOS) where rotation is not user-controllable.
+   */
+  fun tick(deltaTime: Float, elapsed: Float, frameCount: Long) {
+    val angle = elapsed * rotationSpeed
+    val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
+    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
+
+    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
+    world.update(time)
+  }
+
   /** Updates the camera's aspect ratio. Call this when the rendering surface is resized. */
   fun updateAspectRatio(width: Int, height: Int) {
     if (width <= 0 || height <= 0) return
