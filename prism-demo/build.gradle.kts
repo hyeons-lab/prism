@@ -38,21 +38,17 @@ kotlin {
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.lifecycle.runtime.compose)
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
     }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
       implementation(libs.kotlinx.coroutines.swing)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
       implementation(libs.kotest.assertions.core)
       implementation(libs.kotlinx.coroutines.test)
-    }
-    wasmJsMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
     }
   }
 

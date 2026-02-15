@@ -3,21 +3,10 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.World
-import com.hyeonslab.prism.ecs.components.CameraComponent
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.MeshComponent
 import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.ecs.systems.RenderSystem
 import com.hyeonslab.prism.math.Quaternion
 import com.hyeonslab.prism.math.Vec3
-import com.hyeonslab.prism.renderer.Camera
-import com.hyeonslab.prism.renderer.Color
-import com.hyeonslab.prism.renderer.Material
-import com.hyeonslab.prism.renderer.Mesh
-import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.canvasContextRenderer
 import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -72,48 +61,19 @@ fun main() {
 
   GlobalScope.launch(handler) {
     val canvas = getCanvasById("prismCanvas") ?: error("Canvas element 'prismCanvas' not found")
-    val canvasContext = canvasContextRenderer(htmlCanvas = canvas, width = 800, height = 600)
-    val wgpuContext = canvasContext.wgpuContext
-
-    val renderer = WgpuRenderer(wgpuContext)
-    val engine = Engine()
-    engine.addSubsystem(renderer)
-    engine.initialize()
-
-    val world = World()
-    world.addSystem(RenderSystem(renderer))
-
-    // Camera entity
-    val cameraEntity = world.createEntity()
-    val camera = Camera()
-    camera.position = Vec3(2f, 2f, 4f)
-    camera.target = Vec3(0f, 0f, 0f)
-    camera.fovY = 60f
-    camera.aspectRatio = 800f / 600f
-    camera.nearPlane = 0.1f
-    camera.farPlane = 100f
-    world.addComponent(cameraEntity, TransformComponent(position = camera.position))
-    world.addComponent(cameraEntity, CameraComponent(camera))
-
-    // Cube entity
-    val cubeEntity = world.createEntity()
-    world.addComponent(cubeEntity, TransformComponent())
-    world.addComponent(cubeEntity, MeshComponent(mesh = Mesh.cube()))
-    world.addComponent(
-      cubeEntity,
-      MaterialComponent(material = Material(baseColor = Color(0.3f, 0.5f, 0.9f))),
-    )
+    val width = 800
+    val height = 600
+    val canvasContext = canvasContextRenderer(htmlCanvas = canvas, width = width, height = height)
+    val scene = createDemoScene(canvasContext.wgpuContext, width = width, height = height)
 
     var running = true
 
     onBeforeUnload {
       if (!running) return@onBeforeUnload
       running = false
-      world.shutdown()
-      engine.shutdown()
+      scene.shutdown()
     }
 
-    world.initialize()
     log.i { "WebGPU initialized — starting render loop" }
 
     val startTime = performanceNow()
@@ -129,20 +89,19 @@ fun main() {
         val elapsed = ((timestamp - startTime) / 1000.0).toFloat()
         val angle = elapsed * rotationSpeed
 
-        val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
+        val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
         if (cubeTransform != null) {
           cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
         }
 
         frameCount++
         val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-        world.update(time)
+        scene.world.update(time)
 
         requestAnimationFrame(::renderFrame)
       } catch (e: Throwable) {
         running = false
-        world.shutdown()
-        engine.shutdown()
+        scene.shutdown()
         log.e(e) { "Render loop error: ${e.message}" }
         showError(e.message ?: "Render loop error")
       }
