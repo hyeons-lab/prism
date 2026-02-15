@@ -405,6 +405,83 @@ fun main() {
 }
 ```
 
+### Phase 7: PBR Materials
+
+**New/modified files:**
+- `prism-renderer/.../shaders/PbrShader.wgsl` — Cook-Torrance BRDF fragment shader
+- `prism-renderer/.../PbrMaterial.kt` — PBR material data class (baseColor, metallic, roughness, normal, AO, emissive)
+- `prism-renderer/.../PbrPipeline.kt` — Render pipeline configured for PBR (multi-texture bind group layout)
+- `prism-renderer/.../WgpuRenderer.kt` — Extend with texture creation, sampler creation, multi-bind-group support
+- `prism-renderer/.../Texture.kt` — Extend with image data upload, mip generation
+- `prism-ecs/.../components/MaterialComponent.kt` — Support PBR material variant
+
+**Implementation details:**
+
+1. **PBR shader (metallic-roughness workflow):**
+   - Bind group 0: camera + model uniforms (existing)
+   - Bind group 1: PBR material uniforms (baseColorFactor, metallicFactor, roughnessFactor, emissiveFactor)
+   - Bind group 2: PBR textures (baseColor, metallic-roughness, normal, AO, emissive) + samplers
+   - Cook-Torrance specular BRDF: D (GGX/Trowbridge-Reitz), G (Smith-GGX), F (Fresnel-Schlick)
+   - Lambertian diffuse term
+   - Normal mapping via TBN matrix
+
+2. **Lighting:**
+   - Light uniform buffer: array of lights (position, direction, color, intensity, type, attenuation)
+   - Support directional, point, and spot lights
+   - Light count passed as uniform
+
+3. **IBL (Image-Based Lighting):**
+   - Irradiance cubemap for diffuse IBL
+   - Prefiltered environment cubemap for specular IBL (split-sum approximation)
+   - BRDF integration LUT (2D texture, can be precomputed)
+
+4. **HDR + tone mapping:**
+   - Render to HDR (rgba16float) render target
+   - Full-screen tone mapping pass (ACES filmic or Khronos PBR Neutral)
+   - Gamma correction in final output
+
+### Phase 8: glTF Asset Loading
+
+**New files:**
+- `prism-assets/.../GltfLoader.kt` — glTF 2.0 parser (commonMain, uses kotlinx-serialization for JSON)
+- `prism-assets/.../GltfTypes.kt` — Data classes for glTF JSON schema (Asset, Scene, Node, Mesh, Accessor, BufferView, Material, Texture, Image, Animation, Skin)
+- `prism-assets/.../GlbReader.kt` — GLB binary container parser (magic, version, JSON chunk, BIN chunk)
+- `prism-assets/.../TextureDecoder.kt` — PNG/JPEG decoding (expect/actual per platform)
+- `prism-assets/.../GltfScene.kt` — Converts parsed glTF into Prism ECS entities or scene graph nodes
+
+**Implementation details:**
+
+1. **glTF JSON parsing:**
+   - Use `kotlinx-serialization-json` to deserialize the glTF JSON structure
+   - Support glTF 2.0 spec (KHR extensions as needed: KHR_materials_unlit, KHR_texture_transform)
+
+2. **Binary buffer handling:**
+   - Parse accessors → buffer views → buffers
+   - Support embedded base64 data URIs and external .bin files
+   - GLB: parse binary header, extract JSON + BIN chunks
+
+3. **Mesh extraction:**
+   - Read POSITION, NORMAL, TANGENT, TEXCOORD_0 attributes from accessors
+   - Read index buffer (SCALAR accessor)
+   - Convert to Prism `Mesh` with vertex/index data
+   - Support multiple primitives per mesh
+
+4. **Material mapping:**
+   - Map glTF `pbrMetallicRoughness` → Prism `PbrMaterial`
+   - Load texture images, upload to GPU via `WgpuRenderer.createTexture()`
+   - Fallback to default values when textures are missing
+
+5. **Scene hierarchy:**
+   - Traverse glTF node tree
+   - Create ECS entities with TransformComponent, MeshComponent, MaterialComponent
+   - Apply node transforms (TRS or matrix)
+
+6. **Platform-specific texture decoding:**
+   - JVM: `javax.imageio.ImageIO` or stb_image via JNI
+   - WASM: browser `createImageBitmap` API
+   - iOS/macOS: `UIImage`/`NSImage` → raw pixel data
+   - Android: `BitmapFactory`
+
 ---
 
 ## 6. File Change Summary
@@ -487,6 +564,25 @@ fun main() {
 - Touch input and lifecycle handling
 - **Validates:** Android compilation, PanamaPort FFI bridge, Vulkan backend
 
+### M9: PBR Materials
+- Physically Based Rendering pipeline (metallic-roughness workflow)
+- PBR WGSL shaders: Cook-Torrance BRDF (GGX normal distribution, Smith geometry, Fresnel-Schlick)
+- Material properties: baseColor, metallic, roughness, normal map, AO, emissive
+- Image-Based Lighting (IBL): irradiance map (diffuse) + prefiltered environment map (specular) + BRDF LUT
+- Multiple point/directional/spot lights with proper attenuation
+- HDR rendering with tone mapping (ACES or Khronos PBR Neutral)
+- **Validates:** advanced shader pipeline, texture sampling, multi-texture bind groups, HDR
+
+### M10: glTF Asset Loading
+- glTF 2.0 (.gltf + .glb) loader in prism-assets
+- Mesh import: positions, normals, tangents, UVs, indices (accessor/buffer-view parsing)
+- PBR material import: baseColorTexture, metallicRoughnessTexture, normalTexture, occlusionTexture, emissiveTexture
+- Scene hierarchy import: node tree → Prism scene graph / ECS entities
+- Texture decoding: PNG/JPEG from embedded base64 or external URIs
+- Animation import (skeletal + morph targets) — stretch goal
+- Demo scene with a glTF model (e.g., DamagedHelmet or FlightHelmet from Khronos sample models)
+- **Validates:** full asset pipeline, binary parsing, texture upload, PBR material integration
+
 ---
 
 ## 8. Decisions Made
@@ -511,3 +607,5 @@ fun main() {
 4. Add lighting + materials
 5. Wire ECS RenderSystem, render multiple entities
 6. Embed in Compose window with FPS overlay
+7. PBR sphere grid demo (varying metallic/roughness) renders correctly
+8. Load Khronos glTF sample model (e.g., DamagedHelmet) and render with PBR materials
