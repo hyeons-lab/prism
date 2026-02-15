@@ -21,18 +21,44 @@ import platform.QuartzCore.CACurrentMediaTime
 import platform.darwin.NSObject
 
 private val log = Logger.withTag("PrismIOS")
-private const val ROTATION_SPEED = PI.toFloat() / 4f
+private val rotationSpeed = PI.toFloat() / 4f
+
+private const val DEFAULT_WIDTH = 800
+private const val DEFAULT_HEIGHT = 600
 
 /**
- * Configures and returns the demo scene bound to the given [MTKView]. This is the main entry point
+ * Handle returned by [configureDemo] that manages the lifecycle of the demo scene and GPU
+ * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
+ * release the WGPU instance, adapter, device, and surface.
+ */
+class IosDemoHandle(private val iosContext: IosContext, private val scene: DemoScene) {
+  fun shutdown() {
+    log.i { "Shutting down iOS demo..." }
+    scene.shutdown()
+    iosContext.close()
+    log.i { "iOS demo shut down" }
+  }
+}
+
+/**
+ * Configures and returns an [IosDemoHandle] for the given [MTKView]. This is the main entry point
  * called from Swift via framework interop.
  *
  * After calling this, the [MTKView]'s delegate is set to a [DemoRenderDelegate] that drives the
  * render loop on each display-link callback.
+ *
+ * If the view's [drawableSize] is not yet computed (zero), safe defaults are used. The
+ * [DemoRenderDelegate] will update the aspect ratio when [mtkView(drawableSizeWillChange:)] fires
+ * with the real dimensions after layout.
  */
-suspend fun configureDemo(view: MTKView): IosContext {
-  val width = view.drawableSize.useContents { width.toInt() }
-  val height = view.drawableSize.useContents { height.toInt() }
+suspend fun configureDemo(view: MTKView): IosDemoHandle {
+  var width = view.drawableSize.useContents { width.toInt() }
+  var height = view.drawableSize.useContents { height.toInt() }
+  if (width <= 0 || height <= 0) {
+    log.w { "drawableSize not ready (${width}x${height}), using defaults" }
+    width = DEFAULT_WIDTH
+    height = DEFAULT_HEIGHT
+  }
   log.i { "Configuring demo: ${width}x${height}" }
 
   val iosContext = iosContextRenderer(view, width, height)
@@ -40,7 +66,7 @@ suspend fun configureDemo(view: MTKView): IosContext {
 
   view.delegate = DemoRenderDelegate(scene)
   log.i { "iOS demo configured — render delegate installed" }
-  return iosContext
+  return IosDemoHandle(iosContext, scene)
 }
 
 /**
@@ -60,7 +86,7 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
     lastFrameTime = now
     val elapsed = (now - startTime).toFloat()
 
-    val angle = elapsed * ROTATION_SPEED
+    val angle = elapsed * rotationSpeed
     val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
     cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
 

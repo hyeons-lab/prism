@@ -49,7 +49,41 @@ Implement iOS native support (M7) so the existing DemoScene (rotating lit cube) 
 
 ---
 
+## Session 2 — Critical Review Fixes (2026-02-15 14:30 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ios-native-support`
+
+### Intent
+Address critical review findings from self-review of PR #15. The review found 3 P0 critical issues (resource leaks, no error handling), 3 P1 issues (zero drawable size, wrong device capability, deprecated lifecycle), and 5 P2 quality issues. Created review plan at [devlog/plans/000006-02-ios-review-fixes.md](plans/000006-02-ios-review-fixes.md).
+
+### What Changed
+- **[2026-02-15 14:30 PST]** `prism-demo/src/iosMain/.../IosDemoController.kt` — Added `IosDemoHandle` class wrapping `IosContext` + `DemoScene` with `shutdown()` method. `configureDemo()` now returns `IosDemoHandle` instead of bare `IosContext`. Added fallback to 800x600 defaults if `drawableSize` is zero (not yet computed in `viewDidLoad`). Changed `ROTATION_SPEED` from `const val` to `val` (`.toFloat()` is not a compile-time constant).
+- **[2026-02-15 14:30 PST]** `ios-demo/Sources/ViewController.swift` — Store `IosDemoHandle` as property, call `shutdown()` in `deinit`. Added `showError()` method that displays a UILabel with red background when Metal or wgpu init fails. Guard Metal device creation with `showError` instead of `fatalError`.
+- **[2026-02-15 14:30 PST]** `ios-demo/Sources/Info.plist` — Fixed `armv7` → `arm64` in `UIRequiredDeviceCapabilities` (XCFramework only has arm64 slices). Added `UISupportedInterfaceOrientations~ipad` with all 4 orientations including portrait-upside-down.
+
+### Decisions
+- **[2026-02-15 14:30 PST]** **`IosDemoHandle` as lifecycle manager** — Rather than exposing `IosContext` and `DemoScene` separately to Swift, wrap both in a single handle with one `shutdown()` method. Mirrors the pattern from JVM (`scene.shutdown()` in `windowClosing`) and WASM (`scene.shutdown()` in `onBeforeUnload`).
+- **[2026-02-15 14:30 PST]** **Defer P1 #7 (UISceneDelegate modernization) to issue #16** — Using the scene delegate pattern requires restructuring both Swift files significantly. The current UIApplicationDelegate pattern works on iOS 15+ with a deprecation warning. Better to fix in a focused follow-up.
+- **[2026-02-15 14:30 PST]** **Defer P2 #8 (Compose deps in iOS binary) to issue #17** — Pre-existing issue, not introduced by this PR. Needs a source set restructuring across prism-demo.
+- **[2026-02-15 14:30 PST]** **Defer P2 #11 (rotation logic duplication) to issue #18** — Demo code duplication, not a correctness issue. Could extract `DemoScene.tick()` but that's a separate refactor.
+
+### Issues
+- **P0 #1 & #2: IosContext and DemoScene leaked** — `configureDemo()` returned `IosContext` but Swift discarded it. `DemoScene` was captured by `DemoRenderDelegate` but had no shutdown path. Fixed by adding `IosDemoHandle` with `shutdown()`, stored in ViewController, called from `deinit`.
+- **P0 #3: No error handling in Swift** — If Metal or wgpu init failed, the app either crashed (`fatalError`) or silently showed a black screen. Fixed by adding `showError()` that displays a user-visible UILabel.
+- **P1 #4: drawableSize zero at init** — `MTKView.drawableSize` may not be computed in `viewDidLoad`. Fixed by checking for zero and falling back to 800x600 defaults. `mtkView(drawableSizeWillChange:)` corrects the aspect ratio on first layout.
+- **P1 #6: armv7 in UIRequiredDeviceCapabilities** — XCFramework only contains arm64 slices; `armv7` was incorrect. Fixed to `arm64`.
+- **P1 #7: Deprecated UIWindow lifecycle** — Deferred to issue #16.
+- **P2 #8: Compose deps in iOS binary** — Deferred to issue #17.
+- **P2 #11: Rotation logic duplication** — Deferred to issue #18.
+
+### Commits
+- `ae9ce40` — fix: address critical review findings for iOS native support
+
+---
+
 ## Next Steps
 - Run `xcodegen generate` in ios-demo/ and verify Xcode build on simulator
-- Test on physical iOS device
+- #16: Modernize to UISceneDelegate lifecycle
+- #17: Move Compose deps out of commonMain
+- #18: Extract shared rotation logic to DemoScene.tick()
 - Mobile platform work: Android support (M8)
