@@ -37,7 +37,7 @@
 
 ### Pending
 - [ ] Complete RenderSurface implementations (native stubs are TODOs)
-- [ ] WASM/Canvas integration for web
+- [x] WASM/Canvas integration for web (M6 complete)
 
 ## Milestones
 
@@ -69,7 +69,14 @@
 - **Status:** Complete — same rotating cube, now driven through Engine + ECS + WgpuRenderer pipeline
 
 ### M5: Compose Integration (JVM) ⏳
-### M6: Web/WASM Support ⏳
+
+### M6: Web/WASM Support ✅
+- WASM demo entry point using canvasContextRenderer()
+- HTML Canvas with WebGPU feature detection and fallback
+- requestAnimationFrame render loop with actual deltaTime
+- Resource cleanup on error and page unload
+- **Status:** Complete — `./gradlew :prism-demo:wasmJsBrowserDevelopmentRun` renders rotating cube in browser
+
 ### M7: iOS Native Support ⏳
 ### M8: Android Support ⏳
 ### M9: PBR Materials ⏳
@@ -103,6 +110,9 @@ Run all tests: `./gradlew jvmTest`
 
 # Run demo app (JVM Desktop)
 ./gradlew :prism-demo:jvmRun
+
+# Run demo app (WASM/Browser)
+./gradlew :prism-demo:wasmJsBrowserDevelopmentRun
 ```
 
 ## Prerequisites

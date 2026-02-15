@@ -306,12 +306,12 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ Demo app: rotating lit cube via Engine + ECS + WgpuRenderer
 - ✅ Unit tests: 170 tests across prism-math (75) and prism-renderer (95)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
+- ✅ WASM/Canvas WebGPU integration (M6 complete)
 
 **What's in progress:**
 - 🚧 Platform-specific RenderSurface implementations (native stubs are TODOs)
 
 **What's next:**
-- ⏭️ WASM/Canvas integration for web
 - ⏭️ Compose Multiplatform integration
 - ⏭️ Mobile platforms (iOS/Android)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
