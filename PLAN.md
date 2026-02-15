@@ -552,11 +552,14 @@ fun main() {
 - requestAnimationFrame game loop
 - **Validates:** WASM compilation, WebGPU backend, browser compatibility
 
-### M7: iOS Native Support
-- Rotating cube renders on iOS device/simulator
-- CAMetalLayer integration
-- Touch input handling
-- **Validates:** Kotlin/Native compilation, Metal backend, iOS platform integration
+### M7: iOS Native Support ✅
+- Rotating cube renders on iOS device/simulator via MTKView + wgpu4k iosContextRenderer
+- CAMetalLayer integration via MTKViewDelegateProtocol (Kotlin/Native ObjC interop)
+- Compose iOS demo: UIKitView embedding MTKView with DemoStore MVI + Material3 UI controls
+- UISceneDelegate + UITabBarController with Native and Compose demo tabs
+- XCFramework (iosArm64 + iosSimulatorArm64) built via Gradle, Xcode project via xcodegen
+- Shared DemoScene.tick() deduplicating rotation logic across GLFW, WASM, and iOS
+- **Validates:** Kotlin/Native compilation, Metal backend, iOS platform integration, Compose Multiplatform iOS interop
 
 ### M8: Android Support
 - PanamaPort integration for FFI support

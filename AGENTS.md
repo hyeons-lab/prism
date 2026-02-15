@@ -42,6 +42,10 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 # Build demo for specific platform
 ./gradlew :prism-demo:jvmJar            # JVM executable JAR
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
+./gradlew assemblePrismDemoReleaseXCFramework     # iOS XCFramework
+
+# Generate Xcode project (requires xcodegen: brew install xcodegen)
+cd ios-demo && xcodegen generate
 
 # Full CI quality check
 ./gradlew ktfmtCheck detektJvmMain jvmTest
@@ -171,7 +175,9 @@ module-name/src/
 - **JVM Desktop (GLFW)**: GLFW windowing (via wgpu4k's glfw-native) with Metal (macOS), Vulkan/DX12 (Windows/Linux)
 - **JVM Desktop (Compose)**: AWT Canvas embedded via SwingPanel, wgpu surface from native handle, Compose `withFrameNanos` render loop
 - **Web/WASM**: HTML Canvas with WebGPU API, requestAnimationFrame game loop
-- **iOS/macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop)
+- **iOS Native (MTKView)**: MTKView + MTKViewDelegateProtocol via Kotlin/Native ObjC interop, wgpu4k `iosContextRenderer`
+- **iOS Compose**: UIKitView embedding MTKView in Compose hierarchy, DemoStore MVI with Material3 controls
+- **macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop, planned)
 - **Android**: SurfaceView with Vulkan backend, PanamaPort for FFI (planned)
 - **Linux/Windows Native**: Native windowing with Vulkan/DX12 (planned)
 
@@ -306,7 +312,7 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Current Project Status
 
-**Phase:** Compose integration complete (M5), renderer mature
+**Phase:** iOS native support complete (M7), all major platforms rendering
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -326,12 +332,16 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo (8)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
+- ✅ iOS native rendering via MTKView + wgpu4k iosContextRenderer (M7 complete)
+- ✅ iOS Compose demo: UIKitView embedding MTKView with DemoStore MVI + Material3 controls
+- ✅ iOS app with UITabBarController: Native (MTKView) + Compose tabs
+- ✅ Shared DemoScene.tick() deduplicating rotation logic across all platforms
 
 **What's in progress:**
 - 🚧 Platform-specific RenderSurface implementations (Windows/Linux surfaces untested)
 
 **What's next:**
-- ⏭️ Mobile platforms (iOS/Android)
+- ⏭️ Android support (M8)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
 - ⏭️ Flutter integration (PrismBridge, platform plugins, rendering surface)
