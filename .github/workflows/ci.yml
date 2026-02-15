@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Build & Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache wgpu4k Maven Local
+        id: cache-wgpu4k
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/io/ygdrasil
+          key: wgpu4k-${{ hashFiles('gradle/libs.versions.toml') }}
+
+      - name: Build wgpu4k from source
+        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
+        timeout-minutes: 15
+        run: |
+          git clone --depth 1 https://github.com/wgpu4k/wgpu4k.git /tmp/wgpu4k
+          cd /tmp/wgpu4k
+          ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
+
+      - name: Check formatting
+        run: ./gradlew ktfmtCheck
+
+      - name: Static analysis
+        run: ./gradlew detektMetadataCommonMain detektJvmMain
+
+      - name: Compile
+        run: ./gradlew compileKotlinJvm
+
+      - name: Test
+        run: ./gradlew jvmTest
