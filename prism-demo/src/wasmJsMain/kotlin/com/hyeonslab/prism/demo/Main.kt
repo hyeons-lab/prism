@@ -37,8 +37,8 @@ import web.html.HTMLCanvasElement
 )
 private external fun getCanvasById(id: String): HTMLCanvasElement?
 
-@JsFun("(callback) => requestAnimationFrame(callback)")
-private external fun requestAnimationFrame(callback: () -> Unit): JsAny
+@JsFun("(callback) => requestAnimationFrame((timestamp) => callback(timestamp))")
+private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
 
 @JsFun("() => performance.now()") private external fun performanceNow(): Double
 
@@ -104,6 +104,15 @@ fun main() {
       MaterialComponent(material = Material(baseColor = Color(0.3f, 0.5f, 0.9f))),
     )
 
+    var running = true
+
+    onBeforeUnload {
+      if (!running) return@onBeforeUnload
+      running = false
+      world.shutdown()
+      engine.shutdown()
+    }
+
     world.initialize()
     log.i { "WebGPU initialized — starting render loop" }
 
@@ -111,15 +120,13 @@ fun main() {
     val rotationSpeed = PI.toFloat() / 4f
     var frameCount = 0L
     var lastFrameTime = startTime
-    var running = true
 
-    fun renderFrame() {
+    fun renderFrame(timestamp: Double) {
       if (!running) return
       try {
-        val now = performanceNow()
-        val deltaTime = ((now - lastFrameTime) / 1000.0).toFloat()
-        lastFrameTime = now
-        val elapsed = ((now - startTime) / 1000.0).toFloat()
+        val deltaTime = ((timestamp - lastFrameTime) / 1000.0).toFloat()
+        lastFrameTime = timestamp
+        val elapsed = ((timestamp - startTime) / 1000.0).toFloat()
         val angle = elapsed * rotationSpeed
 
         val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
@@ -131,7 +138,7 @@ fun main() {
         val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
         world.update(time)
 
-        requestAnimationFrame { renderFrame() }
+        requestAnimationFrame(::renderFrame)
       } catch (e: Throwable) {
         running = false
         world.shutdown()
@@ -141,13 +148,6 @@ fun main() {
       }
     }
 
-    onBeforeUnload {
-      if (!running) return@onBeforeUnload
-      running = false
-      world.shutdown()
-      engine.shutdown()
-    }
-
-    requestAnimationFrame { renderFrame() }
+    requestAnimationFrame(::renderFrame)
   }
 }

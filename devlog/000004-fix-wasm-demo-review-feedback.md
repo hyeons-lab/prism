@@ -46,3 +46,21 @@ PR #5 and PR #6 are merged to main. The devlog was missing the final commit hash
 ### Commits
 
 - `ddd21cd` — docs: update devlog and status docs for merged WASM PRs
+
+---
+
+## Session 3 — Address PR #6 Copilot review feedback (2026-02-15 10:30 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `fix/wasm-demo-review-feedback`
+
+### Intent
+
+Address 2 Copilot review comments on PR #6: use `requestAnimationFrame` timestamp parameter instead of separate `performanceNow()` call, and register `onBeforeUnload` earlier to cover initialization failures.
+
+### What Changed
+
+- **[2026-02-15 10:30 PST]** `prism-demo/src/wasmJsMain/kotlin/.../Main.kt` — Changed `requestAnimationFrame` signature from `(() -> Unit)` to `((Double) -> Unit)` to receive the DOMHighResTimeStamp. Updated JS bridge to forward the timestamp: `(callback) => requestAnimationFrame((timestamp) => callback(timestamp))`. Updated `renderFrame()` to accept `timestamp: Double` parameter and use it directly instead of calling `performanceNow()`. Changed callback from lambda `{ renderFrame() }` to function reference `::renderFrame`. Moved `onBeforeUnload` registration before `world.initialize()` so cleanup is registered even if initialization fails.
+
+### Commits
+
+- `a1c7070` — fix: use requestAnimationFrame timestamp and register cleanup earlier
