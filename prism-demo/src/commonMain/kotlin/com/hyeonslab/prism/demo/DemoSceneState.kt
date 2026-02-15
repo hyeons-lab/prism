@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.demo
 
+import androidx.compose.runtime.Stable
 import com.hyeonslab.prism.core.Store
 import com.hyeonslab.prism.renderer.Color
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ sealed interface DemoIntent {
  * MVI store for the demo scene. Holds the current [DemoUiState] and processes [DemoIntent]s through
  * a pure reduce function.
  */
+@Stable
 class DemoStore : Store<DemoUiState, DemoIntent> {
   private val _state = MutableStateFlow(DemoUiState())
   override val state: StateFlow<DemoUiState> = _state.asStateFlow()

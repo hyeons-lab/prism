@@ -269,8 +269,13 @@ class PrismPanel : Canvas() {
       log.d { "NSView resolved via AWT reflection: 0x${nsViewPtr.toString(16)}" }
       return nsViewPtr
     } catch (e: Exception) {
+      val jdkVersion = System.getProperty("java.version", "unknown")
       throw IllegalStateException(
-        "Failed to extract NSView pointer via AWT reflection. " +
+        "Failed to extract NSView pointer via AWT reflection (JDK $jdkVersion). " +
+          "This reflection path depends on OpenJDK internal classes " +
+          "(sun.lwawt.LWComponentPeer, sun.lwawt.macosx.CPlatformWindow/CPlatformView) " +
+          "and has been tested on JDK 21–25. If you are on a different JDK version, " +
+          "the internal class hierarchy may have changed. " +
           "Ensure JVM is launched with: " +
           "--add-opens=java.desktop/java.awt=ALL-UNNAMED " +
           "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED " +
