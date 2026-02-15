@@ -363,16 +363,23 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 ### When to Create/Update
 
-- **Start of each working session:** Create today's devlog file if it doesn't exist, or add a new `## Session` header to the existing file
+- **Start of each working session:** Create the branch's devlog file if it doesn't exist, or add a new `## Session` header to the existing file
 - **During work:** Update the current session as you make changes, decisions, or discoveries
-- **New day = new file.** New session on same day = new `## Session N` header in the same file.
+- **One file per branch.** New session on same branch = new `## Session N` header in the same file.
+- **Main is protected** — all work goes through PRs. Devlogs are created on feature branches and arrive on main via merge.
 
 ### File Naming
 
-Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
-- Example: `devlog/2026-02-14.md`
-- Multiple sessions in one day use `## Session N — Topic` headers within the file
-- Files sort chronologically by default
+Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
+- `NNNNNN` is a zero-padded 6-digit sequence number for chronological ordering
+- `<branch-name>` is the Git branch name with `/` replaced by `-`
+- Examples: `devlog/000001-initial-scaffolding.md`, `devlog/000012-feat-pbr-materials.md`
+- Multiple sessions on the same branch use `## Session N — Topic` headers within the file
+
+**Assigning the sequence number:**
+1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
+2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
+3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
 
 ### What to Log
 
@@ -386,12 +393,12 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
 - **Lessons Learned:** Reusable insights from this session — patterns that worked well, pitfalls to avoid, API quirks discovered, or conventions established. If nothing new was learned, leave this section empty or omit it. These should be things a future session would benefit from knowing.
 - **Commits:** List commit hashes and messages created during the session
 
-**End-of-day section** (at the bottom of the file):
+**End-of-file section** (at the bottom of the file, optional for single-session branches):
 - **Next Steps:** What's left or what to pick up next (shared across sessions)
 
 ### Guidelines
 
-- **One file per day** — All sessions for a given day go in one file. Don't create separate files for each conversation.
+- **One file per branch** — All sessions for a given branch go in one file. Don't create separate files for each conversation.
 - **Keep it narrative** — Write for a human reading the timeline, not just a machine-parsable log
 - **Track "why" not just "what"** — Capture reasoning behind decisions, not just file diffs
 - **Update as you go — CRITICAL** — The devlog is a living document. Update it automatically after each significant change:
@@ -410,14 +417,14 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
   - What approach you used instead
 
   Failed attempts are valuable knowledge.
-- **Append-only editing** — When updating existing session entries, **only add new information**. Never delete or overwrite content written by a previous session or agent. You may update lines within your own current session to reflect the final state (e.g., correcting a "What Changed" entry you wrote minutes ago), but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
+- **Append-only across sessions** — You may freely update entries within your own current session, but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
 
 ### Example Structure
 
 ```markdown
-# YYYY-MM-DD
+# NNNNNN-branch-name
 
-## Session 1 — Topic (HH:MM TZ, model-name)
+## Session 1 — Topic (YYYY-MM-DD HH:MM TZ, model-name)
 
 **Agent:** Claude Code (model-id) @ `repository` branch `branch-name`
 
@@ -444,7 +451,7 @@ Format: `devlog/YYYY-MM-DD.md` — **one file per day**.
 
 ---
 
-## Session 2 — Another Topic (HH:MM TZ, model-name)
+## Session 2 — Another Topic (YYYY-MM-DD HH:MM TZ, model-name)
 ...
 
 ---
