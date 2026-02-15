@@ -25,7 +25,7 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew ktfmtFormat
 
 # Check formatting + static analysis
-./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain
+./gradlew ktfmtCheck detektJvmMain
 
 # Run tests
 ./gradlew test                          # All tests
@@ -44,7 +44,7 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
 
 # Full CI quality check
-./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain jvmTest
+./gradlew ktfmtCheck detektJvmMain jvmTest
 
 # Check Gradle dependencies
 ./gradlew dependencies --configuration commonMainCompileClasspath

@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
   jvmToolchain(25)
-  jvm { mainRun { mainClass.set("engine.prism.demo.GlfwMainKt") } }
+  jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
   iosArm64()
   iosSimulatorArm64()
   macosArm64()

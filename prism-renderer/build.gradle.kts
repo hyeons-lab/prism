@@ -1,4 +1,7 @@
-plugins { alias(libs.plugins.kotlin.multiplatform) }
+plugins {
+  alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.maven.publish)
+}
 
 kotlin {
   jvm()
@@ -30,5 +33,13 @@ kotlin {
   compilerOptions {
     allWarningsAsErrors.set(true)
     freeCompilerArgs.add("-Xexpect-actual-classes")
+  }
+}
+
+mavenPublishing {
+  publishToMavenCentral()
+  signAllPublications()
+  pom {
+    description.set("Rendering abstractions and wgpu4k-based WebGPU renderer for the Prism engine")
   }
 }

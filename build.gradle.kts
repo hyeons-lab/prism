@@ -30,10 +30,12 @@ subprojects {
     }
 
     afterEvaluate {
+        // Only wire JVM and WASM detekt tasks into check — metadata tasks fail on JDK 25
+        // because detekt's embedded Kotlin compiler doesn't support it as a host runtime.
+        // detektJvmMain includes commonMain sources transitively, so coverage is preserved.
         val detektTasks =
             tasks.matching {
-                (it.name.startsWith("detektMetadata") || it.name.startsWith("detektJvm") ||
-                    it.name.startsWith("detektWasmJs")) &&
+                (it.name.startsWith("detektJvm") || it.name.startsWith("detektWasmJs")) &&
                     it.name.endsWith("Main")
             }
         if (detektTasks.isNotEmpty()) {

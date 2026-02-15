@@ -1,4 +1,7 @@
-plugins { alias(libs.plugins.kotlin.multiplatform) }
+plugins {
+  alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.maven.publish)
+}
 
 kotlin {
   jvm()
@@ -25,4 +28,14 @@ kotlin {
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }
+}
+
+mavenPublishing {
+  publishToMavenCentral()
+  signAllPublications()
+  pom {
+    description.set(
+      "Scene graph with node hierarchy, cameras, meshes, and lights for the Prism engine"
+    )
+  }
 }

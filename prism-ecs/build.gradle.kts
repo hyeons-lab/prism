@@ -1,4 +1,7 @@
-plugins { alias(libs.plugins.kotlin.multiplatform) }
+plugins {
+  alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.maven.publish)
+}
 
 kotlin {
   jvm()
@@ -27,5 +30,15 @@ kotlin {
   compilerOptions {
     allWarningsAsErrors.set(true)
     freeCompilerArgs.add("-Xexpect-actual-classes")
+  }
+}
+
+mavenPublishing {
+  publishToMavenCentral()
+  signAllPublications()
+  pom {
+    description.set(
+      "Entity-Component-System framework with queries and built-in components for the Prism engine"
+    )
   }
 }
