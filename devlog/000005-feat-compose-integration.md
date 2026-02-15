@@ -64,6 +64,7 @@ Implement true embedded 3D rendering inside a Compose Desktop window on JVM usin
 - ECS `Entity` is `data class Entity(val id: UInt)`, not `Long` — always import and use the proper type.
 
 ### Commits
+- `6fd72c8` — feat: add Compose Desktop integration with embedded 3D rendering (Sessions 1–7 squashed)
 
 ---
 
@@ -125,6 +126,7 @@ Critical review of the Compose integration branch: verify architecture, FFI corr
 - `WGPUContext.close()` calls `wgpuSurfaceRelease`, `wgpuAdapterRelease`, `wgpuDeviceRelease` but NOT `renderingContext.close()` (upstream bug). Safe for us since AwtRenderingContext.close() is a no-op.
 
 ### Commits
+- Part of `6fd72c8`
 
 ---
 
@@ -157,6 +159,7 @@ Address remaining review feedback: extract shared DemoScene factory, refactor co
 - Detekt false positive: `UnreachableCode` triggered on code after try-catch where catch branches throw. Suppressed with annotation on `extractX11DisplayPointer()`.
 
 ### Commits
+- Part of `6fd72c8`
 
 ---
 
@@ -208,7 +211,7 @@ Fix the Compose Desktop demo which failed to render on macOS due to a fundamenta
 - AWT reflection for native handles is fragile but is the only way to avoid `-XstartOnFirstThread` on macOS for JNA-based handle extraction.
 
 ### Commits
-- Commits from Session 5 are part of PR #7
+- Part of `6fd72c8`
 
 ---
 
@@ -256,7 +259,7 @@ Fix the inverted resize behavior in the Compose demo: when the user narrows the 
 - CALayer frame changes need `CATransaction.setDisableActions(true)` to avoid laggy 0.25s animated transitions during resize.
 
 ### Commits
-- (pending)
+- Part of `6fd72c8`
 
 ---
 
@@ -285,7 +288,7 @@ Address PR #7 review feedback: null checks, render loop pacing, EDT safety, `col
 - Compose's `withFrameNanos` (inside a `LaunchedEffect` coroutine) is the preferred render loop mechanism — it automatically synchronizes with the display refresh rate and handles suspend/resume correctly.
 
 ### Commits
-- (pending)
+- Part of `6fd72c8`
 
 ---
 
@@ -326,7 +329,7 @@ Refactor all prism-compose composables to follow the MVI (Model-View-Intent) pat
 - The `Store<State, Event>` interface enables consistent MVI across all modules — any composable can accept `store.state` + `store::dispatch` without knowing the concrete store type.
 
 ### Commits
-- (pending)
+- `84a6952` — refactor: MVI architecture for Compose layer with lifecycle-aware state
 
 ---
 
@@ -364,12 +367,16 @@ Fix 5 issues identified during critical review of the MVI refactor, then migrate
 - Always use `map {}` + `distinctUntilChanged()` when a composable only needs a subset of a StateFlow's state — collecting the full state triggers unnecessary recomposition.
 - Library modules that use `collectAsStateWithLifecycle` must include both `lifecycle-runtime-compose` and the platform-specific coroutines module (`kotlinx-coroutines-swing` for JVM Desktop).
 
+**PR review feedback (round 2):**
+- **[2026-02-15 12:49 PST]** `prism-demo/.../DemoSceneState.kt` — Added `@Stable` annotation to `DemoStore` (same rationale as EngineStore — holds `MutableStateFlow` internally).
+- **[2026-02-15 12:49 PST]** `prism-native-widgets/.../PrismPanel.kt` — Enhanced AWT reflection error message to include JDK version (`System.getProperty("java.version")`) and tested range (JDK 21–25) for easier debugging on untested JDK versions.
+
 ### Commits
-- (pending)
+- `84a6952` — refactor: MVI architecture for Compose layer with lifecycle-aware state
+- `5296cc2` — fix: address PR #7 review feedback
 
 ---
 
 ## Next Steps
 - Test: `./gradlew :prism-demo:runCompose` — verify all changes work at runtime
-- Commit and update PR #7
 - Future: Implement Flutter integration (M11) after mobile platform support is complete
