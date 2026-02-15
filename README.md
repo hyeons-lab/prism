@@ -93,7 +93,7 @@ cd prism
 | JVM Desktop (macOS) | Metal via wgpu4k + GLFW | Working |
 | JVM Desktop (Linux) | Vulkan via wgpu4k + GLFW | Planned |
 | JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
-| Web (WASM/JS) | WebGPU | In Progress |
+| Web (WASM/JS) | WebGPU | Working |
 | iOS | Metal (C-interop) | Planned |
 | Android | Vulkan (PanamaPort) | Planned |
 | macOS Native | Metal (C-interop) | Planned |
@@ -107,7 +107,7 @@ cd prism
 | M3 | Lit cube with materials | Done |
 | M4 | ECS-driven rendering | Done |
 | M5 | Compose integration (JVM) | Planned |
-| M6 | Web/WASM support | In Progress |
+| M6 | Web/WASM support | Done |
 | M7 | iOS native support | Planned |
 | M8 | Android support | Planned |
 | M9 | PBR materials | Planned |
