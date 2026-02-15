@@ -54,7 +54,7 @@ Prism depends on wgpu4k 0.2.0-SNAPSHOT (commit `3fc6e327`), which must be built 
 ```bash
 git clone https://github.com/wgpu4k/wgpu4k.git
 cd wgpu4k
-git checkout 3fc6e327
+git checkout 3fc6e3297fee6b558efc6dcb29aec1a6629b0e90
 ./gradlew publishToMavenLocal
 ```
 

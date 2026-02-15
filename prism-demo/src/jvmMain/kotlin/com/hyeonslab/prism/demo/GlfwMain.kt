@@ -24,8 +24,10 @@ import org.lwjgl.glfw.GLFW.glfwPollEvents
 import org.lwjgl.glfw.GLFW.glfwShowWindow
 import org.lwjgl.glfw.GLFW.glfwWindowShouldClose
 
+private val log = Logger.withTag("Prism")
+
 fun main() = runBlocking {
-  Logger.i("Prism") { "Starting Prism GLFW Demo..." }
+  log.i { "Starting Prism GLFW Demo..." }
   LibraryLoader.load()
 
   val glfwContext = glfwContextRenderer(width = 800, height = 600, title = "Prism Demo")
@@ -66,7 +68,7 @@ fun main() = runBlocking {
   world.initialize()
 
   glfwShowWindow(glfwContext.windowHandler)
-  Logger.i("Prism") { "Window opened — entering render loop" }
+  log.i { "Window opened — entering render loop" }
 
   val startTime = System.nanoTime()
   val rotationSpeed = PI.toFloat() / 4f
@@ -89,7 +91,7 @@ fun main() = runBlocking {
     world.update(time)
   }
 
-  Logger.i("Prism") { "Shutting down..." }
+  log.i { "Shutting down..." }
   world.shutdown()
   engine.shutdown()
 }

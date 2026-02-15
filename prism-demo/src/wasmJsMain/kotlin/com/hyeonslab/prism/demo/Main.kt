@@ -37,10 +37,8 @@ import web.html.HTMLCanvasElement
 )
 private external fun getCanvasById(id: String): HTMLCanvasElement?
 
-@JsFun("(callback, interval) => setInterval(callback, interval)")
-private external fun setInterval(callback: () -> Unit, interval: Int): JsAny
-
-@JsFun("(id) => clearInterval(id)") private external fun clearInterval(id: JsAny)
+@JsFun("(callback) => requestAnimationFrame(callback)")
+private external fun requestAnimationFrame(callback: () -> Unit): JsAny
 
 @JsFun("() => performance.now()") private external fun performanceNow(): Double
 
@@ -58,12 +56,17 @@ private external fun setInterval(callback: () -> Unit, interval: Int): JsAny
 )
 private external fun showError(message: String)
 
+@JsFun("(callback) => window.addEventListener('beforeunload', callback)")
+private external fun onBeforeUnload(callback: () -> Unit)
+
+private val log = Logger.withTag("Prism")
+
 @OptIn(DelicateCoroutinesApi::class)
 fun main() {
-  Logger.i("Prism") { "Starting Prism WebGPU Demo..." }
+  log.i { "Starting Prism WebGPU Demo..." }
 
   val handler = CoroutineExceptionHandler { _, throwable ->
-    Logger.e("Prism", throwable) { "Fatal error: ${throwable.message}" }
+    log.e(throwable) { "Fatal error: ${throwable.message}" }
     showError(throwable.message ?: "Unknown error")
   }
 
@@ -102,35 +105,49 @@ fun main() {
     )
 
     world.initialize()
-    Logger.i("Prism") { "WebGPU initialized — starting render loop" }
+    log.i { "WebGPU initialized — starting render loop" }
 
     val startTime = performanceNow()
     val rotationSpeed = PI.toFloat() / 4f
     var frameCount = 0L
-    var intervalId: JsAny? = null
+    var lastFrameTime = startTime
+    var running = true
 
-    intervalId =
-      setInterval(
-        {
-          try {
-            val elapsed = ((performanceNow() - startTime) / 1000.0).toFloat()
-            val angle = elapsed * rotationSpeed
+    fun renderFrame() {
+      if (!running) return
+      try {
+        val now = performanceNow()
+        val deltaTime = ((now - lastFrameTime) / 1000.0).toFloat()
+        lastFrameTime = now
+        val elapsed = ((now - startTime) / 1000.0).toFloat()
+        val angle = elapsed * rotationSpeed
 
-            val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
-            if (cubeTransform != null) {
-              cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-            }
+        val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
+        if (cubeTransform != null) {
+          cubeTransform.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
+        }
 
-            frameCount++
-            val time = Time(deltaTime = 1f / 60f, totalTime = elapsed, frameCount = frameCount)
-            world.update(time)
-          } catch (e: Throwable) {
-            intervalId?.let { clearInterval(it) }
-            Logger.e("Prism", e) { "Render loop error: ${e.message}" }
-            showError(e.message ?: "Render loop error")
-          }
-        },
-        16,
-      )
+        frameCount++
+        val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
+        world.update(time)
+
+        requestAnimationFrame { renderFrame() }
+      } catch (e: Throwable) {
+        running = false
+        world.shutdown()
+        engine.shutdown()
+        log.e(e) { "Render loop error: ${e.message}" }
+        showError(e.message ?: "Render loop error")
+      }
+    }
+
+    onBeforeUnload {
+      if (!running) return@onBeforeUnload
+      running = false
+      world.shutdown()
+      engine.shutdown()
+    }
+
+    requestAnimationFrame { renderFrame() }
   }
 }
