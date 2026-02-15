@@ -209,7 +209,7 @@ prism-demo
 - **Serialization:** kotlinx-serialization 1.9.0
 - **I/O:** kotlinx-io 0.8.2
 - **Logging:** Kermit 2.0.8
-- **Testing:** Kotest 6.0.7
+- **Testing:** kotlin.test + Kotest 6.0.7 assertions (shouldBe, shouldContain, plusOrMinus, etc.)
 
 ### SDK Versions (Android)
 - minSdk: 31 (Android 8.0+)
@@ -290,7 +290,7 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Current Project Status
 
-**Phase:** Build system setup (Phase 1, mostly complete)
+**Phase:** Renderer implementation (Phase 2, mostly complete)
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -300,19 +300,22 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ Input event system (interfaces defined)
 - ✅ Asset management (interfaces defined)
 - ✅ wgpu4k integration in prism-renderer module
+- ✅ WgpuRenderer with WGSL shaders, depth testing, lighting
+- ✅ GLFW windowing on JVM Desktop (macOS Metal)
+- ✅ ECS-driven rendering pipeline (M4 complete)
+- ✅ Demo app: rotating lit cube via Engine + ECS + WgpuRenderer
+- ✅ Unit tests: 170 tests across prism-math (75) and prism-renderer (95)
+- ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 
 **What's in progress:**
-- 🚧 WgpuRenderer implementation (Phase 2)
-- 🚧 WGSL shader library
-- 🚧 Platform-specific RenderSurface implementations
-- 🚧 Demo app with rotating cube
+- 🚧 Platform-specific RenderSurface implementations (native stubs are TODOs)
 
 **What's next:**
-- ⏭️ Complete WgpuRenderer core (beginFrame, endFrame, draw commands)
-- ⏭️ GLFW window integration for JVM Desktop
 - ⏭️ WASM/Canvas integration for web
 - ⏭️ Compose Multiplatform integration
 - ⏭️ Mobile platforms (iOS/Android)
+- ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
+- ⏭️ glTF 2.0 asset loading
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
@@ -325,7 +328,7 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 3. **Implement:** Add platform-specific `actual` implementations
 4. **Test:** Write tests in `commonTest` and platform-specific test sources
 5. **Format:** Run `./gradlew ktfmtFormat`
-6. **Validate:** Run `./gradlew ktfmtCheck detekt test`
+6. **Validate:** Run `./gradlew ktfmtCheck detektJvmMain jvmTest`
 7. **Commit:** Use conventional commit format
 8. **PR:** Match PR description to commit body
 
