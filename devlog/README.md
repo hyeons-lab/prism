@@ -21,10 +21,9 @@ Format: `NNNNNN-<branch-name>.md` — **one file per branch**.
 
 ### Assigning the sequence number
 
-1. Before merging your PR, rebase onto main (required by branch protection)
-2. Check the highest existing number in `devlog/`
-3. Use the next number for your file
-4. This is safe because branches must be up-to-date with main before merging
+1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
+2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
+3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
 
 ## Reading the Log
 

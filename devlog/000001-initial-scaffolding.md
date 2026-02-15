@@ -1,4 +1,4 @@
-# 2026-02-14
+# 000001-initial-scaffolding
 
 ## Session 1 — Project Scaffolding (10:00 PST, sonnet-4-5)
 

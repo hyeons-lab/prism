@@ -366,6 +366,7 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 - **Start of each working session:** Create the branch's devlog file if it doesn't exist, or add a new `## Session` header to the existing file
 - **During work:** Update the current session as you make changes, decisions, or discoveries
 - **One file per branch.** New session on same branch = new `## Session N` header in the same file.
+- **Main is protected** — all work goes through PRs. Devlogs are created on feature branches and arrive on main via merge.
 
 ### File Naming
 
@@ -376,10 +377,9 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
 - Multiple sessions on the same branch use `## Session N — Topic` headers within the file
 
 **Assigning the sequence number:**
-1. Before merging your PR, rebase onto main (required by branch protection)
-2. Check the highest existing number in `devlog/`
-3. Use the next number for your file
-4. This is safe because branches must be up-to-date with main before merging
+1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
+2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
+3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
 
 ### What to Log
 
@@ -393,7 +393,7 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
 - **Lessons Learned:** Reusable insights from this session — patterns that worked well, pitfalls to avoid, API quirks discovered, or conventions established. If nothing new was learned, leave this section empty or omit it. These should be things a future session would benefit from knowing.
 - **Commits:** List commit hashes and messages created during the session
 
-**End-of-file section** (at the bottom of the file):
+**End-of-file section** (at the bottom of the file, optional for single-session branches):
 - **Next Steps:** What's left or what to pick up next (shared across sessions)
 
 ### Guidelines
@@ -417,7 +417,7 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
   - What approach you used instead
 
   Failed attempts are valuable knowledge.
-- **Append-only editing** — When updating existing session entries, **only add new information**. Never delete or overwrite content written by a previous session or agent. You may update lines within your own current session to reflect the final state (e.g., correcting a "What Changed" entry you wrote minutes ago), but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
+- **Append-only across sessions** — You may freely update entries within your own current session, but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
 
 ### Example Structure
 
@@ -451,7 +451,7 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
 
 ---
 
-## Session 2 — Another Topic (HH:MM TZ, model-name)
+## Session 2 — Another Topic (YYYY-MM-DD HH:MM TZ, model-name)
 ...
 
 ---
