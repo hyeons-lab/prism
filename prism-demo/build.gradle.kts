@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.kotlin.compose)
@@ -7,9 +9,16 @@ plugins {
 kotlin {
   jvmToolchain(25)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
-  iosArm64()
-  iosSimulatorArm64()
   macosArm64()
+
+  val xcf = XCFramework("PrismDemo")
+  listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+    target.binaries.framework {
+      baseName = "PrismDemo"
+      isStatic = true
+      xcf.add(this)
+    }
+  }
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
   wasmJs {
