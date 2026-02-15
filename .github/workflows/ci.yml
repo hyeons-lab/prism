@@ -30,35 +30,116 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          add-job-summary: always
+
+      - name: Get wgpu4k version
+        id: wgpu4k-version
+        run: |
+          VERSION=$(grep '^wgpu4k ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          COMMIT=$(grep '^wgpu4kCommit' gradle/libs.versions.toml | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$VERSION" ] || [ -z "$COMMIT" ]; then
+            echo "::error::Failed to extract wgpu4k version/commit from libs.versions.toml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "wgpu4k version: $VERSION @ $COMMIT"
 
       - name: Cache wgpu4k Maven Local
         id: cache-wgpu4k
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository/io/ygdrasil
-          key: wgpu4k-${{ hashFiles('gradle/libs.versions.toml') }}
+          key: wgpu4k-${{ runner.os }}-${{ steps.wgpu4k-version.outputs.commit }}
+
+      - name: Set up Rust toolchain
+        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust toolchain
+        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: wgpu4k-rust
 
       - name: Build wgpu4k from source
         if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
         timeout-minutes: 15
+        env:
+          WGPU4K_COMMIT: ${{ steps.wgpu4k-version.outputs.commit }}
         run: |
-          git clone --depth 1 https://github.com/wgpu4k/wgpu4k.git /tmp/wgpu4k
+          CLONE_START=$SECONDS
+          git init /tmp/wgpu4k
           cd /tmp/wgpu4k
+          git remote add origin https://github.com/wgpu4k/wgpu4k.git
+          git fetch --depth 1 origin "$WGPU4K_COMMIT"
+          git checkout FETCH_HEAD
+          CLONE_TIME=$((SECONDS - CLONE_START))
+
+          BUILD_START=$SECONDS
           ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
+          BUILD_TIME=$((SECONDS - BUILD_START))
 
-      - name: Check formatting
-        run: ./gradlew ktfmtCheck
+          TOTAL_TIME=$((SECONDS - CLONE_START))
+          ARTIFACT_COUNT=$(find ~/.m2/repository/io/ygdrasil -type f | wc -l)
+          ARTIFACT_SIZE=$(du -sh ~/.m2/repository/io/ygdrasil | cut -f1)
 
-      - name: Static analysis
-        run: ./gradlew detektMetadataCommonMain detektJvmMain
+          echo "### wgpu4k Build" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Clone time | ${CLONE_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Build time | ${BUILD_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Total time | ${TOTAL_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifacts | ${ARTIFACT_COUNT} files (${ARTIFACT_SIZE}) |" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Compile
-        run: ./gradlew compileKotlinJvm
+      - name: Cache status diagnostics
+        env:
+          WGPU4K_VERSION: ${{ steps.wgpu4k-version.outputs.version }}
+          WGPU4K_COMMIT: ${{ steps.wgpu4k-version.outputs.commit }}
+          CACHE_HIT: ${{ steps.cache-wgpu4k.outputs.cache-hit }}
+        run: |
+          echo "### Cache Status" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Key | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| wgpu4k version | ${WGPU4K_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| wgpu4k commit | \`${WGPU4K_COMMIT}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cache key | \`wgpu4k-${RUNNER_OS}-${WGPU4K_COMMIT}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cache hit | ${CACHE_HIT} |" >> "$GITHUB_STEP_SUMMARY"
+          if [ -d ~/.m2/repository/io/ygdrasil ]; then
+            SIZE=$(du -sh ~/.m2/repository/io/ygdrasil | cut -f1)
+            echo "| Artifact size | ${SIZE} |" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      - name: Test
-        run: ./gradlew jvmTest
+      - name: Check formatting & static analysis
+        run: |
+          START=$SECONDS
+          ./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain --configuration-cache-problems=warn || EXIT=$?
+          echo "### Lint & Analysis: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          exit ${EXIT:-0}
+
+      - name: Compile & test
+        run: |
+          START=$SECONDS
+          ./gradlew jvmTest --configuration-cache-problems=warn || EXIT=$?
+          echo "### Compile & Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          exit ${EXIT:-0}
+
+      - name: Gradle build cache diagnostics
+        if: always()
+        run: |
+          echo "### Gradle Build Cache" >> "$GITHUB_STEP_SUMMARY"
+          CACHE_DIR=~/.gradle/caches/build-cache-1
+          if [ -d "$CACHE_DIR" ]; then
+            ENTRY_COUNT=$(find "$CACHE_DIR" -type f | wc -l)
+            CACHE_SIZE=$(du -sh "$CACHE_DIR" | cut -f1)
+            echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Entries | ${ENTRY_COUNT} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Size | ${CACHE_SIZE} |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No local build cache directory found." >> "$GITHUB_STEP_SUMMARY"
+          fi

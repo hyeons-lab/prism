@@ -10,6 +10,7 @@ kotest = "6.0.7"
 ktfmt = "0.25.0"
 detekt = "1.23.8"
 wgpu4k = "0.2.0-SNAPSHOT"
+wgpu4kCommit = "3fc6e3297fee6b558efc6dcb29aec1a6629b0e90"
 mavenPublish = "0.36.0"
 
 # SDK versions
