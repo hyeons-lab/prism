@@ -86,7 +86,22 @@ Fix the fundamental flaw in the release workflow: SPM resolves `Package.swift` f
 - SPM binary target resolution reads Package.swift from the **tagged commit** for version-based deps. The tag must point to a commit where Package.swift already has the correct URL/checksum. Any workflow that creates the tag before knowing the checksum is fundamentally broken for version-based SPM.
 
 ### Commits
-- (pending) — fix: use workflow_dispatch for release to fix SPM version resolution
+- `15075f5` — fix: use workflow_dispatch for release to fix SPM version resolution
+
+---
+
+## Session 4 — Simplify devlog convention (2026-02-16 08:40 PST, claude-opus-4-6)
+
+### Intent
+Reduce devlog instructions in AGENTS.md from ~145 inline lines to a concise ~40-line dedicated file.
+
+### What Changed
+- **[2026-02-16 08:40 PST]** `DEVLOG.md` — New file with concise devlog convention (~40 lines): formats, per-session sections, rules
+- **[2026-02-16 08:40 PST]** `AGENTS.md` — Replaced ~145-line inline devlog section with 1-line reference to DEVLOG.md
+- **[2026-02-16 08:40 PST]** `devlog/README.md` — Replaced 37-line verbose README with concise quick-reference table (14 lines)
+
+### Commits
+- `1bcc6a5` — docs: extract devlog convention into DEVLOG.md and simplify
 
 ---
 
