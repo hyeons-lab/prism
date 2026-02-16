@@ -21,6 +21,9 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - **2026-02-16T09:30-08:00** `devlog/000001-initial-scaffolding.md` through `devlog/000008-feat-sync-ios-tab-rotation.md` — Flattened all 8 existing devlog files to new convention: removed `## Session N` headers, converted timestamps to ISO 8601, collapsed multi-session content into single flat sections.
 - **2026-02-16T09:40-08:00** `AGENTS.md` — Renamed "Session Logs" section to "Development Logs" to match flat devlog convention. Updated to reference "AI coding agents" instead of "Claude Code".
 - **2026-02-16T09:50-08:00** `devlog/CONVENTIONS.md` — Generalized from Claude Code-specific to any AI coding agent: updated intro, Agent line format, and cross-references.
+- **2026-02-16T10:20-08:00** `prism-ios/build.gradle.kts` — Made generated Prism object `internal`. Replaced hardcoded KotlinPoet version with TOML file parsing from `../gradle/libs.versions.toml`.
+- **2026-02-16T10:20-08:00** `gradle/libs.versions.toml` — Added `kotlinpoet = "2.2.0"` as single source of truth for KotlinPoet version.
+- **2026-02-16T10:20-08:00** `.github/workflows/release.yml` — Changed `git push origin main --tags` to `git push origin main "v${VERSION}"` to push only the specific release tag.
 
 ## Decisions
 
@@ -31,6 +34,8 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - **2026-02-16T01:05-08:00** **KotlinPoet generation over hand-maintained Prism.kt** — Replaced hand-maintained version constant with build-time generation from `gradle.properties`.
 - **2026-02-16T02:32-08:00** **workflow_dispatch over tag-push** — The workflow must create the tag, not react to it. `workflow_dispatch` with a version input lets us build → update Package.swift → commit → tag the updated commit → push → release. The tag now points to a commit where Package.swift has the correct URL and checksum.
 - **2026-02-16T02:32-08:00** **Fail if Package.swift unchanged** — Changed `exit 0` (silent skip) to `exit 1` (fail) when Package.swift has no changes, since that indicates a bug in the sed patterns.
+- **2026-02-16T10:20-08:00** **KotlinPoet version from TOML, not gradle.properties** — `buildscript {}` can't use the `libs` version catalog accessor, so we parse `../gradle/libs.versions.toml` directly. Single source of truth for the version.
+- **2026-02-16T10:20-08:00** **Push specific tag, not all tags** — `git push --tags` pushes all local tags, which is unsafe if stale/test tags exist locally. Push only `"v${VERSION}"`.
 
 ## Issues
 
@@ -51,6 +56,9 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - `40174de` — docs: update devlog with session 4 and fill pending commit hash
 - `df06df0` — docs: flatten devlog format, move conventions to devlog/CONVENTIONS.md, use ISO 8601
 - `1bde5f6` — docs: flatten devlog files 000001-000008 to new convention
+- `3975182` — docs: rename session logs to development logs, update devlog
+- `7281731` — docs: generalize devlog conventions to any AI coding agent
+- `ebe55d7` — fix: address PR review comments for SPM release workflow
 
 ## Next Steps
 

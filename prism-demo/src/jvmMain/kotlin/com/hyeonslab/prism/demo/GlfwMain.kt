@@ -1,8 +1,8 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
+import com.hyeonslab.prism.widget.createPrismSurface
 import ffi.LibraryLoader
-import io.ygdrasil.webgpu.glfwContextRenderer
 import kotlinx.coroutines.runBlocking
 import org.lwjgl.glfw.GLFW.glfwPollEvents
 import org.lwjgl.glfw.GLFW.glfwShowWindow
@@ -14,17 +14,19 @@ fun main() = runBlocking {
   log.i { "Starting Prism GLFW Demo..." }
   LibraryLoader.load()
 
-  val glfwContext = glfwContextRenderer(width = 800, height = 600, title = "Prism Demo")
-  val scene = createDemoScene(glfwContext.wgpuContext, width = 800, height = 600)
+  val surface = createPrismSurface(width = 800, height = 600, title = "Prism Demo")
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+  val windowHandler = checkNotNull(surface.windowHandler) { "GLFW window not available" }
+  val scene = createDemoScene(wgpuContext, width = 800, height = 600)
 
-  glfwShowWindow(glfwContext.windowHandler)
+  glfwShowWindow(windowHandler)
   log.i { "Window opened — entering render loop" }
 
   val startTime = System.nanoTime()
   var lastFrameTime = startTime
   var frameCount = 0L
 
-  while (!glfwWindowShouldClose(glfwContext.windowHandler)) {
+  while (!glfwWindowShouldClose(windowHandler)) {
     glfwPollEvents()
 
     val now = System.nanoTime()
@@ -37,4 +39,5 @@ fun main() = runBlocking {
 
   log.i { "Shutting down..." }
   scene.shutdown()
+  surface.detach()
 }

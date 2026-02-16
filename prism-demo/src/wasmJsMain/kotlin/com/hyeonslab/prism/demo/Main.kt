@@ -3,7 +3,7 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import io.ygdrasil.webgpu.canvasContextRenderer
+import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -58,8 +58,9 @@ fun main() {
     val canvas = getCanvasById("prismCanvas") ?: error("Canvas element 'prismCanvas' not found")
     val width = 800
     val height = 600
-    val canvasContext = canvasContextRenderer(htmlCanvas = canvas, width = width, height = height)
-    val scene = createDemoScene(canvasContext.wgpuContext, width = width, height = height)
+    val surface = createPrismSurface(canvas, width = width, height = height)
+    val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+    val scene = createDemoScene(wgpuContext, width = width, height = height)
 
     var running = true
 
@@ -67,6 +68,7 @@ fun main() {
       if (!running) return@onBeforeUnload
       running = false
       scene.shutdown()
+      surface.detach()
     }
 
     log.i { "WebGPU initialized — starting render loop" }
@@ -89,6 +91,7 @@ fun main() {
       } catch (e: Throwable) {
         running = false
         scene.shutdown()
+        surface.detach()
         log.e(e) { "Render loop error: ${e.message}" }
         showError(e.message ?: "Render loop error")
       }

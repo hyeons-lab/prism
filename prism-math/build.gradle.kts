@@ -1,10 +1,12 @@
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.android.library)
   alias(libs.plugins.maven.publish)
 }
 
 kotlin {
   jvm()
+  androidTarget()
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
@@ -24,6 +26,12 @@ kotlin {
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }
+}
+
+android {
+  namespace = "com.hyeonslab.prism.math"
+  compileSdk = libs.versions.compileSdk.get().toInt()
+  defaultConfig { minSdk = libs.versions.minSdk.get().toInt() }
 }
 
 mavenPublishing {

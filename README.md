@@ -20,6 +20,7 @@ Prism provides a unified API for building 3D applications across desktop (JVM), 
 - **Input system** — Cross-platform keyboard/mouse/touch abstractions
 - **Asset management** — Loader interfaces for meshes, shaders, and textures
 - **Compose integration** — Embedded 3D rendering in Compose Desktop via MVI architecture (Store, State, Events)
+- **Native rendering surfaces** — PrismSurface with suspend factory (`createPrismSurface()`) across JVM, iOS, macOS, Linux, Windows, WASM, and Android
 
 ## Architecture
 
@@ -116,8 +117,8 @@ import Prism
 | JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
 | Web (WASM/JS) | WebGPU | Working |
 | iOS | Metal via wgpu4k + MTKView | Working |
-| Android | Vulkan (PanamaPort) | Planned |
-| macOS Native | Metal (C-interop) | Planned |
+| macOS Native | Metal via wgpu4k + GLFW | Working |
+| Android | Vulkan (PanamaPort) | In Progress |
 
 ## Project Status
 
@@ -130,7 +131,8 @@ import Prism
 | M5 | Compose integration (JVM) | Done |
 | M6 | Web/WASM support | Done |
 | M7 | iOS native support | Done |
-| M8 | Android support | Planned |
+| M7.5 | PrismSurface + macOS native demo | Done |
+| M8 | Android support | In Progress |
 | M9 | PBR materials | Planned |
 | M10 | glTF asset loading | Planned |
 

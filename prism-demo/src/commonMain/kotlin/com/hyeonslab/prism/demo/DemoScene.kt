@@ -44,7 +44,19 @@ class DemoScene(
     frameCount: Long,
     rotationSpeed: Float = defaultRotationSpeed,
   ) {
-    val angle = elapsed * rotationSpeed
+    tickWithAngle(
+      deltaTime = deltaTime,
+      elapsed = elapsed,
+      frameCount = frameCount,
+      angle = elapsed * rotationSpeed,
+    )
+  }
+
+  /**
+   * Advances the scene by one frame with an explicit rotation angle. Use this when the caller
+   * manages angle accumulation (e.g. variable speed or pause/resume scenarios).
+   */
+  fun tickWithAngle(deltaTime: Float, elapsed: Float, frameCount: Long, angle: Float) {
     val cubeTransform = world.getComponent<TransformComponent>(cubeEntity)
     cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
 
