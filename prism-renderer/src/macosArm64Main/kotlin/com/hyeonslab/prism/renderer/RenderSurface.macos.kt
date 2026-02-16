@@ -1,9 +1,14 @@
 package com.hyeonslab.prism.renderer
 
+import co.touchlab.kermit.Logger
+
+private val log = Logger.withTag("RenderSurface.macos")
+
 /**
  * macOS Native implementation of [RenderSurface].
  *
- * Will wrap a CAMetalLayer / wgpu4k surface once the GPU backend is integrated.
+ * On macOS the GPU surface is managed externally by [PrismSurface] (GLFW/Metal via wgpu4k), so this
+ * class only stores dimensions.
  */
 actual class RenderSurface {
 
@@ -19,6 +24,6 @@ actual class RenderSurface {
   actual fun configure(width: Int, height: Int) {
     _width = width
     _height = height
-    TODO("Not yet implemented — awaiting wgpu4k macOS surface integration")
+    log.i { "RenderSurface configured: ${width}x${height} (surface managed externally)" }
   }
 }

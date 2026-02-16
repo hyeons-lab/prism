@@ -31,6 +31,11 @@ kotlin {
       implementation(libs.wgpu4k.toolkit)
       implementation(libs.kotlinx.coroutines.core)
     }
+    nativeMain.dependencies {
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.core)
+    }
   }
 
   compilerOptions {

@@ -1,9 +1,14 @@
 package com.hyeonslab.prism.renderer
 
+import co.touchlab.kermit.Logger
+
+private val log = Logger.withTag("RenderSurface.wasmJs")
+
 /**
  * WebAssembly (JS) implementation of [RenderSurface].
  *
- * Will wrap an HTML canvas / WebGPU surface once the GPU backend is integrated.
+ * On WASM the GPU surface is managed externally via HTML Canvas and the WebGPU API, so this class
+ * only stores dimensions.
  */
 actual class RenderSurface {
 
@@ -19,6 +24,6 @@ actual class RenderSurface {
   actual fun configure(width: Int, height: Int) {
     _width = width
     _height = height
-    TODO("Not yet implemented — awaiting wgpu4k WebGPU surface integration")
+    log.i { "RenderSurface configured: ${width}x${height} (surface managed externally)" }
   }
 }
