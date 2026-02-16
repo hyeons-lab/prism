@@ -132,7 +132,7 @@ jobs:
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
-      - name: Verify XCFramework exports
+      - name: Verify XCFramework headers
         run: |
           echo "### XCFramework Verification" >> "$GITHUB_STEP_SUMMARY"
           echo "| Framework | Slice | Header |" >> "$GITHUB_STEP_SUMMARY"

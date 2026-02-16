@@ -24,9 +24,7 @@ val generatePrismVersion by
         FileSpec.builder("com.hyeonslab.prism", "Prism")
           .addType(
             TypeSpec.objectBuilder("Prism")
-              .addKdoc(
-                "Prism engine version information for the iOS XCFramework distribution."
-              )
+              .addKdoc("Prism engine version information for the iOS XCFramework distribution.")
               .addProperty(
                 PropertySpec.builder("VERSION", String::class)
                   .addModifiers(KModifier.CONST)

@@ -55,7 +55,7 @@ cd prism-ios-demo && xcodegen generate
 ./gradlew :prism-ios:assemblePrismReleaseXCFramework  # Release
 
 # Create a release (triggers GitHub Actions release workflow)
-git tag v0.1.0 && git push --tags
+gh workflow run release.yml -f version=0.1.0
 
 # Check Gradle dependencies
 ./gradlew dependencies --configuration commonMainCompileClasspath

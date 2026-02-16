@@ -90,7 +90,7 @@ Then in your Swift code:
 import Prism
 ```
 
-> **Note:** SPM support requires a tagged release (e.g., `v0.1.0`). The package will not resolve until the first release is published.
+> **Note:** SPM support requires a published release. See the [Releases](https://github.com/hyeons-lab/prism/releases) page for available versions.
 
 ## Tech Stack
 

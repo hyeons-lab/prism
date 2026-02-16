@@ -45,4 +45,4 @@ Output: `prism-ios/build/XCFrameworks/{debug|release}/Prism.xcframework`
 
 ## Distribution
 
-Release builds are packaged and published automatically by the `release.yml` GitHub Actions workflow when a `v*` tag is pushed. The workflow zips the XCFramework, creates a GitHub Release, and updates `Package.swift` on `main` with the download URL and checksum so SPM resolves it automatically.
+Release builds are triggered via `gh workflow run release.yml -f version=X.Y.Z`. The workflow builds the XCFramework, zips it, computes the SHA-256 checksum, updates `Package.swift` with the download URL and checksum, commits, creates a `vX.Y.Z` tag on that commit, pushes, and creates a GitHub Release with the zip attached. The tag points to the commit where `Package.swift` has the correct URL/checksum, so version-based SPM resolution (`from: "X.Y.Z"`) works correctly.
