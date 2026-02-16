@@ -79,7 +79,7 @@ cd prism
 | Kotlin | 2.3.0 |
 | Gradle | 9.2.0 |
 | wgpu4k | 0.2.0-SNAPSHOT (`3fc6e327`) |
-| Compose Multiplatform | 1.10.0 |
+| Compose Multiplatform | 1.10.1 |
 | kotlinx-coroutines | 1.10.2 |
 | kotlinx-serialization | 1.9.0 |
 | kotlinx-io | 0.8.2 |
@@ -118,7 +118,7 @@ See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md
 
 ## Testing
 
-Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. All tests run on JVM via `./gradlew jvmTest`.
+Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. CI runs two jobs: `jvmTest` on Ubuntu and `macosArm64Test` + `iosSimulatorArm64Test` on macOS.
 
 | Module | Tests | Coverage |
 |---|---|---|

@@ -40,83 +40,8 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
           add-job-summary: always
 
-      - name: Get wgpu4k version
-        id: wgpu4k-version
-        run: |
-          VERSION=$(grep '^wgpu4k ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          COMMIT=$(grep '^wgpu4kCommit' gradle/libs.versions.toml | sed 's/.*"\(.*\)".*/\1/')
-          if [ -z "$VERSION" ] || [ -z "$COMMIT" ]; then
-            echo "::error::Failed to extract wgpu4k version/commit from libs.versions.toml"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-          echo "wgpu4k version: $VERSION @ $COMMIT"
-
-      - name: Cache wgpu4k Maven Local
-        id: cache-wgpu4k
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository/io/ygdrasil
-          key: wgpu4k-${{ runner.os }}-${{ steps.wgpu4k-version.outputs.commit }}
-
-      - name: Set up Rust toolchain
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust toolchain
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: wgpu4k-rust
-
-      - name: Build wgpu4k from source
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        timeout-minutes: 15
-        env:
-          WGPU4K_COMMIT: ${{ steps.wgpu4k-version.outputs.commit }}
-        run: |
-          CLONE_START=$SECONDS
-          git init /tmp/wgpu4k
-          cd /tmp/wgpu4k
-          git remote add origin https://github.com/wgpu4k/wgpu4k.git
-          git fetch --depth 1 origin "$WGPU4K_COMMIT"
-          git checkout FETCH_HEAD
-          CLONE_TIME=$((SECONDS - CLONE_START))
-
-          BUILD_START=$SECONDS
-          ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
-          BUILD_TIME=$((SECONDS - BUILD_START))
-
-          TOTAL_TIME=$((SECONDS - CLONE_START))
-          ARTIFACT_COUNT=$(find ~/.m2/repository/io/ygdrasil -type f | wc -l)
-          ARTIFACT_SIZE=$(du -sh ~/.m2/repository/io/ygdrasil | cut -f1)
-
-          echo "### wgpu4k Build" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Clone time | ${CLONE_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Build time | ${BUILD_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Total time | ${TOTAL_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifacts | ${ARTIFACT_COUNT} files (${ARTIFACT_SIZE}) |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Cache status diagnostics
-        env:
-          WGPU4K_VERSION: ${{ steps.wgpu4k-version.outputs.version }}
-          WGPU4K_COMMIT: ${{ steps.wgpu4k-version.outputs.commit }}
-          CACHE_HIT: ${{ steps.cache-wgpu4k.outputs.cache-hit }}
-        run: |
-          echo "### Cache Status" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Key | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-----|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| wgpu4k version | ${WGPU4K_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| wgpu4k commit | \`${WGPU4K_COMMIT}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Cache key | \`wgpu4k-${RUNNER_OS}-${WGPU4K_COMMIT}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Cache hit | ${CACHE_HIT} |" >> "$GITHUB_STEP_SUMMARY"
-          if [ -d ~/.m2/repository/io/ygdrasil ]; then
-            SIZE=$(du -sh ~/.m2/repository/io/ygdrasil | cut -f1)
-            echo "| Artifact size | ${SIZE} |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
 
       - name: Check formatting & static analysis
         run: |
@@ -150,7 +75,7 @@ jobs:
 
   apple:
     name: Apple Targets
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 45
 
     steps:
@@ -191,85 +116,60 @@ jobs:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
 
-      - name: Get wgpu4k version
-        id: wgpu4k-version
-        run: |
-          VERSION=$(grep '^wgpu4k ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          COMMIT=$(grep '^wgpu4kCommit' gradle/libs.versions.toml | sed 's/.*"\(.*\)".*/\1/')
-          if [ -z "$VERSION" ] || [ -z "$COMMIT" ]; then
-            echo "::error::Failed to extract wgpu4k version/commit from libs.versions.toml"
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-          echo "wgpu4k version: $VERSION @ $COMMIT"
-
-      - name: Cache wgpu4k Maven Local
-        id: cache-wgpu4k
-        uses: actions/cache@v4
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
         with:
-          path: ~/.m2/repository/io/ygdrasil
-          key: wgpu4k-${{ runner.os }}-${{ steps.wgpu4k-version.outputs.commit }}
+          rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
-      - name: Set up Rust toolchain
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim
-
-      - name: Cache Rust toolchain
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: wgpu4k-rust
-
-      - name: Build wgpu4k from source
-        if: steps.cache-wgpu4k.outputs.cache-hit != 'true'
-        timeout-minutes: 25
-        env:
-          WGPU4K_COMMIT: ${{ steps.wgpu4k-version.outputs.commit }}
-        run: |
-          CLONE_START=$SECONDS
-          git init /tmp/wgpu4k
-          cd /tmp/wgpu4k
-          git remote add origin https://github.com/wgpu4k/wgpu4k.git
-          git fetch --depth 1 origin "$WGPU4K_COMMIT"
-          git checkout FETCH_HEAD
-          CLONE_TIME=$((SECONDS - CLONE_START))
-
-          BUILD_START=$SECONDS
-          ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
-          BUILD_TIME=$((SECONDS - BUILD_START))
-
-          TOTAL_TIME=$((SECONDS - CLONE_START))
-          ARTIFACT_COUNT=$(find ~/.m2/repository/io/ygdrasil -type f | wc -l)
-          ARTIFACT_SIZE=$(du -sh ~/.m2/repository/io/ygdrasil | cut -f1)
-
-          echo "### wgpu4k Build (macOS)" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Clone time | ${CLONE_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Build time | ${BUILD_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Total time | ${TOTAL_TIME}s |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifacts | ${ARTIFACT_COUNT} files (${ARTIFACT_SIZE}) |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: iOS tests + XCFramework
+      - name: Apple native tests + XCFramework
         run: |
           START=$SECONDS
-          ./gradlew iosSimulatorArm64Test :prism-demo:assemblePrismDemoDebugXCFramework \
+          ./gradlew macosArm64Test iosSimulatorArm64Test \
+            :prism-demo:assemblePrismDemoDebugXCFramework \
             --configuration-cache-problems=warn \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
-          echo "### iOS Tests + XCFramework: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Apple Tests + XCFramework: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
       - name: Verify XCFramework exports
         run: |
-          HEADER="prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework/ios-arm64-simulator/PrismDemo.framework/Headers/PrismDemo.h"
-          if [ ! -f "$HEADER" ]; then
-            echo "::error::XCFramework header not found at $HEADER"
-            exit 1
-          fi
+          XCF_ROOT="prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework"
           echo "### XCFramework Verification" >> "$GITHUB_STEP_SUMMARY"
-          echo "Header found: \`$HEADER\`" >> "$GITHUB_STEP_SUMMARY"
-          EXPORTED_TYPES=$(grep -c '@interface PrismDemo' "$HEADER" || true)
-          echo "Exported types: ${EXPORTED_TYPES}" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Slice | Header | Exported Types |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|--------|----------------|" >> "$GITHUB_STEP_SUMMARY"
+
+          FAIL=0
+          for SLICE in ios-arm64 ios-arm64-simulator; do
+            HEADER="${XCF_ROOT}/${SLICE}/PrismDemo.framework/Headers/PrismDemo.h"
+            if [ -f "$HEADER" ]; then
+              TYPES=$(grep -c '@interface PrismDemo' "$HEADER" || true)
+              echo "| ${SLICE} | Found | ${TYPES} |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| ${SLICE} | **MISSING** | - |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::XCFramework header not found: ${HEADER}"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Upload XCFramework
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrismDemo-debug.xcframework
+          path: prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework
+          retention-days: 14
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd prism-ios-demo && xcodegen generate
+
+      - name: Build iOS app
+        run: |
+          set -o pipefail
+          START=$SECONDS
+          xcodebuild -project prism-ios-demo/PrismiOSDemo.xcodeproj \
+            -scheme PrismiOSDemo -sdk iphonesimulator -arch arm64 \
+            -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -30 || EXIT=$?
+          echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          exit ${EXIT:-0}
