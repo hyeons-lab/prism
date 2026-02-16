@@ -175,6 +175,10 @@ jobs:
         id: kotlin-version
         run: |
           KOTLIN=$(grep '^kotlin ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$KOTLIN" ]; then
+            echo "::error::Failed to extract Kotlin version from libs.versions.toml"
+            exit 1
+          fi
           echo "version=$KOTLIN" >> "$GITHUB_OUTPUT"
 
       - name: Cache Kotlin/Native toolchain
@@ -182,8 +186,6 @@ jobs:
         with:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
-          restore-keys: |
-            ${{ runner.os }}-konan-
 
       - name: Get wgpu4k version
         id: wgpu4k-version
