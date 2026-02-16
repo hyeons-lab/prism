@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
+  id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.compose.multiplatform)
@@ -66,7 +67,9 @@ kotlin {
 }
 
 // Common JVM args for all demo tasks
-tasks.withType<JavaExec> {
+val isMacOs = providers.systemProperty("os.name").map { it.contains("Mac", ignoreCase = true) }
+
+tasks.withType<JavaExec>().configureEach {
   javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
   jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED")
@@ -76,18 +79,22 @@ tasks.withType<JavaExec> {
   jvmArgs("--enable-native-access=ALL-UNNAMED")
   // -XstartOnFirstThread is required by GLFW on macOS but conflicts with Swing/Compose EDT.
   // Only apply it for GLFW-based tasks (the default `run` task), not `runCompose`.
-  if (name != "runCompose" && org.gradle.internal.os.OperatingSystem.current().isMacOsX) {
-    jvmArgs("-XstartOnFirstThread")
+  if (name != "runCompose") {
+    jvmArgumentProviders.add(
+      CommandLineArgumentProvider {
+        if (isMacOs.get()) listOf("-XstartOnFirstThread") else emptyList()
+      }
+    )
   }
 }
-
-val javaToolchains = extensions.getByType<JavaToolchainService>()
 
 tasks.register<JavaExec>("runCompose") {
   group = "application"
   description = "Run the Compose Desktop demo with embedded 3D rendering"
   mainClass.set("com.hyeonslab.prism.demo.ComposeMainKt")
   classpath =
-    kotlin.jvm().compilations["main"].runtimeDependencyFiles +
-      kotlin.jvm().compilations["main"].output.allOutputs
+    files(
+      kotlin.jvm().compilations.named("main").map { it.runtimeDependencyFiles },
+      kotlin.jvm().compilations.named("main").map { it.output.allOutputs },
+    )
 }

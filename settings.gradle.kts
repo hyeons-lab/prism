@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google()
         mavenCentral()
@@ -8,7 +9,7 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal()
+        mavenLocal { content { includeGroup("io.ygdrasil") } }
         google()
         mavenCentral()
     }
@@ -26,6 +27,6 @@ include(":prism-assets")
 include(":prism-audio")
 include(":prism-native-widgets")
 include(":prism-compose")
-include(":prism-flutter")
+// include(":prism-flutter") // Stub — excluded until Flutter integration begins
 include(":prism-ios")
 include(":prism-demo")

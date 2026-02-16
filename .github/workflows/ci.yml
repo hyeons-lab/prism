@@ -43,18 +43,12 @@ jobs:
       - name: Setup wgpu4k
         uses: ./.github/actions/setup-wgpu4k
 
-      - name: Check formatting & static analysis
+      - name: Lint, analyze & test
         run: |
           START=$SECONDS
-          ./gradlew ktfmtCheck detektMetadataCommonMain detektJvmMain --configuration-cache-problems=warn || EXIT=$?
-          echo "### Lint & Analysis: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
-          exit ${EXIT:-0}
-
-      - name: Compile & test
-        run: |
-          START=$SECONDS
-          ./gradlew jvmTest --configuration-cache-problems=warn || EXIT=$?
-          echo "### Compile & Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          ./gradlew ktfmtCheck detektJvmMain jvmTest \
+            --configuration-cache || EXIT=$?
+          echo "### Lint + Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
       - name: Gradle build cache diagnostics
@@ -127,7 +121,7 @@ jobs:
           ./gradlew macosArm64Test iosSimulatorArm64Test \
             :prism-ios:assemblePrismDebugXCFramework \
             :prism-demo:assemblePrismDemoDebugXCFramework \
-            --configuration-cache-problems=warn \
+            --configuration-cache \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
@@ -170,10 +164,23 @@ jobs:
           path: prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework
           retention-days: 14
 
+      - name: Cache xcodegen
+        id: cache-xcodegen
+        uses: actions/cache@v4
+        with:
+          path: /opt/homebrew/Cellar/xcodegen
+          key: xcodegen-${{ runner.os }}-2.42.0
+
+      - name: Install xcodegen
+        if: steps.cache-xcodegen.outputs.cache-hit != 'true'
+        run: brew install xcodegen
+
+      - name: Link xcodegen
+        if: steps.cache-xcodegen.outputs.cache-hit == 'true'
+        run: brew link --overwrite xcodegen 2>/dev/null || true
+
       - name: Generate Xcode project
-        run: |
-          brew install xcodegen
-          cd prism-ios-demo && xcodegen generate
+        run: cd prism-ios-demo && xcodegen generate
 
       - name: Build iOS app
         run: |
