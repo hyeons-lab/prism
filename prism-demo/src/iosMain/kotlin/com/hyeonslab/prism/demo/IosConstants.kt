@@ -16,7 +16,8 @@ internal val sharedDemoStore: DemoStore = DemoStore()
  * angle is identical across tabs.
  *
  * All public methods are synchronized via a [Mutex] because both MTKView delegates may run on
- * separate display-link threads.
+ * separate display-link threads. When the lock is contended, cached values from the previous frame
+ * are returned so the display-link thread is never blocked.
  */
 internal object SharedDemoTime {
   private val mutex = Mutex()
@@ -29,21 +30,36 @@ internal object SharedDemoTime {
   private var elapsedAtSpeedChange = 0.0
   private var lastSpeed = Double.NaN
 
+  // Cached last-known-good values returned when the lock is contended.
+  // K/N new memory model guarantees cross-thread visibility for object property writes.
+  private var cachedElapsed = 0.0
+  private var cachedAngle = 0f
+
   private fun elapsedUnsafe(): Double {
     return if (paused) accumulatedElapsed
     else accumulatedElapsed + (CACurrentMediaTime() - baseTime)
   }
 
   /** Returns the current pause-aware elapsed time in seconds. */
-  fun elapsed(): Double = mutex.tryWithLock { elapsedUnsafe() }
+  fun elapsed(): Double {
+    if (!mutex.tryLock()) return cachedElapsed
+    try {
+      val result = elapsedUnsafe()
+      cachedElapsed = result
+      return result
+    } finally {
+      mutex.unlock()
+    }
+  }
 
   /**
    * Returns the current rotation angle in radians, smoothly handling speed changes. When
    * [speedRadians] changes, the current angle is captured as an offset so the cube continues from
    * its current position at the new speed instead of jumping.
    */
-  fun angle(speedRadians: Float): Float =
-    mutex.tryWithLock {
+  fun angle(speedRadians: Float): Float {
+    if (!mutex.tryLock()) return cachedAngle
+    try {
       val currentElapsed = elapsedUnsafe()
       val speed = speedRadians.toDouble()
       if (lastSpeed.isNaN()) {
@@ -54,16 +70,22 @@ internal object SharedDemoTime {
         elapsedAtSpeedChange = currentElapsed
         lastSpeed = speed
       }
-      (angleOffset + (currentElapsed - elapsedAtSpeedChange) * speed).toFloat()
+      val result = (angleOffset + (currentElapsed - elapsedAtSpeedChange) * speed).toFloat()
+      cachedAngle = result
+      return result
+    } finally {
+      mutex.unlock()
     }
+  }
 
   /**
    * Synchronizes the pause state. Call each frame with the current [isPaused] value. On pause:
    * freezes elapsed time. On resume: resets the base time so elapsed continues from the frozen
-   * value.
+   * value. No-op if the lock is contended (next frame will pick it up).
    */
-  fun syncPause(isPaused: Boolean) =
-    mutex.tryWithLock {
+  fun syncPause(isPaused: Boolean) {
+    if (!mutex.tryLock()) return
+    try {
       if (isPaused && !paused) {
         accumulatedElapsed += CACurrentMediaTime() - baseTime
         paused = true
@@ -71,19 +93,8 @@ internal object SharedDemoTime {
         baseTime = CACurrentMediaTime()
         paused = false
       }
+    } finally {
+      mutex.unlock()
     }
-}
-
-/**
- * Non-suspending lock acquisition for use from non-coroutine render callbacks. Uses [Mutex.tryLock]
- * to avoid blocking the display-link thread — if the lock is contended, the previous frame's value
- * is acceptable for a single-frame skip.
- */
-private inline fun <T> Mutex.tryWithLock(action: () -> T): T {
-  val acquired = tryLock()
-  try {
-    return action()
-  } finally {
-    if (acquired) unlock()
   }
 }

@@ -28,9 +28,10 @@ cd prism-ios-demo && xcodegen generate
 # 3. Build and launch on simulator
 xcodebuild -project PrismiOSDemo.xcodeproj \
   -scheme PrismiOSDemo \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'generic/platform=iOS Simulator' \
   -configuration Debug build
 
+# Install and launch on a booted simulator
 xcrun simctl install booted build/Debug-iphonesimulator/PrismiOSDemo.app
 xcrun simctl launch booted com.hyeonslab.prism.ios.demo
 ```
