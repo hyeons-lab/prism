@@ -59,7 +59,8 @@ fun main() {
     val width = 800
     val height = 600
     val surface = createPrismSurface(canvas, width = width, height = height)
-    val scene = createDemoScene(surface.wgpuContext!!, width = width, height = height)
+    val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+    val scene = createDemoScene(wgpuContext, width = width, height = height)
 
     var running = true
 

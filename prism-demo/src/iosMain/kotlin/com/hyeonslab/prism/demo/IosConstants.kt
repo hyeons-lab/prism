@@ -1,11 +1,7 @@
 package com.hyeonslab.prism.demo
 
-import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.TransformComponent
 import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Material
 import kotlinx.coroutines.sync.Mutex
 import platform.Foundation.NSOperationQueue
@@ -114,10 +110,6 @@ internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float,
     angle = a
   }
 
-  // Update rotation
-  val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-  cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-
   // Update material color only when it actually changes to avoid per-frame allocation
   val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
   if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
@@ -132,7 +124,11 @@ internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float,
     }
   }
 
-  // Run ECS update (triggers RenderSystem)
-  val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-  scene.world.update(time)
+  // Rotation + ECS update via shared DemoScene method
+  scene.tickWithAngle(
+    deltaTime = if (currentState.isPaused) 0f else deltaTime,
+    elapsed = elapsed,
+    frameCount = frameCount,
+    angle = angle,
+  )
 }

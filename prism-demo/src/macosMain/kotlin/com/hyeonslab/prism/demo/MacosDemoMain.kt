@@ -3,15 +3,12 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.TransformComponent
 import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.widget.createPrismSurface
 import glfw.glfwPollEvents
 import glfw.glfwShowWindow
 import glfw.glfwWindowShouldClose
+import kotlin.concurrent.Volatile
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCAction
@@ -32,20 +29,23 @@ import platform.darwin.NSObject
 private val log = Logger.withTag("PrismMacOS")
 
 // Shared mutable state between GLFW render loop and AppKit controls.
-// Both run on the main thread (glfwPollEvents dispatches AppKit events), so no sync needed.
-private var rotationSpeedDegrees = 45f
-private var isPaused = false
+// Both run on the main thread (glfwPollEvents dispatches AppKit events on macOS),
+// but @Volatile is added defensively in case of future refactoring.
+@Volatile private var rotationSpeedDegrees = 45f
+@Volatile private var isPaused = false
 
 fun main() = runBlocking {
   log.i { "Starting Prism macOS Native Demo..." }
 
   val surface = createPrismSurface(width = 800, height = 600, title = "Prism macOS Demo")
-  val scene = createDemoScene(surface.wgpuContext!!, width = 800, height = 600)
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+  val windowHandler = checkNotNull(surface.windowHandler) { "GLFW window not available" }
+  val scene = createDemoScene(wgpuContext, width = 800, height = 600)
 
   val controlsHandler = ControlsHandler()
   val controlsPanel = createControlsPanel(controlsHandler)
 
-  glfwShowWindow(surface.windowHandler!!)
+  glfwShowWindow(windowHandler)
   controlsPanel.orderFront(null)
   log.i { "Window opened — entering render loop" }
 
@@ -54,7 +54,7 @@ fun main() = runBlocking {
   var currentAngle = 0f
   var totalElapsed = 0f
 
-  while (glfwWindowShouldClose(surface.windowHandler!!) == 0) {
+  while (glfwWindowShouldClose(windowHandler) == 0) {
     glfwPollEvents()
 
     val now = CACurrentMediaTime()
@@ -67,16 +67,12 @@ fun main() = runBlocking {
       totalElapsed += deltaTime
     }
 
-    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, currentAngle)
-
-    val time =
-      Time(
-        deltaTime = if (isPaused) 0f else deltaTime,
-        totalTime = totalElapsed,
-        frameCount = frameCount,
-      )
-    scene.world.update(time)
+    scene.tickWithAngle(
+      deltaTime = if (isPaused) 0f else deltaTime,
+      elapsed = totalElapsed,
+      frameCount = frameCount,
+      angle = currentAngle,
+    )
   }
 
   log.i { "Shutting down..." }

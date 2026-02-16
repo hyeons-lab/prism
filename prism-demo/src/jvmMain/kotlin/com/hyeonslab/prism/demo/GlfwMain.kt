@@ -15,16 +15,18 @@ fun main() = runBlocking {
   LibraryLoader.load()
 
   val surface = createPrismSurface(width = 800, height = 600, title = "Prism Demo")
-  val scene = createDemoScene(surface.wgpuContext!!, width = 800, height = 600)
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+  val windowHandler = checkNotNull(surface.windowHandler) { "GLFW window not available" }
+  val scene = createDemoScene(wgpuContext, width = 800, height = 600)
 
-  glfwShowWindow(surface.windowHandler!!)
+  glfwShowWindow(windowHandler)
   log.i { "Window opened — entering render loop" }
 
   val startTime = System.nanoTime()
   var lastFrameTime = startTime
   var frameCount = 0L
 
-  while (!glfwWindowShouldClose(surface.windowHandler!!)) {
+  while (!glfwWindowShouldClose(windowHandler)) {
     glfwPollEvents()
 
     val now = System.nanoTime()

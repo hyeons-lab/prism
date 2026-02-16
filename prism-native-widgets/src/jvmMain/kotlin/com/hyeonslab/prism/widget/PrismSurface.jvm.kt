@@ -47,8 +47,12 @@ actual class PrismSurface(glfwContext: GLFWContext? = null) {
     get() = _height
 }
 
-/** Creates a [PrismSurface] backed by a GLFW window with a ready-to-use wgpu context. */
-@Suppress("RedundantSuspendModifier") // suspend for API consistency with native targets
+/**
+ * Creates a [PrismSurface] backed by a GLFW window with a ready-to-use wgpu context.
+ *
+ * The `suspend` modifier is for API consistency with native targets where context creation is
+ * genuinely asynchronous.
+ */
 suspend fun createPrismSurface(width: Int, height: Int, title: String = "Prism"): PrismSurface {
   log.i { "Creating GLFW surface: ${width}x${height}" }
   val ctx = glfwContextRenderer(width = width, height = height, title = title)

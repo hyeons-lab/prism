@@ -60,7 +60,8 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   log.i { "Configuring demo: ${width}x${height}" }
 
   val surface = createPrismSurface(view, width, height)
-  val scene = createDemoScene(surface.wgpuContext!!, width = width, height = height)
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+  val scene = createDemoScene(wgpuContext, width = width, height = height)
 
   val delegate = DemoRenderDelegate(scene)
   view.delegate = delegate
