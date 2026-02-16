@@ -1,37 +1,14 @@
-# Development Log (devlog)
+# devlog/
 
-This folder contains a record of development sessions with Claude Code. Each file documents changes, decisions, research, and reasoning from a branch's work.
+Development session logs maintained by Claude Code. Each file tracks changes, decisions, and reasoning for a single feature branch.
 
-## Purpose
+See **Session Logs (devlog/)** in [AGENTS.md](../AGENTS.md) for full conventions.
 
-- **Recoverability:** Track what changed, why, and when
-- **Timeline:** Create a narrative of decisions and discoveries
-- **Multi-agent coordination:** Record which agents worked on what, with which models
-- **Context preservation:** Maintain "why" reasoning, not just "what" changes
-- **Avoid repeating mistakes:** Failed attempts and lessons learned are logged
+## Quick Reference
 
-## File Naming
-
-Format: `NNNNNN-<branch-name>.md` — **one file per branch**.
-
-- `NNNNNN` is a zero-padded 6-digit sequence number for chronological ordering
-- `<branch-name>` is the Git branch name with `/` replaced by `-`
-- Examples: `000001-initial-scaffolding.md`, `000012-feat-pbr-materials.md`
-- Multiple sessions on the same branch use `## Session N — Topic` headers within the file
-
-### Assigning the sequence number
-
-1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
-2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
-3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
-
-## Reading the Log
-
-- Files sort chronologically by sequence number
-- Each file contains one or more sessions, separated by `---` dividers
-- Session headers include the topic, start time, and model used
-- Check the Agent line to see who (and which model) made changes
-- Intent section explains the "why" behind the work
-- Issues section contains lessons learned and failed approaches
-
-These files are version-controlled and part of the repository history.
+| Item | Format | Example |
+|---|---|---|
+| Devlog file | `devlog/NNNNNN-<branch-name>.md` | `devlog/000001-feat-auth-flow.md` |
+| Plan file | `devlog/plans/NNNNNN-NN-<description>.md` | `devlog/plans/000001-01-auth-strategy.md` |
+| Session header | `## Session N — Topic (timestamp, model)` | `## Session 1 — Auth (2026-02-14 10:30 PST, opus-4)` |
+| Timestamp | `[YYYY-MM-DD HH:MM TZ]` | `[2026-02-14 10:30 PST]` |
