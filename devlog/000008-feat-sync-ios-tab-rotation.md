@@ -80,7 +80,7 @@ Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `P
 - **[2026-02-15 PST]** `prism-ios-demo/project.yml` — Renamed project `PrismDemo` → `PrismiOSDemo`, target `PrismDemoApp` → `PrismiOSDemo`, product name `PrismDemoApp` → `PrismiOSDemo`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`.
 - **[2026-02-15 PST]** `prism-demo/README.md` — Updated xcodebuild scheme `PrismDemoApp` → `PrismiOSDemo`, xcodeproj `PrismDemo.xcodeproj` → `PrismiOSDemo.xcodeproj`, app name `PrismDemoApp.app` → `PrismiOSDemo.app`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`. Added note explaining the relationship between `prism-demo` (KMP module) and `prism-ios-demo` (Swift consumer app).
 - **[2026-02-15 PST]** `prism-ios-demo/README.md` — New file. Documents the iOS demo app, its relationship to the KMP `prism-demo` module, build/run instructions, and project structure.
-- **[2026-02-15 PST]** `IosConstants.kt` — Added `@Volatile` to all mutable fields in `SharedDemoTime` for thread safety across display-link threads.
+- **[2026-02-15 PST]** `IosConstants.kt` — Added `Mutex`-based synchronization to `SharedDemoTime` for thread safety across display-link threads. Uses non-suspending `tryWithLock` helper since callers are synchronous ObjC callbacks (`drawInMTKView`).
 - **[2026-02-15 PST]** `IosDemoController.kt`, `ComposeIosEntry.kt` — Material allocation now guarded by color-change check to avoid per-frame GC pressure.
 - **[2026-02-15 PST]** `ComposeDemoControls.kt` — Added `contentDescription` accessibility labels to color swatch buttons.
 
@@ -88,6 +88,8 @@ Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `P
 - **[2026-02-15 PST]** **`PrismiOSDemo` as new name** — Clear disambiguation: `PrismDemo` is the KMP XCFramework module name (used by `import PrismDemo` in Swift), while `PrismiOSDemo` is the iOS app project/target/scheme name.
 - **[2026-02-15 PST]** **New bundle ID `com.hyeonslab.prism.ios.demo`** — Adds `.ios` segment to distinguish from any future demo apps on other platforms.
 - **[2026-02-15 PST]** **Swift `import PrismDemo` unchanged** — This imports the KMP XCFramework module, not the app. No Swift source changes needed.
+- **[2026-02-15 PST]** **Mutex.tryWithLock over @Volatile or suspend** — `drawInMTKView` is a synchronous ObjC protocol callback from Metal's display link — it cannot be `suspend`. `@Volatile` gives visibility but not atomicity across multi-field reads/writes. `Mutex.tryLock` is non-blocking: if contended, the action runs without the lock (acceptable for a single-frame skip), avoiding display-link stalls.
 
 ### Commits
 - `e051248` — refactor: rename iOS Xcode project to PrismiOSDemo and clarify demo roles
+- `066f48a` — fix: address PR review — thread safety, material alloc, accessibility
