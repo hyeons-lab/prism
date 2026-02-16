@@ -36,8 +36,9 @@
 - [x] Surface configuration and present lifecycle
 
 ### Pending
-- [ ] Complete RenderSurface implementations (native stubs are TODOs)
+- [ ] Complete RenderSurface implementations (Linux/Windows native stubs are TODOs)
 - [x] WASM/Canvas integration for web (M6 complete)
+- [x] iOS RenderSurface stub fixed (logging only — surface managed by MTKView)
 
 ## Milestones
 
@@ -87,7 +88,21 @@
 - Resource cleanup on error and page unload
 - **Status:** Complete — `./gradlew :prism-demo:wasmJsBrowserDevelopmentRun` renders rotating cube in browser
 
-### M7: iOS Native Support ⏳
+### M7: iOS Native Support ✅
+- DemoScene.kt moved to commonMain (shared across JVM, WASM, iOS) with `tick()` method deduplicating rotation logic
+- wgpu4k deps consolidated from jvmMain/wasmJsMain to commonMain
+- All platform render loops (GLFW, WASM, iOS) simplified to use `DemoScene.tick()`
+- IosDemoController.kt: `configureDemo(MTKView)` + `DemoRenderDelegate` (MTKViewDelegateProtocol) with `IosDemoHandle` lifecycle wrapper
+- Compose iOS demo: `ComposeIosEntry.kt` with `UIKitView` embedding MTKView, `DemoStore` MVI state, Material3 controls overlay
+- UISceneDelegate modernization: `SceneDelegate.swift` with `UITabBarController` (Native + Compose tabs)
+- XCFramework binary config (iosArm64 + iosSimulatorArm64, static framework)
+- RenderSurface.ios.kt: TODO crash replaced with Kermit logging
+- Xcode project scaffolding via xcodegen (ios-demo/)
+- Error handling: null Metal device guard, try-catch for wgpu init, error overlay UI
+- Thread safety: `NSOperationQueue.mainQueue` for Compose state dispatch from Metal render thread
+- Lazy wgpu init via `viewDidAppear` with `isPaused` guard to avoid double GPU memory
+- `renderer.resize()` called on drawable size change for correct depth texture recreation
+- **Status:** Complete — `./gradlew assemblePrismDemoReleaseXCFramework` builds; Xcode project ready with two demos
 ### M8: Android Support ⏳
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
@@ -128,6 +143,12 @@ Run all tests: `./gradlew jvmTest`
 
 # Run demo app (WASM/Browser)
 ./gradlew :prism-demo:wasmJsBrowserDevelopmentRun
+
+# Build iOS XCFramework
+./gradlew assemblePrismDemoReleaseXCFramework
+
+# Generate Xcode project (requires xcodegen: brew install xcodegen)
+cd ios-demo && xcodegen generate
 ```
 
 ## Prerequisites

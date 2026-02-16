@@ -42,6 +42,10 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 # Build demo for specific platform
 ./gradlew :prism-demo:jvmJar            # JVM executable JAR
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
+./gradlew assemblePrismDemoReleaseXCFramework     # iOS XCFramework
+
+# Generate Xcode project (requires xcodegen: brew install xcodegen)
+cd ios-demo && xcodegen generate
 
 # Full CI quality check
 ./gradlew ktfmtCheck detektJvmMain jvmTest
@@ -171,7 +175,9 @@ module-name/src/
 - **JVM Desktop (GLFW)**: GLFW windowing (via wgpu4k's glfw-native) with Metal (macOS), Vulkan/DX12 (Windows/Linux)
 - **JVM Desktop (Compose)**: AWT Canvas embedded via SwingPanel, wgpu surface from native handle, Compose `withFrameNanos` render loop
 - **Web/WASM**: HTML Canvas with WebGPU API, requestAnimationFrame game loop
-- **iOS/macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop)
+- **iOS Native (MTKView)**: MTKView + MTKViewDelegateProtocol via Kotlin/Native ObjC interop, wgpu4k `iosContextRenderer`
+- **iOS Compose**: UIKitView embedding MTKView in Compose hierarchy, DemoStore MVI with Material3 controls
+- **macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop, planned)
 - **Android**: SurfaceView with Vulkan backend, PanamaPort for FFI (planned)
 - **Linux/Windows Native**: Native windowing with Vulkan/DX12 (planned)
 
@@ -306,7 +312,7 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Current Project Status
 
-**Phase:** Compose integration complete (M5), renderer mature
+**Phase:** iOS native support complete (M7), all major platforms rendering
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -326,12 +332,16 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo (8)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
+- ✅ iOS native rendering via MTKView + wgpu4k iosContextRenderer (M7 complete)
+- ✅ iOS Compose demo: UIKitView embedding MTKView with DemoStore MVI + Material3 controls
+- ✅ iOS app with UITabBarController: Native (MTKView) + Compose tabs
+- ✅ Shared DemoScene.tick() deduplicating rotation logic across all platforms
 
 **What's in progress:**
 - 🚧 Platform-specific RenderSurface implementations (Windows/Linux surfaces untested)
 
 **What's next:**
-- ⏭️ Mobile platforms (iOS/Android)
+- ⏭️ Android support (M8)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
 - ⏭️ Flutter integration (PrismBridge, platform plugins, rendering surface)
@@ -399,6 +409,45 @@ Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
 1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
 2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
 3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
+
+### Implementation Plans (devlog/plans/)
+
+When entering plan mode to design an implementation approach, write the plan to `devlog/plans/` using the **same prefix number** as the branch's devlog file.
+
+**File naming:** `devlog/plans/NNNNNN-NN-<short-description>.md`
+- The first `NNNNNN` matches the branch's devlog prefix. The second `NN` is a two-digit plan sequence (01, 02, ...) for lexicographic sorting.
+- Example: `devlog/plans/000006-01-ios-native-support.md`, then `000006-02-ios-revised-surface-api.md`
+- Single-plan branches can omit the sequence: `devlog/plans/000006-ios-native-support.md` (but prefer the numbered form for consistency)
+
+**Plan file structure:**
+
+```markdown
+# Plan: <title>
+
+## Thinking
+
+<Your reasoning process — what you considered, alternatives you weighed, questions you
+resolved, research you did to arrive at the plan. Write this as a narrative stream of
+thought. This section captures the "why behind the why" — not just the decisions, but
+how you got there.>
+
+---
+
+## Plan
+
+<The final implementation plan as presented to the user for approval. This is the
+clean, structured output — files to modify, implementation sequence, architecture
+diagrams, verification steps, etc.>
+```
+
+**Referencing in the devlog:** When you create a plan, add an entry in the devlog's "What Changed" or "Decisions" section:
+- `**[timestamp]** Created implementation plan → [devlog/plans/NNNNNN-description.md](plans/NNNNNN-description.md)`
+
+**Guidelines:**
+- The **Thinking** section is raw and exploratory — it's okay to show uncertainty, dead ends, and course corrections
+- The **Plan** section is clean and actionable — it's what gets executed
+- Keep both sections in the same file so future sessions can understand not just *what* was planned but *how* the plan was derived
+- Plans are append-only artifacts — if a plan changes during execution, note the deviation in the devlog, don't edit the plan file
 
 ### What to Log
 

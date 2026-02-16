@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.kotlin.compose)
@@ -7,9 +9,16 @@ plugins {
 kotlin {
   jvmToolchain(25)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
-  iosArm64()
-  iosSimulatorArm64()
   macosArm64()
+
+  val xcf = XCFramework("PrismDemo")
+  listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
+    target.binaries.framework {
+      baseName = "PrismDemo"
+      isStatic = true
+      xcf.add(this)
+    }
+  }
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
   wasmJs {
@@ -29,7 +38,6 @@ kotlin {
       implementation(project(":prism-input"))
       implementation(project(":prism-assets"))
       implementation(project(":prism-audio"))
-      implementation(project(":prism-native-widgets"))
       implementation(project(":prism-compose"))
       implementation(compose.runtime)
       implementation(compose.foundation)
@@ -38,21 +46,17 @@ kotlin {
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.lifecycle.runtime.compose)
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
     }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
       implementation(libs.kotlinx.coroutines.swing)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
       implementation(libs.kotest.assertions.core)
       implementation(libs.kotlinx.coroutines.test)
-    }
-    wasmJsMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
     }
   }
 
