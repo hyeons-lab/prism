@@ -121,38 +121,49 @@ jobs:
         with:
           rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
-      - name: Apple native tests + XCFramework
+      - name: Apple native tests + XCFrameworks
         run: |
           START=$SECONDS
           ./gradlew macosArm64Test iosSimulatorArm64Test \
+            :prism-ios:assemblePrismDebugXCFramework \
             :prism-demo:assemblePrismDemoDebugXCFramework \
             --configuration-cache-problems=warn \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
-          echo "### Apple Tests + XCFramework: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
       - name: Verify XCFramework exports
         run: |
-          XCF_ROOT="prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework"
           echo "### XCFramework Verification" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Slice | Header | Exported Types |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|--------|----------------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Framework | Slice | Header |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
 
           FAIL=0
-          for SLICE in ios-arm64 ios-arm64-simulator; do
-            HEADER="${XCF_ROOT}/${SLICE}/PrismDemo.framework/Headers/PrismDemo.h"
-            if [ -f "$HEADER" ]; then
-              TYPES=$(grep -c '@interface PrismDemo' "$HEADER" || true)
-              echo "| ${SLICE} | Found | ${TYPES} |" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "| ${SLICE} | **MISSING** | - |" >> "$GITHUB_STEP_SUMMARY"
-              echo "::error::XCFramework header not found: ${HEADER}"
-              FAIL=1
-            fi
+          for FW in "prism-ios/build/XCFrameworks/debug/Prism.xcframework:Prism" \
+                     "prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework:PrismDemo"; do
+            XCF_ROOT="${FW%%:*}"
+            FW_NAME="${FW##*:}"
+            for SLICE in ios-arm64 ios-arm64-simulator; do
+              HEADER="${XCF_ROOT}/${SLICE}/${FW_NAME}.framework/Headers/${FW_NAME}.h"
+              if [ -f "$HEADER" ]; then
+                echo "| ${FW_NAME} | ${SLICE} | Found |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "| ${FW_NAME} | ${SLICE} | **MISSING** |" >> "$GITHUB_STEP_SUMMARY"
+                echo "::error::XCFramework header not found: ${HEADER}"
+                FAIL=1
+              fi
+            done
           done
           exit $FAIL
 
-      - name: Upload XCFramework
+      - name: Upload Prism XCFramework
+        uses: actions/upload-artifact@v4
+        with:
+          name: Prism-debug.xcframework
+          path: prism-ios/build/XCFrameworks/debug/Prism.xcframework
+          retention-days: 14
+
+      - name: Upload PrismDemo XCFramework
         uses: actions/upload-artifact@v4
         with:
           name: PrismDemo-debug.xcframework

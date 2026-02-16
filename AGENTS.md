@@ -50,6 +50,13 @@ cd prism-ios-demo && xcodegen generate
 # Full CI quality check
 ./gradlew ktfmtCheck detektJvmMain jvmTest
 
+# Build Prism.xcframework (iOS distribution)
+./gradlew :prism-ios:assemblePrismDebugXCFramework    # Debug
+./gradlew :prism-ios:assemblePrismReleaseXCFramework  # Release
+
+# Create a release (triggers GitHub Actions release workflow)
+git tag v0.1.0 && git push --tags
+
 # Check Gradle dependencies
 ./gradlew dependencies --configuration commonMainCompileClasspath
 ```
@@ -87,6 +94,7 @@ prism/
 ├── prism-native-widgets# Platform-specific rendering surfaces (PrismSurface)
 ├── prism-compose       # Jetpack Compose Multiplatform integration
 ├── prism-flutter       # Flutter bridge (minimal, future work)
+├── prism-ios           # iOS XCFramework aggregator (SPM distribution)
 └── prism-demo          # Demo application (rotating cube with lighting)
 ```
 
