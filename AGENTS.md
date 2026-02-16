@@ -50,6 +50,13 @@ cd prism-ios-demo && xcodegen generate
 # Full CI quality check
 ./gradlew ktfmtCheck detektJvmMain jvmTest
 
+# Build Prism.xcframework (iOS distribution)
+./gradlew :prism-ios:assemblePrismDebugXCFramework    # Debug
+./gradlew :prism-ios:assemblePrismReleaseXCFramework  # Release
+
+# Create a release (triggers GitHub Actions release workflow)
+gh workflow run release.yml -f version=0.1.0
+
 # Check Gradle dependencies
 ./gradlew dependencies --configuration commonMainCompileClasspath
 ```
@@ -87,6 +94,7 @@ prism/
 ├── prism-native-widgets# Platform-specific rendering surfaces (PrismSurface)
 ├── prism-compose       # Jetpack Compose Multiplatform integration
 ├── prism-flutter       # Flutter bridge (minimal, future work)
+├── prism-ios           # iOS XCFramework aggregator (SPM distribution)
 └── prism-demo          # Demo application (rotating cube with lighting)
 ```
 
@@ -386,154 +394,9 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
 5. **Android PanamaPort:** Not yet integrated; planned for Phase 8
 
-## Session Logs (devlog/)
+## Development Logs (devlog/)
 
-**Claude Code MUST maintain a development log in `devlog/` to track changes, decisions, and reasoning across sessions.**
-
-### When to Create/Update
-
-- **Start of each working session:** Create the branch's devlog file if it doesn't exist, or add a new `## Session` header to the existing file
-- **During work:** Update the current session as you make changes, decisions, or discoveries
-- **One file per branch.** New session on same branch = new `## Session N` header in the same file.
-- **Main is protected** — all work goes through PRs. Devlogs are created on feature branches and arrive on main via merge.
-
-### File Naming
-
-Format: `devlog/NNNNNN-<branch-name>.md` — **one file per branch**.
-- `NNNNNN` is a zero-padded 6-digit sequence number for chronological ordering
-- `<branch-name>` is the Git branch name with `/` replaced by `-`
-- Examples: `devlog/000001-initial-scaffolding.md`, `devlog/000012-feat-pbr-materials.md`
-- Multiple sessions on the same branch use `## Session N — Topic` headers within the file
-
-**Assigning the sequence number:**
-1. At the start of your branch, check the highest existing number in `devlog/` and use the next one
-2. If the number conflicts when merging (another PR merged first), rebase onto main and renumber your file
-3. This is safe because branches must be up-to-date with main before merging — a conflict means the devlog has advanced and a rebase is required anyway
-
-### Implementation Plans (devlog/plans/)
-
-When entering plan mode to design an implementation approach, write the plan to `devlog/plans/` using the **same prefix number** as the branch's devlog file.
-
-**File naming:** `devlog/plans/NNNNNN-NN-<short-description>.md`
-- The first `NNNNNN` matches the branch's devlog prefix. The second `NN` is a two-digit plan sequence (01, 02, ...) for lexicographic sorting.
-- Example: `devlog/plans/000006-01-ios-native-support.md`, then `000006-02-ios-revised-surface-api.md`
-- Single-plan branches can omit the sequence: `devlog/plans/000006-ios-native-support.md` (but prefer the numbered form for consistency)
-
-**Plan file structure:**
-
-```markdown
-# Plan: <title>
-
-## Thinking
-
-<Your reasoning process — what you considered, alternatives you weighed, questions you
-resolved, research you did to arrive at the plan. Write this as a narrative stream of
-thought. This section captures the "why behind the why" — not just the decisions, but
-how you got there.>
-
----
-
-## Plan
-
-<The final implementation plan as presented to the user for approval. This is the
-clean, structured output — files to modify, implementation sequence, architecture
-diagrams, verification steps, etc.>
-```
-
-**Referencing in the devlog:** When you create a plan, add an entry in the devlog's "What Changed" or "Decisions" section:
-- `**[timestamp]** Created implementation plan → [devlog/plans/NNNNNN-description.md](plans/NNNNNN-description.md)`
-
-**Guidelines:**
-- The **Thinking** section is raw and exploratory — it's okay to show uncertainty, dead ends, and course corrections
-- The **Plan** section is clean and actionable — it's what gets executed
-- Keep both sections in the same file so future sessions can understand not just *what* was planned but *how* the plan was derived
-- Plans are append-only artifacts — if a plan changes during execution, note the deviation in the devlog, don't edit the plan file
-
-### What to Log
-
-**Per-session sections** (under each `## Session N` header):
-- **Agent:** Model ID, repo, branch (one-liner for single agent)
-- **Intent:** The "why" — user's goal, problem being solved, or feature being built
-- **What Changed:** File-by-file list with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
-- **Decisions:** Key choices with timestamps `[YYYY-MM-DD HH:MM TZ]` and reasoning
-- **Research & Discoveries:** Findings, links to docs/APIs/repos/issues. Future sessions can reference these instead of re-discovering them.
-- **Issues:** Problems and resolutions. **CRITICAL:** Log failed attempts, reverted changes, and lessons learned. If you try an approach that doesn't work, document WHY it failed and what you learned. This prevents repeating the same mistakes in future sessions.
-- **Lessons Learned:** Reusable insights from this session — patterns that worked well, pitfalls to avoid, API quirks discovered, or conventions established. If nothing new was learned, leave this section empty or omit it. These should be things a future session would benefit from knowing.
-- **Commits:** List commit hashes and messages created during the session
-
-**End-of-file section** (at the bottom of the file, optional for single-session branches):
-- **Next Steps:** What's left or what to pick up next (shared across sessions)
-
-### Guidelines
-
-- **One file per branch** — All sessions for a given branch go in one file. Don't create separate files for each conversation.
-- **Keep it narrative** — Write for a human reading the timeline, not just a machine-parsable log
-- **Track "why" not just "what"** — Capture reasoning behind decisions, not just file diffs
-- **Update as you go — CRITICAL** — The devlog is a living document. Update it automatically after each significant change:
-  - After creating/modifying files
-  - After making decisions
-  - Before committing changes
-  - When encountering issues
-
-  **DO NOT wait for the user to ask "update devlog"** — this should happen proactively as part of your workflow. The devlog is a real-time journal, not a post-hoc summary.
-- **Record final state, not iterations** — If you change a file multiple times, collapse into one entry describing the final result. Don't log each intermediate edit.
-- **Group similar files** — If the same change applies to multiple files (e.g., creating native stubs for 3 platforms), combine into one entry: `RenderSurface.{macos,linux,mingw}.kt`
-- **Log failures and lessons learned** — If you try an approach that doesn't work and have to revert or change direction, document it in the Issues section with:
-  - What you tried
-  - Why it didn't work (error message, conceptual problem, API limitation)
-  - What you learned
-  - What approach you used instead
-
-  Failed attempts are valuable knowledge.
-- **Append-only across sessions** — You may freely update entries within your own current session, but entries from prior sessions are immutable. If earlier information turns out to be wrong, add a correction note rather than removing the original.
-
-### Example Structure
-
-```markdown
-# NNNNNN-branch-name
-
-## Session 1 — Topic (YYYY-MM-DD HH:MM TZ, model-name)
-
-**Agent:** Claude Code (model-id) @ `repository` branch `branch-name`
-
-### Intent
-<Why this session exists...>
-
-### What Changed
-- **[YYYY-MM-DD HH:MM TZ]** `path/to/file` — <what changed and why>
-
-### Decisions
-- **[YYYY-MM-DD HH:MM TZ]** **<Decision>** — <reasoning>
-
-### Research & Discoveries
-- <findings with links>
-
-### Issues
-- <problems and resolutions>
-
-### Lessons Learned
-- <reusable insights, or leave empty if nothing new>
-
-### Commits
-- `abc1234` — <commit message>
-
----
-
-## Session 2 — Another Topic (YYYY-MM-DD HH:MM TZ, model-name)
-...
-
----
-
-## Next Steps
-- <what's left across all sessions>
-```
-
-**Timestamp format:** `[YYYY-MM-DD HH:MM TZ]` where TZ is your local timezone.
-- Example: `[2026-02-14 10:30 PST]`
-- Use standard abbreviations (PST/PDT, EST/EDT, UTC, CET, JST, etc.)
-- Be consistent within a session
-
-See `devlog/README.md` for full conventions.
+See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. AI coding agents must maintain development logs proactively.
 
 ## Random Notes
 

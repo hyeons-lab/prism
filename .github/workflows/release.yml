@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 0.1.0, 0.1.0-rc.1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release XCFramework
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate version input
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Invalid version format: ${VERSION}"
+            echo "Expected: semver (e.g. 0.1.0, 0.1.0-rc.1)"
+            exit 1
+          fi
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists"
+            exit 1
+          fi
+          echo "Version: ${VERSION}"
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          add-job-summary: always
+
+      - name: Get Kotlin version
+        id: kotlin-version
+        run: |
+          KOTLIN=$(grep '^kotlin ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$KOTLIN" ]; then
+            echo "::error::Failed to extract Kotlin version from libs.versions.toml"
+            exit 1
+          fi
+          echo "version=$KOTLIN" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
+
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
+        with:
+          rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Build release XCFramework
+        run: |
+          ./gradlew :prism-ios:assemblePrismReleaseXCFramework \
+            --configuration-cache-problems=warn \
+            -Pkotlin.native.parallelThreads=3
+
+      - name: Verify XCFramework slices
+        run: |
+          XCF_ROOT="prism-ios/build/XCFrameworks/release/Prism.xcframework"
+          FAIL=0
+          for SLICE in ios-arm64 ios-arm64-simulator; do
+            HEADER="${XCF_ROOT}/${SLICE}/Prism.framework/Headers/Prism.h"
+            if [ -f "$HEADER" ]; then
+              echo "Found header: ${HEADER}"
+            else
+              echo "::error::XCFramework header not found: ${HEADER}"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Package XCFramework
+        id: package
+        run: |
+          XCF_ROOT="prism-ios/build/XCFrameworks/release"
+          cd "$XCF_ROOT"
+          zip -r -X Prism.xcframework.zip Prism.xcframework
+          CHECKSUM=$(swift package compute-checksum Prism.xcframework.zip)
+          echo "zip_path=${XCF_ROOT}/Prism.xcframework.zip" >> "$GITHUB_OUTPUT"
+          echo "checksum=${CHECKSUM}" >> "$GITHUB_OUTPUT"
+          echo "Checksum: ${CHECKSUM}"
+
+      - name: Update Package.swift
+        env:
+          VERSION: ${{ inputs.version }}
+          CHECKSUM: ${{ steps.package.outputs.checksum }}
+        run: |
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/Prism.xcframework.zip"
+
+          sed -i '' "s|url: \".*Prism.xcframework.zip\"|url: \"${DOWNLOAD_URL}\"|" Package.swift
+          sed -i '' "s|checksum: \"[a-f0-9]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
+
+          echo "Updated Package.swift:"
+          grep -E 'url:|checksum:' Package.swift
+
+      - name: Commit, tag, and push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Package.swift
+          git diff --cached --quiet && echo "No changes to Package.swift" && exit 1
+
+          git commit -m "chore: update Package.swift for v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin main "v${VERSION}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          ZIP_PATH: ${{ steps.package.outputs.zip_path }}
+        run: |
+          gh release create "v${VERSION}" "$ZIP_PATH" \
+            --title "v${VERSION}" \
+            --generate-notes

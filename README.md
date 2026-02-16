@@ -72,6 +72,26 @@ cd prism
 ./gradlew :prism-demo:jvmRun
 ```
 
+### iOS (Swift Package Manager)
+
+Add Prism to your iOS project via SPM:
+
+**Xcode UI:** File > Add Package Dependencies > `https://github.com/hyeons-lab/prism`
+
+**Package.swift:**
+```swift
+dependencies: [
+    .package(url: "https://github.com/hyeons-lab/prism", from: "0.1.0")
+]
+```
+
+Then in your Swift code:
+```swift
+import Prism
+```
+
+> **Note:** SPM support requires a published release. See the [Releases](https://github.com/hyeons-lab/prism/releases) page for available versions.
+
 ## Tech Stack
 
 | Dependency | Version |
