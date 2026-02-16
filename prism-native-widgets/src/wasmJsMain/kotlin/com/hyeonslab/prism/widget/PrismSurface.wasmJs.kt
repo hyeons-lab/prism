@@ -9,14 +9,15 @@ import web.html.HTMLCanvasElement
 
 private val log = Logger.withTag("PrismSurface.WASM")
 
-actual class PrismSurface(private val canvasContext: CanvasContext? = null) {
+actual class PrismSurface(canvasContext: CanvasContext? = null) {
+  private var _canvasContext: CanvasContext? = canvasContext
   private var _width: Int = 0
   private var _height: Int = 0
   private var engine: Engine? = null
 
   /** wgpu context created from the Canvas. Available when constructed via [createPrismSurface]. */
   val wgpuContext: WGPUContext?
-    get() = canvasContext?.wgpuContext
+    get() = _canvasContext?.wgpuContext
 
   actual fun attach(engine: Engine) {
     log.i { "Attaching engine" }
@@ -25,7 +26,8 @@ actual class PrismSurface(private val canvasContext: CanvasContext? = null) {
 
   actual fun detach() {
     log.i { "Detaching engine" }
-    canvasContext?.close()
+    _canvasContext?.close()
+    _canvasContext = null
     engine = null
   }
 

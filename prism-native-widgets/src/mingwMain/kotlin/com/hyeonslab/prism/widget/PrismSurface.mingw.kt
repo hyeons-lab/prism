@@ -13,18 +13,19 @@ import kotlinx.cinterop.ExperimentalForeignApi
 
 private val log = Logger.withTag("PrismSurface.MinGW")
 
-actual class PrismSurface(private val glfwContext: GLFWContext? = null) {
+actual class PrismSurface(glfwContext: GLFWContext? = null) {
+  private var _glfwContext: GLFWContext? = glfwContext
   private var _width: Int = 0
   private var _height: Int = 0
   private var engine: Engine? = null
 
   /** wgpu context created via GLFW/HWND. Available when constructed via [createPrismSurface]. */
   val wgpuContext: WGPUContext?
-    get() = glfwContext?.wgpuContext
+    get() = _glfwContext?.wgpuContext
 
   /** Native GLFW window handle for the render loop. */
   val windowHandler: CValuesRef<GLFWwindow>?
-    get() = glfwContext?.windowHandler
+    get() = _glfwContext?.windowHandler
 
   actual fun attach(engine: Engine) {
     log.i { "Attaching engine '${engine.config.appName}'" }
@@ -39,7 +40,8 @@ actual class PrismSurface(private val glfwContext: GLFWContext? = null) {
 
   actual fun detach() {
     log.i { "Detaching engine" }
-    glfwContext?.close()
+    _glfwContext?.close()
+    _glfwContext = null
     engine = null
   }
 
