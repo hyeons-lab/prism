@@ -396,7 +396,7 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 ## Session Logs (devlog/)
 
-See [DEVLOG.md](DEVLOG.md) for devlog conventions. Claude Code must maintain session logs proactively.
+See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. Claude Code must maintain session logs proactively.
 
 ## Random Notes
 
