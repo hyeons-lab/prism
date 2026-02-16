@@ -53,6 +53,7 @@ actual class PrismSurface(glfwContext: GLFWContext? = null) {
  * The `suspend` modifier is for API consistency with native targets where context creation is
  * genuinely asynchronous.
  */
+@Suppress("RedundantSuspendModifier")
 suspend fun createPrismSurface(width: Int, height: Int, title: String = "Prism"): PrismSurface {
   log.i { "Creating GLFW surface: ${width}x${height}" }
   val ctx = glfwContextRenderer(width = width, height = height, title = title)
