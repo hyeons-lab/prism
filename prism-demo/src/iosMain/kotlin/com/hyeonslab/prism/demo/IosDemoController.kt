@@ -21,8 +21,15 @@ private val log = Logger.withTag("PrismIOS")
  * Handle returned by [configureDemo] that manages the lifecycle of the demo scene and GPU
  * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
  * release the WGPU instance, adapter, device, and surface.
+ *
+ * [renderDelegate] is stored here to prevent garbage collection — MTKView.delegate is a WEAK
+ * reference in UIKit, so without a strong reference the K/N GC will collect the delegate.
  */
-class IosDemoHandle(private val iosContext: IosContext, private val scene: DemoScene) {
+class IosDemoHandle(
+  private val iosContext: IosContext,
+  private val scene: DemoScene,
+  @Suppress("unused") private val renderDelegate: MTKViewDelegateProtocol,
+) {
   fun shutdown() {
     log.i { "Shutting down iOS demo..." }
     scene.shutdown()
@@ -55,9 +62,10 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   val iosContext = iosContextRenderer(view, width, height)
   val scene = createDemoScene(iosContext.wgpuContext, width = width, height = height)
 
-  view.delegate = DemoRenderDelegate(scene)
+  val delegate = DemoRenderDelegate(scene)
+  view.delegate = delegate
   log.i { "iOS demo configured — render delegate installed" }
-  return IosDemoHandle(iosContext, scene)
+  return IosDemoHandle(iosContext, scene, delegate)
 }
 
 /**
@@ -67,18 +75,15 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
 @OptIn(BetaInteropApi::class)
 class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDelegateProtocol {
 
-  private val startTime = CACurrentMediaTime()
-  private var lastFrameTime = startTime
+  private var lastFrameTime = CACurrentMediaTime()
   private var frameCount = 0L
 
   override fun drawInMTKView(view: MTKView) {
     val now = CACurrentMediaTime()
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
-    val elapsed = (now - startTime).toFloat()
-
     frameCount++
-    scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
+    tickDemoFrame(scene, sharedDemoStore, deltaTime, frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {

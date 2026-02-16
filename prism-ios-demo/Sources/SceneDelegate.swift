@@ -19,7 +19,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // Tab 2: Compose Multiplatform demo
         let composeVC = ComposeViewController()
-        composeVC.tabBarItem = UITabBarItem(title: "Compose", image: UIImage(systemName: "slider.horizontal.3"), tag: 1)
+        composeVC.tabBarItem = UITabBarItem(title: "Compose", image: UIImage(systemName: "square.stack.3d.up"), tag: 1)
 
         let tabBar = UITabBarController()
         tabBar.viewControllers = [nativeVC, composeVC]

@@ -182,7 +182,13 @@ Clean up stale untracked files, address Copilot PR review comments, and update p
 ---
 
 ## Next Steps
-- Run `xcodegen generate` in ios-demo/ and verify Xcode build on simulator with tab bar
+- Run `xcodegen generate` in prism-ios-demo/ and verify Xcode build on simulator with tab bar
 - Mobile platform work: Android support (M8)
 - PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - glTF 2.0 asset loading
+
+---
+
+> **Correction (2026-02-15):** All references to `ios-demo/` in this devlog refer to the directory
+> that was renamed to `prism-ios-demo/` in the `feat/sync-ios-tab-rotation` branch to follow the
+> `prism-*` naming convention.

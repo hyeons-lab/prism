@@ -37,7 +37,7 @@ prism-renderer
   └─► prism-native-widgets   Platform-specific rendering surfaces
        └─► prism-compose     Compose Multiplatform integration
 
-prism-demo                   Demo app (rotating lit cube via ECS)
+prism-demo                   Demo app (rotating lit cube via ECS) — see [prism-demo/README.md](prism-demo/README.md)
 ```
 
 ## Quick Start
@@ -95,7 +95,7 @@ cd prism
 | JVM Desktop (Linux) | Vulkan via wgpu4k + GLFW | Planned |
 | JVM Desktop (Windows) | DX12/Vulkan via wgpu4k + GLFW | Planned |
 | Web (WASM/JS) | WebGPU | Working |
-| iOS | Metal (C-interop) | Planned |
+| iOS | Metal via wgpu4k + MTKView | Working |
 | Android | Vulkan (PanamaPort) | Planned |
 | macOS Native | Metal (C-interop) | Planned |
 
@@ -109,7 +109,7 @@ cd prism
 | M4 | ECS-driven rendering | Done |
 | M5 | Compose integration (JVM) | Done |
 | M6 | Web/WASM support | Done |
-| M7 | iOS native support | Planned |
+| M7 | iOS native support | Done |
 | M8 | Android support | Planned |
 | M9 | PBR materials | Planned |
 | M10 | glTF asset loading | Planned |

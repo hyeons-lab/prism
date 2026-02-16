@@ -1,6 +1,6 @@
-name: PrismDemo
+name: PrismiOSDemo
 options:
-  bundleIdPrefix: com.hyeonslab.prism
+  bundleIdPrefix: com.hyeonslab.prism.ios
   deploymentTarget:
     iOS: "15.0"
   xcodeVersion: "15.0"
@@ -10,7 +10,7 @@ settings:
     SWIFT_VERSION: "5.9"
 
 targets:
-  PrismDemo:
+  PrismiOSDemo:
     type: application
     platform: iOS
     sources:
@@ -18,14 +18,15 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.hyeonslab.prism.demo
+        PRODUCT_BUNDLE_IDENTIFIER: com.hyeonslab.prism.ios.demo
+        PRODUCT_NAME: PrismiOSDemo
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS:
           - "$(inherited)"
-          - "$(SRCROOT)/../prism-demo/build/XCFrameworks/release"
+          - "$(SRCROOT)/../prism-demo/build/XCFrameworks/debug"
     dependencies:
-      - framework: "../prism-demo/build/XCFrameworks/release/PrismDemo.xcframework"
+      - framework: "../prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework"
       - sdk: MetalKit.framework
       - sdk: Metal.framework

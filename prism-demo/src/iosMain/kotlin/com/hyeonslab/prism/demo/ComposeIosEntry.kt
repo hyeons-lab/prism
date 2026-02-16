@@ -3,8 +3,11 @@
 package com.hyeonslab.prism.demo
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -23,13 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
-import com.hyeonslab.prism.renderer.Material
 import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlinx.cinterop.BetaInteropApi
@@ -37,7 +33,6 @@ import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGSize
-import platform.Foundation.NSOperationQueue
 import platform.MetalKit.MTKView
 import platform.MetalKit.MTKViewDelegateProtocol
 import platform.QuartzCore.CACurrentMediaTime
@@ -53,13 +48,15 @@ fun composeDemoViewController(): UIViewController = ComposeUIViewController {
 
 @Composable
 private fun IosComposeDemoContent() {
-  val store = remember { DemoStore() }
+  val store = sharedDemoStore
   val uiState by store.state.collectAsStateWithLifecycle()
 
-  // Hold scene + context so they survive recomposition but can be cleaned up
+  // Hold scene + context + delegate so they survive recomposition but can be cleaned up.
+  // MTKView.delegate is a WEAK reference — without a strong ref here, the delegate gets GC'd.
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var iosContext by remember { mutableStateOf<IosContext?>(null) }
   var mtkView by remember { mutableStateOf<MTKView?>(null) }
+  var renderDelegate by remember { mutableStateOf<MTKViewDelegateProtocol?>(null) }
   var initError by remember { mutableStateOf<String?>(null) }
 
   // Clean up wgpu resources when the composable leaves the composition.
@@ -68,6 +65,7 @@ private fun IosComposeDemoContent() {
     onDispose {
       log.i { "Disposing Compose iOS demo" }
       mtkView?.delegate = null
+      renderDelegate = null
       scene?.shutdown()
       iosContext?.close()
     }
@@ -127,11 +125,13 @@ private fun IosComposeDemoContent() {
             )
           scene = s
 
-          view.delegate =
+          val delegate =
             ComposeRenderDelegate(s, store) { w, h ->
               s.renderer.resize(w, h)
               s.updateAspectRatio(w, h)
             }
+          renderDelegate = delegate
+          view.delegate = delegate
           log.i { "Compose iOS demo initialized (${width}x${height})" }
         } catch (e: Exception) {
           log.e(e) { "Failed to initialize wgpu: ${e.message}" }
@@ -150,23 +150,22 @@ private fun IosComposeDemoContent() {
         )
       }
 
-      // Overlay Compose UI controls
+      // Overlay Compose UI controls — safeDrawing insets avoid the Dynamic Island / notch
       ComposeDemoControls(
         state = uiState,
         onIntent = store::dispatch,
-        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+        modifier =
+          Modifier.align(Alignment.TopEnd)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(8.dp),
       )
     }
   }
 }
 
 /**
- * MTKView render delegate for the Compose iOS demo. Reads [DemoStore] state each frame to support
- * user-controllable rotation speed, pause, and material color — mirroring ComposeMain.kt's render
- * loop.
- *
- * FPS updates are dispatched on the main queue to avoid cross-thread Compose state mutations from
- * the Metal display-link thread.
+ * MTKView render delegate for the Compose iOS demo. Delegates per-frame update logic to
+ * [tickDemoFrame] which is shared with the Native tab's [DemoRenderDelegate].
  */
 @OptIn(BetaInteropApi::class)
 private class ComposeRenderDelegate(
@@ -175,42 +174,15 @@ private class ComposeRenderDelegate(
   private val onResize: (Int, Int) -> Unit,
 ) : NSObject(), MTKViewDelegateProtocol {
 
-  private val startTime = CACurrentMediaTime()
-  private var lastFrameTime = startTime
+  private var lastFrameTime = CACurrentMediaTime()
   private var frameCount = 0L
-  private var rotationAngle = 0f
 
   override fun drawInMTKView(view: MTKView) {
     val now = CACurrentMediaTime()
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
-    val elapsed = (now - startTime).toFloat()
     frameCount++
-
-    val currentState = store.state.value
-
-    // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
-    if (deltaTime > 0f) {
-      val smoothedFps = currentState.fps * 0.9f + (1f / deltaTime) * 0.1f
-      NSOperationQueue.mainQueue.addOperationWithBlock {
-        store.dispatch(DemoIntent.UpdateFps(smoothedFps))
-      }
-    }
-
-    // Update rotation (user-controllable speed + pause)
-    if (!currentState.isPaused) {
-      rotationAngle += deltaTime * MathUtils.toRadians(currentState.rotationSpeed)
-    }
-    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
-
-    // Update material color
-    val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-    cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
-
-    // Run ECS update (triggers RenderSystem)
-    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-    scene.world.update(time)
+    tickDemoFrame(scene, store, deltaTime, frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {
