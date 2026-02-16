@@ -396,7 +396,7 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 ## Development Logs (devlog/)
 
-See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. Claude Code must maintain development logs proactively.
+See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. AI coding agents must maintain development logs proactively.
 
 ## Random Notes
 

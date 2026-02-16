@@ -1,6 +1,6 @@
 # Devlog Conventions
 
-**Claude Code MUST maintain a development log in `devlog/` to track changes, decisions, and reasoning across sessions.** Update it proactively as you work — do not wait for the user to ask.
+**AI coding agents MUST maintain a development log in `devlog/` to track changes, decisions, and reasoning across sessions.** Update it proactively as you work — do not wait for the user to ask.
 
 ## Formats
 
@@ -21,7 +21,7 @@
 
 Each devlog file should have:
 
-- **Agent:** `Claude Code (model-id) @ repository branch branch-name` — model-id from your system prompt, repository and branch from `git remote get-url origin` and `git branch --show-current`. If the model changes mid-branch, add a new Agent line with a timestamp noting the switch.
+- **Agent:** `Agent Name (model-id) @ repository branch branch-name` — identify the agent, model, repository, and branch. If the agent or model changes mid-branch, add a new Agent line with a timestamp noting the switch.
 - **Intent:** User's goal or problem being solved
 - **What Changed:** `timestamp path/to/file — what and why` (record final state, not iterations; group similar files)
 - **Decisions:** `timestamp Decision — reasoning`
@@ -29,7 +29,7 @@ Each devlog file should have:
 - **Commits:** `hash — message`
 
 Optional sections (omit if empty):
-- **Research & Discoveries:** Findings, links — so future sessions don't re-discover them
+- **Research & Discoveries:** Findings, links — so future agents don't re-discover them
 - **Lessons Learned:** Reusable insights, pitfalls, API quirks
 - **Next Steps:** What's left to do
 

@@ -19,7 +19,8 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - **2026-02-16T08:40-08:00** `devlog/CONVENTIONS.md` — New file with concise devlog convention (~40 lines): formats, per-session sections, rules. Extracted from ~145-line inline section in AGENTS.md.
 - **2026-02-16T08:40-08:00** `devlog/README.md` — Replaced 37-line verbose README with concise quick-reference table (14 lines).
 - **2026-02-16T09:30-08:00** `devlog/000001-initial-scaffolding.md` through `devlog/000008-feat-sync-ios-tab-rotation.md` — Flattened all 8 existing devlog files to new convention: removed `## Session N` headers, converted timestamps to ISO 8601, collapsed multi-session content into single flat sections.
-- **2026-02-16T09:40-08:00** `AGENTS.md` — Renamed "Session Logs" section to "Development Logs" to match flat devlog convention.
+- **2026-02-16T09:40-08:00** `AGENTS.md` — Renamed "Session Logs" section to "Development Logs" to match flat devlog convention. Updated to reference "AI coding agents" instead of "Claude Code".
+- **2026-02-16T09:50-08:00** `devlog/CONVENTIONS.md` — Generalized from Claude Code-specific to any AI coding agent: updated intro, Agent line format, and cross-references.
 
 ## Decisions
 
