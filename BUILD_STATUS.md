@@ -97,7 +97,7 @@
 - UISceneDelegate modernization: `SceneDelegate.swift` with `UITabBarController` (Native + Compose tabs)
 - XCFramework binary config (iosArm64 + iosSimulatorArm64, static framework)
 - RenderSurface.ios.kt: TODO crash replaced with Kermit logging
-- Xcode project scaffolding via xcodegen (ios-demo/)
+- Xcode project scaffolding via xcodegen (prism-ios-demo/)
 - Error handling: null Metal device guard, try-catch for wgpu init, error overlay UI
 - Thread safety: `NSOperationQueue.mainQueue` for Compose state dispatch from Metal render thread
 - Lazy wgpu init via `viewDidAppear` with `isPaused` guard to avoid double GPU memory
@@ -148,7 +148,7 @@ Run all tests: `./gradlew jvmTest`
 ./gradlew assemblePrismDemoReleaseXCFramework
 
 # Generate Xcode project (requires xcodegen: brew install xcodegen)
-cd ios-demo && xcodegen generate
+cd prism-ios-demo && xcodegen generate
 ```
 
 ## Prerequisites

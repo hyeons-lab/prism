@@ -3,8 +3,11 @@
 package com.hyeonslab.prism.demo
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -53,13 +56,15 @@ fun composeDemoViewController(): UIViewController = ComposeUIViewController {
 
 @Composable
 private fun IosComposeDemoContent() {
-  val store = remember { DemoStore() }
+  val store = remember { sharedDemoStore }
   val uiState by store.state.collectAsStateWithLifecycle()
 
-  // Hold scene + context so they survive recomposition but can be cleaned up
+  // Hold scene + context + delegate so they survive recomposition but can be cleaned up.
+  // MTKView.delegate is a WEAK reference — without a strong ref here, the delegate gets GC'd.
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var iosContext by remember { mutableStateOf<IosContext?>(null) }
   var mtkView by remember { mutableStateOf<MTKView?>(null) }
+  var renderDelegate by remember { mutableStateOf<MTKViewDelegateProtocol?>(null) }
   var initError by remember { mutableStateOf<String?>(null) }
 
   // Clean up wgpu resources when the composable leaves the composition.
@@ -68,6 +73,7 @@ private fun IosComposeDemoContent() {
     onDispose {
       log.i { "Disposing Compose iOS demo" }
       mtkView?.delegate = null
+      renderDelegate = null
       scene?.shutdown()
       iosContext?.close()
     }
@@ -127,11 +133,13 @@ private fun IosComposeDemoContent() {
             )
           scene = s
 
-          view.delegate =
+          val delegate =
             ComposeRenderDelegate(s, store) { w, h ->
               s.renderer.resize(w, h)
               s.updateAspectRatio(w, h)
             }
+          renderDelegate = delegate
+          view.delegate = delegate
           log.i { "Compose iOS demo initialized (${width}x${height})" }
         } catch (e: Exception) {
           log.e(e) { "Failed to initialize wgpu: ${e.message}" }
@@ -150,11 +158,14 @@ private fun IosComposeDemoContent() {
         )
       }
 
-      // Overlay Compose UI controls
+      // Overlay Compose UI controls — safeDrawing insets avoid the Dynamic Island / notch
       ComposeDemoControls(
         state = uiState,
         onIntent = store::dispatch,
-        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+        modifier =
+          Modifier.align(Alignment.TopEnd)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(8.dp),
       )
     }
   }
@@ -175,19 +186,18 @@ private class ComposeRenderDelegate(
   private val onResize: (Int, Int) -> Unit,
 ) : NSObject(), MTKViewDelegateProtocol {
 
-  private val startTime = CACurrentMediaTime()
-  private var lastFrameTime = startTime
+  private var lastFrameTime = CACurrentMediaTime()
   private var frameCount = 0L
-  private var rotationAngle = 0f
 
   override fun drawInMTKView(view: MTKView) {
     val now = CACurrentMediaTime()
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
-    val elapsed = (now - startTime).toFloat()
     frameCount++
 
     val currentState = store.state.value
+    SharedDemoTime.syncPause(currentState.isPaused)
+    val elapsed = SharedDemoTime.elapsed().toFloat()
 
     // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
     if (deltaTime > 0f) {
@@ -197,12 +207,10 @@ private class ComposeRenderDelegate(
       }
     }
 
-    // Update rotation (user-controllable speed + pause)
-    if (!currentState.isPaused) {
-      rotationAngle += deltaTime * MathUtils.toRadians(currentState.rotationSpeed)
-    }
+    // Rotation from shared angle (synced with Native tab, smooth on speed change)
+    val angle = SharedDemoTime.angle(MathUtils.toRadians(currentState.rotationSpeed))
     val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
+    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
 
     // Update material color
     val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)

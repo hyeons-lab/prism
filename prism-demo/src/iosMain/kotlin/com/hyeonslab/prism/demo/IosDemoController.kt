@@ -3,6 +3,13 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
+import com.hyeonslab.prism.core.Time
+import com.hyeonslab.prism.ecs.components.MaterialComponent
+import com.hyeonslab.prism.ecs.components.TransformComponent
+import com.hyeonslab.prism.math.MathUtils
+import com.hyeonslab.prism.math.Quaternion
+import com.hyeonslab.prism.math.Vec3
+import com.hyeonslab.prism.renderer.Material
 import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlinx.cinterop.BetaInteropApi
@@ -22,7 +29,11 @@ private val log = Logger.withTag("PrismIOS")
  * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
  * release the WGPU instance, adapter, device, and surface.
  */
-class IosDemoHandle(private val iosContext: IosContext, private val scene: DemoScene) {
+class IosDemoHandle(
+  private val iosContext: IosContext,
+  private val scene: DemoScene,
+  @Suppress("unused") private val renderDelegate: MTKViewDelegateProtocol,
+) {
   fun shutdown() {
     log.i { "Shutting down iOS demo..." }
     scene.shutdown()
@@ -55,9 +66,10 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   val iosContext = iosContextRenderer(view, width, height)
   val scene = createDemoScene(iosContext.wgpuContext, width = width, height = height)
 
-  view.delegate = DemoRenderDelegate(scene)
+  val delegate = DemoRenderDelegate(scene)
+  view.delegate = delegate
   log.i { "iOS demo configured — render delegate installed" }
-  return IosDemoHandle(iosContext, scene)
+  return IosDemoHandle(iosContext, scene, delegate)
 }
 
 /**
@@ -67,18 +79,29 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
 @OptIn(BetaInteropApi::class)
 class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDelegateProtocol {
 
-  private val startTime = CACurrentMediaTime()
-  private var lastFrameTime = startTime
+  private var lastFrameTime = CACurrentMediaTime()
   private var frameCount = 0L
 
   override fun drawInMTKView(view: MTKView) {
     val now = CACurrentMediaTime()
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
-    val elapsed = (now - startTime).toFloat()
-
     frameCount++
-    scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
+
+    val currentState = sharedDemoStore.state.value
+    SharedDemoTime.syncPause(currentState.isPaused)
+    val elapsed = SharedDemoTime.elapsed().toFloat()
+    val angle = SharedDemoTime.angle(MathUtils.toRadians(currentState.rotationSpeed))
+
+    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
+    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
+
+    // Sync cube color from shared store (color picker lives on the Compose tab)
+    val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
+    cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
+
+    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
+    scene.world.update(time)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {

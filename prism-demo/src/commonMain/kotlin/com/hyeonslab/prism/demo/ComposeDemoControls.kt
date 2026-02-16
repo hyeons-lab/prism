@@ -2,12 +2,15 @@ package com.hyeonslab.prism.demo
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -70,37 +73,31 @@ fun ComposeDemoControls(
       Text("Cube Color", style = MaterialTheme.typography.bodySmall)
       Spacer(Modifier.height(4.dp))
       Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
       ) {
-        ColorPresetButton("Blue", RendererColor(0.3f, 0.5f, 0.9f), onIntent)
-        ColorPresetButton("Red", RendererColor(0.9f, 0.2f, 0.2f), onIntent)
-        ColorPresetButton("Green", RendererColor(0.2f, 0.8f, 0.3f), onIntent)
-      }
-      Spacer(Modifier.height(4.dp))
-      Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        ColorPresetButton("Gold", RendererColor(1.0f, 0.84f, 0f), onIntent)
-        ColorPresetButton("Purple", RendererColor(0.6f, 0.2f, 0.9f), onIntent)
-        ColorPresetButton("White", RendererColor(1f, 1f, 1f), onIntent)
+        ColorPresetButton(RendererColor(0.3f, 0.5f, 0.9f), onIntent)
+        ColorPresetButton(RendererColor(0.9f, 0.2f, 0.2f), onIntent)
+        ColorPresetButton(RendererColor(0.2f, 0.8f, 0.3f), onIntent)
+        ColorPresetButton(RendererColor(1.0f, 0.84f, 0f), onIntent)
+        ColorPresetButton(RendererColor(0.6f, 0.2f, 0.9f), onIntent)
+        ColorPresetButton(RendererColor(1f, 1f, 1f), onIntent)
       }
     }
   }
 }
 
 @Composable
-private fun ColorPresetButton(label: String, color: RendererColor, onIntent: (DemoIntent) -> Unit) {
+private fun ColorPresetButton(color: RendererColor, onIntent: (DemoIntent) -> Unit) {
   Button(
     onClick = { onIntent(DemoIntent.SetCubeColor(color)) },
     colors =
       ButtonDefaults.buttonColors(
-        containerColor = ComposeColor(color.r, color.g, color.b, color.a),
-        contentColor = ComposeColor.White,
+        containerColor = ComposeColor(color.r, color.g, color.b, color.a)
       ),
-    modifier = Modifier.width(80.dp),
-  ) {
-    Text(label, style = MaterialTheme.typography.labelSmall)
-  }
+    shape = CircleShape,
+    contentPadding = PaddingValues(0.dp),
+    modifier = Modifier.size(32.dp),
+  ) {}
 }

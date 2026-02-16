@@ -34,7 +34,7 @@ class DemoScene(
 ) {
   /**
    * Advances the scene by one frame: rotates the cube and runs the ECS update. Used by
-   * non-interactive demos (GLFW, WASM, native iOS) where rotation is not user-controllable.
+   * non-interactive demos (GLFW, WASM) where rotation is not user-controllable.
    *
    * @param rotationSpeed Rotation speed in radians per second. Defaults to PI/4 (~45 deg/s).
    */
@@ -66,8 +66,8 @@ class DemoScene(
 }
 
 /**
- * Creates a standard demo scene with a camera and a lit cube. Used by both the GLFW and Compose
- * demo entry points.
+ * Creates a standard demo scene with a camera and a lit cube. Used by the GLFW, Compose, WASM, and
+ * iOS demo entry points.
  *
  * @param wgpuContext The WebGPU context to render into.
  * @param width Initial surface width in pixels.
