@@ -133,7 +133,7 @@ jobs:
 
           git commit -m "chore: update Package.swift for v${VERSION}"
           git tag "v${VERSION}"
-          git push origin main --tags
+          git push origin main "v${VERSION}"
 
       - name: Create GitHub Release
         env:

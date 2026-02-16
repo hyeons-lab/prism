@@ -5,8 +5,14 @@ import com.squareup.kotlinpoet.TypeSpec
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 buildscript {
+  val kotlinpoetVersion =
+    file("../gradle/libs.versions.toml")
+      .readLines()
+      .first { it.trimStart().startsWith("kotlinpoet") }
+      .substringAfter("\"")
+      .substringBefore("\"")
   repositories { mavenCentral() }
-  dependencies { classpath("com.squareup:kotlinpoet:2.2.0") }
+  dependencies { classpath("com.squareup:kotlinpoet:$kotlinpoetVersion") }
 }
 
 plugins { alias(libs.plugins.kotlin.multiplatform) }
@@ -24,6 +30,7 @@ val generatePrismVersion by
         FileSpec.builder("com.hyeonslab.prism", "Prism")
           .addType(
             TypeSpec.objectBuilder("Prism")
+              .addModifiers(KModifier.INTERNAL)
               .addKdoc("Prism engine version information for the iOS XCFramework distribution.")
               .addProperty(
                 PropertySpec.builder("VERSION", String::class)
