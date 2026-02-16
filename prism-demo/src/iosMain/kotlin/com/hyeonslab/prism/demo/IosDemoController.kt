@@ -3,8 +3,8 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import io.ygdrasil.webgpu.IosContext
-import io.ygdrasil.webgpu.iosContextRenderer
+import com.hyeonslab.prism.widget.PrismSurface
+import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -26,14 +26,14 @@ private val log = Logger.withTag("PrismIOS")
  * reference in UIKit, so without a strong reference the K/N GC will collect the delegate.
  */
 class IosDemoHandle(
-  private val iosContext: IosContext,
+  private val surface: PrismSurface,
   private val scene: DemoScene,
   @Suppress("unused") private val renderDelegate: MTKViewDelegateProtocol,
 ) {
   fun shutdown() {
     log.i { "Shutting down iOS demo..." }
     scene.shutdown()
-    iosContext.close()
+    surface.detach()
     log.i { "iOS demo shut down" }
   }
 }
@@ -59,13 +59,13 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   }
   log.i { "Configuring demo: ${width}x${height}" }
 
-  val iosContext = iosContextRenderer(view, width, height)
-  val scene = createDemoScene(iosContext.wgpuContext, width = width, height = height)
+  val surface = createPrismSurface(view, width, height)
+  val scene = createDemoScene(surface.wgpuContext!!, width = width, height = height)
 
   val delegate = DemoRenderDelegate(scene)
   view.delegate = delegate
   log.i { "iOS demo configured — render delegate installed" }
-  return IosDemoHandle(iosContext, scene, delegate)
+  return IosDemoHandle(surface, scene, delegate)
 }
 
 /**

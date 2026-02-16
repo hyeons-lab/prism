@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import io.ygdrasil.webgpu.IosContext
-import io.ygdrasil.webgpu.iosContextRenderer
+import com.hyeonslab.prism.widget.PrismSurface
+import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -51,10 +51,10 @@ private fun IosComposeDemoContent() {
   val store = sharedDemoStore
   val uiState by store.state.collectAsStateWithLifecycle()
 
-  // Hold scene + context + delegate so they survive recomposition but can be cleaned up.
+  // Hold scene + surface + delegate so they survive recomposition but can be cleaned up.
   // MTKView.delegate is a WEAK reference — without a strong ref here, the delegate gets GC'd.
   var scene by remember { mutableStateOf<DemoScene?>(null) }
-  var iosContext by remember { mutableStateOf<IosContext?>(null) }
+  var surface by remember { mutableStateOf<PrismSurface?>(null) }
   var mtkView by remember { mutableStateOf<MTKView?>(null) }
   var renderDelegate by remember { mutableStateOf<MTKViewDelegateProtocol?>(null) }
   var initError by remember { mutableStateOf<String?>(null) }
@@ -67,7 +67,7 @@ private fun IosComposeDemoContent() {
       mtkView?.delegate = null
       renderDelegate = null
       scene?.shutdown()
-      iosContext?.close()
+      surface?.detach()
     }
   }
 
@@ -114,21 +114,21 @@ private fun IosComposeDemoContent() {
         }
 
         try {
-          val ctx = iosContextRenderer(view, width, height)
-          iosContext = ctx
-          val s =
+          val s = createPrismSurface(view, width, height)
+          surface = s
+          val sc =
             createDemoScene(
-              ctx.wgpuContext,
+              s.wgpuContext!!,
               width = width,
               height = height,
               initialColor = store.state.value.cubeColor,
             )
-          scene = s
+          scene = sc
 
           val delegate =
-            ComposeRenderDelegate(s, store) { w, h ->
-              s.renderer.resize(w, h)
-              s.updateAspectRatio(w, h)
+            ComposeRenderDelegate(sc, store) { w, h ->
+              sc.renderer.resize(w, h)
+              sc.updateAspectRatio(w, h)
             }
           renderDelegate = delegate
           view.delegate = delegate

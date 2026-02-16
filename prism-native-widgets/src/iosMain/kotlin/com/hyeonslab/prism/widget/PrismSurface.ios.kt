@@ -8,20 +8,19 @@ import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.WGPUContext
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.coroutines.runBlocking
 import platform.MetalKit.MTKView
 
 private val log = Logger.withTag("PrismSurface.iOS")
 
-actual class PrismSurface(private val view: MTKView? = null) {
+actual class PrismSurface(iosContext: IosContext? = null) {
+  private var _iosContext: IosContext? = iosContext
   private var _width: Int = 0
   private var _height: Int = 0
   private var engine: Engine? = null
-  private var iosContext: IosContext? = null
 
-  /** wgpu context created from the MTKView. Available after first valid [resize]. */
+  /** wgpu context created from the MTKView. Available when constructed via [createPrismSurface]. */
   val wgpuContext: WGPUContext?
-    get() = iosContext?.wgpuContext
+    get() = _iosContext?.wgpuContext
 
   actual fun attach(engine: Engine) {
     log.i { "Attaching engine '${engine.config.appName}'" }
@@ -31,27 +30,13 @@ actual class PrismSurface(private val view: MTKView? = null) {
   actual fun resize(width: Int, height: Int) {
     _width = width
     _height = height
-    val v =
-      view
-        ?: run {
-          log.w {
-            "Resize: ${width}x${height} (no MTKView — use PrismSurface(mtkView) constructor)"
-          }
-          return
-        }
-    if (iosContext == null && width > 0 && height > 0) {
-      log.i { "Creating wgpu surface from MTKView: ${width}x${height}" }
-      iosContext = runBlocking { iosContextRenderer(v, width, height) }
-      log.i { "wgpu surface ready (iOS)" }
-    } else {
-      log.d { "Resize: ${width}x${height}" }
-    }
+    log.d { "Resize: ${width}x${height}" }
   }
 
   actual fun detach() {
     log.i { "Detaching engine" }
-    iosContext?.close()
-    iosContext = null
+    _iosContext?.close()
+    _iosContext = null
     engine = null
   }
 
@@ -60,4 +45,12 @@ actual class PrismSurface(private val view: MTKView? = null) {
 
   actual val height: Int
     get() = _height
+}
+
+/** Creates a [PrismSurface] backed by an MTKView with a ready-to-use wgpu context. */
+suspend fun createPrismSurface(view: MTKView, width: Int, height: Int): PrismSurface {
+  log.i { "Creating wgpu surface from MTKView: ${width}x${height}" }
+  val ctx = iosContextRenderer(view, width, height)
+  log.i { "wgpu surface ready (iOS)" }
+  return PrismSurface(ctx).apply { resize(width, height) }
 }

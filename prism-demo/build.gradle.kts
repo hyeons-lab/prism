@@ -10,7 +10,7 @@ kotlin {
   jvmToolchain(25)
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
-  macosArm64()
+  macosArm64 { binaries { executable { entryPoint = "com.hyeonslab.prism.demo.main" } } }
 
   val xcf = XCFramework("PrismDemo")
   listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -40,6 +40,7 @@ kotlin {
       implementation(project(":prism-assets"))
       implementation(project(":prism-audio"))
       implementation(project(":prism-compose"))
+      implementation(project(":prism-native-widgets"))
       implementation(libs.compose.runtime)
       implementation(libs.compose.foundation)
       implementation(libs.compose.ui)
