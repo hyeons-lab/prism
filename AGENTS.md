@@ -324,6 +324,45 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - Add demo app entry point for rotating cube scene
 ```
 
+## Branching & Plan Workflow
+
+### Worktrees (Required)
+
+Every new body of work **must** use a git worktree. This keeps parallel work isolated and avoids branch-switching disruptions:
+
+```bash
+# Create a worktree for your branch (inside worktrees/ directory)
+git worktree add worktrees/<branch-name> -b <branch-name>
+
+# Work in the worktree directory
+cd worktrees/<branch-name>
+
+# After merging, clean up
+git worktree remove worktrees/<branch-name>
+```
+
+The `worktrees/` directory is gitignored. All worktrees live there to keep the project root clean.
+
+### Write a Plan Before Starting
+
+Before writing code, create a plan file in `devlog/plans/`:
+
+- **File name:** `devlog/plans/NNNNNN-NN-<description>.md`
+  - First `NNNNNN` matches the branch devlog prefix (check highest in `devlog/` and increment)
+  - `NN` is a two-digit plan sequence (01, 02, ...)
+- **Structure:** `## Thinking` (exploratory reasoning) then `## Plan` (actionable steps)
+- See `devlog/CONVENTIONS.md` for full details
+
+### Plan Versioning
+
+Plans are **append-only**. If the plan changes during execution:
+- Note deviations in the branch devlog file
+- For major pivots, create a new plan file with an incremented sequence number (e.g., `000010-02-...`)
+
+### Progress Tracking
+
+Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. Track decisions, changes, and issues. See `devlog/CONVENTIONS.md` for section structure and formatting.
+
 ## Current Project Status
 
 **Phase:** PrismSurface wiring complete, Android targets added, macOS native demo working
