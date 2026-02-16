@@ -8,6 +8,7 @@ plugins {
 
 kotlin {
   jvmToolchain(25)
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
   macosArm64()
 
@@ -39,10 +40,10 @@ kotlin {
       implementation(project(":prism-assets"))
       implementation(project(":prism-audio"))
       implementation(project(":prism-compose"))
-      implementation(compose.runtime)
-      implementation(compose.foundation)
-      implementation(compose.ui)
-      implementation(compose.material3)
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.foundation)
+      implementation(libs.compose.ui)
+      implementation(libs.compose.material3)
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.lifecycle.runtime.compose)
