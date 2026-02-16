@@ -42,7 +42,7 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 # Build demo for specific platform
 ./gradlew :prism-demo:jvmJar            # JVM executable JAR
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
-./gradlew assemblePrismDemoReleaseXCFramework     # iOS XCFramework
+./gradlew assemblePrismDemoDebugXCFramework        # iOS XCFramework (debug)
 
 # Generate Xcode project (requires xcodegen: brew install xcodegen)
 cd prism-ios-demo && xcodegen generate

@@ -99,3 +99,46 @@ Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `P
 - `066f48a` — fix: address PR review — thread safety, material alloc, accessibility
 - `93aff45` — docs: update devlog with mutex decision rationale
 - `7d93d93` — fix: skip action on contended mutex, use generic simulator destination
+
+---
+
+## Session 4 — Improve CI workflow for Apple builds (2026-02-15 23:08 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/ci-apple-improvements`
+
+### Intent
+Harden the Apple CI pipeline with 6 improvements: deduplicate wgpu4k build logic into a composite action, pin macOS runner, add macOS native tests, verify both XCFramework slices, upload artifact, and add xcodegen+xcodebuild verification.
+
+**[2026-02-15 23:08 PST]** Created implementation plan → [devlog/plans/000008-01-ci-improvements.md](plans/000008-01-ci-improvements.md)
+
+### What Changed
+- **[2026-02-15 23:08 PST]** `.github/actions/setup-wgpu4k/action.yml` — New composite action encapsulating 6 wgpu4k build steps (version extraction, Maven cache, Rust toolchain, Rust cache, build from source, cache diagnostics). Accepts optional `rust-targets` input for iOS cross-compilation. Outputs `version`, `commit`, `cache-hit`.
+- **[2026-02-15 23:08 PST]** `.github/workflows/ci.yml` — 6 improvements:
+  1. Replaced 6 wgpu4k steps in `ci` job (lines 43–119) with single `uses: ./.github/actions/setup-wgpu4k`
+  2. Replaced 6 wgpu4k steps in `apple` job (lines 194–254) with composite action + `rust-targets` input
+  3. Pinned macOS runner from `macos-latest` to `macos-15`
+  4. Added `macosArm64Test` to test step, renamed "iOS tests" → "Apple native tests"
+  5. Replaced single-header check with loop over both `ios-arm64` and `ios-arm64-simulator` slices with summary table
+  6. Added `Upload XCFramework` step (actions/upload-artifact@v4, 14-day retention)
+  7. Added `Generate Xcode project` step (brew install xcodegen + xcodegen generate)
+  8. Added `Build iOS app` step (xcodebuild with iphonesimulator SDK, CODE_SIGNING_ALLOWED=NO, `set -o pipefail`)
+- **[2026-02-15 23:08 PST]** `prism-assets/src/nativeMain/.../FileReader.native.kt` — New `actual FileReader` using `kotlinx.io.files.SystemFileSystem` with proper resource cleanup (`use {}`). Replaces iosMain TODO stub, covers all native targets.
+- **[2026-02-15 23:08 PST]** `prism-assets/src/iosMain/.../FileReader.ios.kt` — Deleted (superseded by nativeMain).
+
+### Decisions
+- **[2026-02-15 23:08 PST]** **Composite action over reusable workflow** — Composite actions can be referenced with `uses: ./.github/actions/...` in the same repo without needing `workflow_call` triggers. Simpler for deduplication within a single workflow file.
+- **[2026-02-15 23:08 PST]** **No `timeout-minutes` in composite steps** — GitHub Actions doesn't support `timeout-minutes` on composite action steps. Job-level timeouts (30min ci, 45min apple) provide the safety net.
+- **[2026-02-15 23:08 PST]** **Pin to `macos-15`** — `macos-latest` can shift between versions without notice. Pinning prevents unexpected Xcode/SDK changes from breaking Metal-dependent builds.
+- **[2026-02-15 23:30 PST]** **nativeMain FileReader using kotlinx.io** — Replaced iosMain TODO stub with a proper `nativeMain` actual using `kotlinx.io.files.SystemFileSystem`. Covers all native targets (iOS, macOS, Linux, Windows). Filed #22 as tracking issue.
+
+### Issues
+- **macosArm64Test compilation failure** — Adding `macosArm64Test` exposed a pre-existing gap: `prism-assets` declares `macosArm64()` but only had an `actual FileReader` in `iosMain`. Fixed by creating `nativeMain/FileReader.native.kt` using `kotlinx.io.files.SystemFileSystem`, which covers all native targets. Deleted the iosMain TODO stub. Filed #22 for tracking.
+- **xcodebuild exit code swallowed by `tail`** — `xcodebuild ... 2>&1 | tail -30 || EXIT=$?` captured `tail`'s exit code (always 0), not `xcodebuild`'s. A failing build would silently pass CI. Fixed by adding `set -o pipefail`.
+- **FileReader resource leak** — Initial `nativeMain` implementation didn't close the `RawSource` from `SystemFileSystem.source()`. Fixed by wrapping in `.use { }`.
+
+### Lessons Learned
+- `set -o pipefail` is essential when piping a command through `tail`/`head` in CI — without it, only the last command's exit code is captured.
+- `kotlinx.io.files.SystemFileSystem` works across all Kotlin/Native targets, making it a good default for `nativeMain` file access instead of per-platform stubs.
+
+### Commits
+- `39907d3` — chore: harden Apple CI with composite action and xcodebuild verification

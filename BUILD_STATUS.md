@@ -102,7 +102,8 @@
 - Thread safety: `NSOperationQueue.mainQueue` for Compose state dispatch from Metal render thread
 - Lazy wgpu init via `viewDidAppear` with `isPaused` guard to avoid double GPU memory
 - `renderer.resize()` called on drawable size change for correct depth texture recreation
-- **Status:** Complete — `./gradlew assemblePrismDemoReleaseXCFramework` builds; Xcode project ready with two demos
+- prism-assets FileReader: nativeMain actual using kotlinx.io SystemFileSystem (covers all native targets); iosMain TODO stub removed
+- **Status:** Complete — `./gradlew assemblePrismDemoDebugXCFramework` builds; Xcode project ready with two demos
 ### M8: Android Support ⏳
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
@@ -117,14 +118,17 @@
 | prism-demo | 8 | DemoStore (MVI reducer, 8) |
 | **Total** | **178** | |
 
-Run all tests: `./gradlew jvmTest`
+Run tests: `./gradlew jvmTest` (JVM) or `./gradlew macosArm64Test iosSimulatorArm64Test` (Apple native)
 
 ## Code Quality
 
 - [x] KtFmt (Google style, 100-char max width) via `./gradlew ktfmtCheck`
 - [x] Detekt (maxIssues=0) via `./gradlew detektJvmMain`
 - [x] `allWarningsAsErrors=true` on all modules
-- [x] GitHub Actions CI: ktfmtCheck + detekt + jvmTest on every push/PR
+- [x] GitHub Actions CI (two jobs on every push/PR):
+  - `ci` (ubuntu-latest): ktfmtCheck + detekt + jvmTest
+  - `apple` (macos-15): macosArm64Test + iosSimulatorArm64Test + XCFramework build/verify + artifact upload + xcodebuild
+  - wgpu4k build deduplicated into composite action (`.github/actions/setup-wgpu4k`)
 
 ## Build Commands
 
@@ -144,8 +148,8 @@ Run all tests: `./gradlew jvmTest`
 # Run demo app (WASM/Browser)
 ./gradlew :prism-demo:wasmJsBrowserDevelopmentRun
 
-# Build iOS XCFramework
-./gradlew assemblePrismDemoReleaseXCFramework
+# Build iOS XCFramework (debug)
+./gradlew assemblePrismDemoDebugXCFramework
 
 # Generate Xcode project (requires xcodegen: brew install xcodegen)
 cd prism-ios-demo && xcodegen generate
