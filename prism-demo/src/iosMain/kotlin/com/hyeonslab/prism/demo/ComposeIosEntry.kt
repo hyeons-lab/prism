@@ -26,13 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
-import com.hyeonslab.prism.renderer.Material
 import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlinx.cinterop.BetaInteropApi
@@ -40,7 +33,6 @@ import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGSize
-import platform.Foundation.NSOperationQueue
 import platform.MetalKit.MTKView
 import platform.MetalKit.MTKViewDelegateProtocol
 import platform.QuartzCore.CACurrentMediaTime
@@ -56,7 +48,7 @@ fun composeDemoViewController(): UIViewController = ComposeUIViewController {
 
 @Composable
 private fun IosComposeDemoContent() {
-  val store = remember { sharedDemoStore }
+  val store = sharedDemoStore
   val uiState by store.state.collectAsStateWithLifecycle()
 
   // Hold scene + context + delegate so they survive recomposition but can be cleaned up.
@@ -172,12 +164,8 @@ private fun IosComposeDemoContent() {
 }
 
 /**
- * MTKView render delegate for the Compose iOS demo. Reads [DemoStore] state each frame to support
- * user-controllable rotation speed, pause, and material color — mirroring ComposeMain.kt's render
- * loop.
- *
- * FPS updates are dispatched on the main queue to avoid cross-thread Compose state mutations from
- * the Metal display-link thread.
+ * MTKView render delegate for the Compose iOS demo. Delegates per-frame update logic to
+ * [tickDemoFrame] which is shared with the Native tab's [DemoRenderDelegate].
  */
 @OptIn(BetaInteropApi::class)
 private class ComposeRenderDelegate(
@@ -194,33 +182,7 @@ private class ComposeRenderDelegate(
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
     frameCount++
-
-    val currentState = store.state.value
-    SharedDemoTime.syncPause(currentState.isPaused)
-    val elapsed = SharedDemoTime.elapsed().toFloat()
-
-    // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
-    if (deltaTime > 0f) {
-      val smoothedFps = currentState.fps * 0.9f + (1f / deltaTime) * 0.1f
-      NSOperationQueue.mainQueue.addOperationWithBlock {
-        store.dispatch(DemoIntent.UpdateFps(smoothedFps))
-      }
-    }
-
-    // Rotation from shared angle (synced with Native tab, smooth on speed change)
-    val angle = SharedDemoTime.angle(MathUtils.toRadians(currentState.rotationSpeed))
-    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-
-    // Update material color only when it actually changes to avoid per-frame allocation
-    val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-    if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
-      cubeMaterial.material = Material(baseColor = currentState.cubeColor)
-    }
-
-    // Run ECS update (triggers RenderSystem)
-    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-    scene.world.update(time)
+    tickDemoFrame(scene, store, deltaTime, frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {

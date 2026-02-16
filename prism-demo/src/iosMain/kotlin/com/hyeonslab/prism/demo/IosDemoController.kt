@@ -3,13 +3,6 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
-import com.hyeonslab.prism.renderer.Material
 import io.ygdrasil.webgpu.IosContext
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlinx.cinterop.BetaInteropApi
@@ -28,6 +21,9 @@ private val log = Logger.withTag("PrismIOS")
  * Handle returned by [configureDemo] that manages the lifecycle of the demo scene and GPU
  * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
  * release the WGPU instance, adapter, device, and surface.
+ *
+ * [renderDelegate] is stored here to prevent garbage collection — MTKView.delegate is a WEAK
+ * reference in UIKit, so without a strong reference the K/N GC will collect the delegate.
  */
 class IosDemoHandle(
   private val iosContext: IosContext,
@@ -87,23 +83,7 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
     frameCount++
-
-    val currentState = sharedDemoStore.state.value
-    SharedDemoTime.syncPause(currentState.isPaused)
-    val elapsed = SharedDemoTime.elapsed().toFloat()
-    val angle = SharedDemoTime.angle(MathUtils.toRadians(currentState.rotationSpeed))
-
-    val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
-    cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
-
-    // Sync cube color from shared store (color picker lives on the Compose tab)
-    val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-    if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
-      cubeMaterial.material = Material(baseColor = currentState.cubeColor)
-    }
-
-    val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
-    scene.world.update(time)
+    tickDemoFrame(scene, sharedDemoStore, deltaTime, frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {

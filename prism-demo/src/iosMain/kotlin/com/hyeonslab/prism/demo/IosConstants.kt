@@ -1,6 +1,14 @@
 package com.hyeonslab.prism.demo
 
+import com.hyeonslab.prism.core.Time
+import com.hyeonslab.prism.ecs.components.MaterialComponent
+import com.hyeonslab.prism.ecs.components.TransformComponent
+import com.hyeonslab.prism.math.MathUtils
+import com.hyeonslab.prism.math.Quaternion
+import com.hyeonslab.prism.math.Vec3
+import com.hyeonslab.prism.renderer.Material
 import kotlinx.coroutines.sync.Mutex
+import platform.Foundation.NSOperationQueue
 import platform.QuartzCore.CACurrentMediaTime
 
 /** Default surface dimensions used when MTKView's drawableSize is not yet computed at init time. */
@@ -11,13 +19,13 @@ internal const val IOS_DEFAULT_HEIGHT = 600
 internal val sharedDemoStore: DemoStore = DemoStore()
 
 /**
- * Pause-aware elapsed-time tracker shared between Native and Compose tabs. Both delegates call
- * [syncPause] each frame and read [elapsed] for rotation angle computation, guaranteeing the cube
- * angle is identical across tabs.
+ * Pause-aware elapsed-time tracker shared between Native and Compose tabs.
  *
- * All public methods are synchronized via a [Mutex] because both MTKView delegates may run on
- * separate display-link threads. When the lock is contended, cached values from the previous frame
- * are returned so the display-link thread is never blocked.
+ * All state is synchronized via a [Mutex] because both MTKView delegates may run on separate
+ * display-link threads. The single [tick] method acquires the lock once per frame to sync pause
+ * state, compute elapsed time, and compute the rotation angle atomically. When the lock is
+ * contended, cached values from the previous frame are returned — at 60fps the worst case is a
+ * single frame of staleness, which is imperceptible.
  */
 internal object SharedDemoTime {
   private val mutex = Mutex()
@@ -30,8 +38,8 @@ internal object SharedDemoTime {
   private var elapsedAtSpeedChange = 0.0
   private var lastSpeed = Double.NaN
 
-  // Cached last-known-good values returned when the lock is contended.
-  // K/N new memory model guarantees cross-thread visibility for object property writes.
+  // Cached last-known-good values returned when the lock is contended. At 60fps, a single
+  // frame of staleness is imperceptible, so no @Volatile annotation is needed.
   private var cachedElapsed = 0.0
   private var cachedAngle = 0f
 
@@ -40,27 +48,34 @@ internal object SharedDemoTime {
     else accumulatedElapsed + (CACurrentMediaTime() - baseTime)
   }
 
-  /** Returns the current pause-aware elapsed time in seconds. */
-  fun elapsed(): Double {
-    if (!mutex.tryLock()) return cachedElapsed
-    try {
-      val result = elapsedUnsafe()
-      cachedElapsed = result
-      return result
-    } finally {
-      mutex.unlock()
-    }
-  }
-
   /**
-   * Returns the current rotation angle in radians, smoothly handling speed changes. When
-   * [speedRadians] changes, the current angle is captured as an offset so the cube continues from
-   * its current position at the new speed instead of jumping.
+   * Combined per-frame tick: syncs pause state, computes elapsed time, and computes the rotation
+   * angle — all atomically under a single lock acquisition. When the lock is contended, [block]
+   * receives cached values from the previous frame instead.
+   *
+   * @param isPaused current pause state from the store
+   * @param speedRadians rotation speed in radians per second
+   * @param block receives (elapsed seconds, rotation angle in radians)
    */
-  fun angle(speedRadians: Float): Float {
-    if (!mutex.tryLock()) return cachedAngle
+  inline fun tick(isPaused: Boolean, speedRadians: Float, block: (Float, Float) -> Unit) {
+    if (!mutex.tryLock()) {
+      block(cachedElapsed.toFloat(), cachedAngle)
+      return
+    }
     try {
+      // Sync pause state
+      if (isPaused && !paused) {
+        accumulatedElapsed += CACurrentMediaTime() - baseTime
+        paused = true
+      } else if (!isPaused && paused) {
+        baseTime = CACurrentMediaTime()
+        paused = false
+      }
+
+      // Compute elapsed
       val currentElapsed = elapsedUnsafe()
+
+      // Compute angle (smooth speed transitions via offset accumulation)
       val speed = speedRadians.toDouble()
       if (lastSpeed.isNaN()) {
         lastSpeed = speed
@@ -70,31 +85,54 @@ internal object SharedDemoTime {
         elapsedAtSpeedChange = currentElapsed
         lastSpeed = speed
       }
-      val result = (angleOffset + (currentElapsed - elapsedAtSpeedChange) * speed).toFloat()
-      cachedAngle = result
-      return result
+      val angle = (angleOffset + (currentElapsed - elapsedAtSpeedChange) * speed).toFloat()
+
+      cachedElapsed = currentElapsed
+      cachedAngle = angle
+      block(currentElapsed.toFloat(), angle)
     } finally {
       mutex.unlock()
+    }
+  }
+}
+
+/**
+ * Shared per-frame update logic for both Native and Compose iOS render delegates. Reads the current
+ * [DemoStore] state, ticks [SharedDemoTime] for synchronized elapsed/angle values, updates the cube
+ * transform and material, dispatches smoothed FPS, and runs the ECS world update.
+ */
+internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float, frameCount: Long) {
+  val currentState = store.state.value
+
+  var elapsed = 0f
+  var angle = 0f
+  SharedDemoTime.tick(
+    isPaused = currentState.isPaused,
+    speedRadians = MathUtils.toRadians(currentState.rotationSpeed),
+  ) { e, a ->
+    elapsed = e
+    angle = a
+  }
+
+  // Update rotation
+  val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
+  cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
+
+  // Update material color only when it actually changes to avoid per-frame allocation
+  val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
+  if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
+    cubeMaterial.material = Material(baseColor = currentState.cubeColor)
+  }
+
+  // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
+  if (deltaTime > 0f) {
+    val smoothedFps = currentState.fps * 0.9f + (1f / deltaTime) * 0.1f
+    NSOperationQueue.mainQueue.addOperationWithBlock {
+      store.dispatch(DemoIntent.UpdateFps(smoothedFps))
     }
   }
 
-  /**
-   * Synchronizes the pause state. Call each frame with the current [isPaused] value. On pause:
-   * freezes elapsed time. On resume: resets the base time so elapsed continues from the frozen
-   * value. No-op if the lock is contended (next frame will pick it up).
-   */
-  fun syncPause(isPaused: Boolean) {
-    if (!mutex.tryLock()) return
-    try {
-      if (isPaused && !paused) {
-        accumulatedElapsed += CACurrentMediaTime() - baseTime
-        paused = true
-      } else if (!isPaused && paused) {
-        baseTime = CACurrentMediaTime()
-        paused = false
-      }
-    } finally {
-      mutex.unlock()
-    }
-  }
+  // Run ECS update (triggers RenderSystem)
+  val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
+  scene.world.update(time)
 }

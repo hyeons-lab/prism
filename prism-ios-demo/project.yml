@@ -1,6 +1,6 @@
 name: PrismiOSDemo
 options:
-  bundleIdPrefix: com.hyeonslab.prism
+  bundleIdPrefix: com.hyeonslab.prism.ios
   deploymentTarget:
     iOS: "15.0"
   xcodeVersion: "15.0"
