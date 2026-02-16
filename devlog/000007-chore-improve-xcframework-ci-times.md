@@ -32,4 +32,35 @@ Reduce the `apple` CI job build time, which has a 45-minute timeout. The XCFrame
 - `grep '^kotlin '` correctly extracts `2.3.0` from `libs.versions.toml` (tested locally)
 
 ### Commits
-- (pending)
+- `16cb14a` — chore: improve Apple CI build times for XCFramework compilation
+
+---
+
+## Session 2 — Address PR feedback and upgrade Compose (2026-02-15 22:00 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `chore/improve-xcframework-ci-times`
+
+### Intent
+Address Copilot review comments on PR #19 and fix Gradle deprecation warnings for Compose Multiplatform dependency accessors.
+
+### What Changed
+- **[2026-02-15 22:00 PST]** `.github/workflows/ci.yml` — Added empty-check + `exit 1` for the Kotlin version extraction step (mirrors the wgpu4k version step pattern). Removed broad `restore-keys` from the konan cache to prevent accumulating old Kotlin/Native toolchains when the Kotlin version bumps.
+- **[2026-02-15 22:15 PST]** `gradle/libs.versions.toml` — Upgraded Compose Multiplatform from 1.10.0 to 1.10.1. Added direct artifact entries for `compose-runtime`, `compose-foundation`, `compose-ui` (at 1.10.1) and `compose-material3` (at 1.10.0-alpha05, per the 1.10.1 release's version mapping).
+- **[2026-02-15 22:15 PST]** `prism-compose/build.gradle.kts`, `prism-demo/build.gradle.kts` — Replaced deprecated `compose.runtime`, `compose.foundation`, `compose.ui`, `compose.material3` Gradle plugin accessors with version catalog references (`libs.compose.*`).
+
+### Decisions
+- **[2026-02-15 22:15 PST]** **Use direct artifact coordinates, not BOM** — No Compose Multiplatform BOM exists yet (planned by JetBrains but not released). Direct coordinates with explicit versions in the catalog are the recommended approach for 1.10.x.
+- **[2026-02-15 22:15 PST]** **material3 version differs from other Compose libs** — Per the [1.10.1 release notes](https://github.com/JetBrains/compose-multiplatform/releases/tag/v1.10.1), material3 is at `1.10.0-alpha05` while runtime/foundation/ui are at `1.10.1`. This is expected — material3 follows its own versioning scheme.
+
+### Issues
+- **material3:1.10.0 doesn't exist on Maven Central** — Initial attempt to use `composeMultiplatform` version ref for all Compose artifacts failed because material3 uses a different version. Discovered via build failure. Checked the 1.10.1 release page to find the correct version mapping.
+- **Compose Multiplatform BOM not available** — Investigated adding a BOM per user request. Web search and Maven Central/JetBrains repos confirmed no BOM exists yet. The `compose.*` plugin accessors handle version mapping internally, but are deprecated. Direct coordinates are the migration path.
+
+### Research & Discoveries
+- Compose Multiplatform 1.10.1 version mapping (from release notes): runtime/ui/foundation/material at 1.10.1, material3 at 1.10.0-alpha05
+- `org.jetbrains.compose.material3:material3` is NOT published at the same version as the plugin — it has its own release cadence
+- JetBrains plans to provide a Compose Multiplatform BOM in the future but hasn't released one yet
+
+### Commits
+- `699d7c5` — fix: address PR review feedback on Apple CI job
+- `b8783ad` — fix: address PR feedback and upgrade Compose Multiplatform to 1.10.1
