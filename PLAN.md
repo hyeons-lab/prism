@@ -74,7 +74,7 @@ prism-core
 | prism-math | **Complete** | ~450 | Vec2/3/4, Mat3/4, Quaternion, Transform, tests |
 | prism-core | **Complete** | ~300 | Engine, GameLoop, Time, Subsystem, EngineConfig, Platform |
 | prism-ecs | **Complete** | ~400 | World, Entity, Component, System, built-in components/systems |
-| prism-renderer | **Interface only** | ~600 | All abstractions defined, no GPU backend |
+| prism-renderer | **Complete** | ~500 | WgpuRenderer, shaders, pipeline, GPU resources (RenderSurface deleted — surface managed by PrismSurface) |
 | prism-scene | **Complete** | ~250 | Node hierarchy, Scene, CameraNode, MeshNode, LightNode |
 | prism-input | **Complete** | ~200 | InputManager, events, key/mouse/touch |
 | prism-assets | **Complete** | ~300 | AssetManager, loaders, FileReader per platform |

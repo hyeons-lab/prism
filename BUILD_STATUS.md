@@ -21,7 +21,7 @@
 - [x] KMP properties (enableCInteropCommonization, ignoreDisabledTargets)
 - [x] `-Xexpect-actual-classes` flag on modules with expect/actual declarations
 - [x] `@PublishedApi internal` for inline function field access (prism-core, prism-ecs)
-- [x] Native platform implementations (Linux, macOS, Windows) for Platform and RenderSurface
+- [x] Native platform implementations (Linux, macOS, Windows) for Platform
 - [x] JVM toolchain 25 for prism-demo, prism-native-widgets, prism-compose (FFI support)
 
 ## Phase 2: WgpuRenderer Implementation ✅ Complete
@@ -36,9 +36,8 @@
 - [x] Surface configuration and present lifecycle
 
 ### Pending
-- [x] ~~Complete RenderSurface implementations~~ — All 7 RenderSurface actuals now use Kermit logging + dimension tracking (surface managed externally by PrismSurface/PrismPanel)
+- [x] ~~RenderSurface~~ — Deleted; superseded by PrismSurface (prism-native-widgets) and PrismPanel (prism-compose)
 - [x] WASM/Canvas integration for web (M6 complete)
-- [x] iOS RenderSurface stub fixed (logging only — surface managed by MTKView)
 
 ## Milestones
 
@@ -96,7 +95,6 @@
 - Compose iOS demo: `ComposeIosEntry.kt` with `UIKitView` embedding MTKView, `DemoStore` MVI state, Material3 controls overlay
 - UISceneDelegate modernization: `SceneDelegate.swift` with `UITabBarController` (Native + Compose tabs)
 - XCFramework binary config (iosArm64 + iosSimulatorArm64, static framework)
-- RenderSurface.ios.kt: TODO crash replaced with Kermit logging
 - Xcode project scaffolding via xcodegen (prism-ios-demo/)
 - Error handling: null Metal device guard, try-catch for wgpu init, error overlay UI
 - Thread safety: `NSOperationQueue.mainQueue` for Compose state dispatch from Metal render thread
@@ -109,14 +107,14 @@
 - All demo consumers (JVM GLFW, iOS native, iOS Compose, WASM) wired through PrismSurface
 - macOS native demo: GLFW/Metal window + AppKit floating NSPanel controls (speed slider, pause button)
 - Android build targets added to prism-math, prism-core, prism-renderer, prism-native-widgets
-- Android actuals created: Platform, RenderSurface, PrismSurface (stubs, wgpu4k rendering deferred to M8)
+- Android actuals created: Platform, PrismSurface (stubs, wgpu4k rendering deferred to M8)
 - AGP bumped to 8.13.0 for maven-publish + android-library compatibility
 - Double-close vulnerability fixed: mutable backing fields with null-on-close in detach()
 - **Status:** Complete — `./gradlew :prism-demo:runDebugExecutableMacosArm64` runs macOS native demo
 
 ### M8: Android Support ⏳
 - [x] Android build targets added (prism-math, prism-core, prism-renderer, prism-native-widgets)
-- [x] Android actuals: Platform, RenderSurface, PrismSurface (stubs)
+- [x] Android actuals: Platform, PrismSurface (stubs)
 - [ ] wgpu4k rendering via PanamaPort
 - [ ] Android demo entry point (SurfaceView + Vulkan)
 
