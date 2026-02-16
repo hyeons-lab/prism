@@ -62,6 +62,16 @@ xcrun simctl launch booted com.hyeonslab.prism.ios.demo
 
 > **Note:** `prism-demo` is the KMP multiplatform module — shared Kotlin code that runs on JVM, WASM, and iOS. It produces the `PrismDemo.xcframework` consumed by Swift. `prism-ios-demo` is the native Swift iOS app that embeds this framework. Swift code uses `import PrismDemo` to access KMP types.
 
+### macOS Native
+
+| Entry point | File | Gradle task |
+|---|---|---|
+| **GLFW + AppKit** | `macosMain/.../MacosDemoMain.kt` | `./gradlew :prism-demo:runDebugExecutableMacosArm64` |
+
+- **GLFW window** — Metal-backed rendering via `createPrismSurface()` + wgpu4k `glfwContextRenderer()`
+- **AppKit controls** — Floating `NSPanel` with rotation speed slider (`NSSlider`) and pause/resume button (`NSButton`)
+- Both GLFW and AppKit events are processed on the main thread via `glfwPollEvents()`
+
 ## Shared Code (commonMain)
 
 | File | Purpose |

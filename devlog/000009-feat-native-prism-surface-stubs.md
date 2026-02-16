@@ -138,7 +138,32 @@ All changes described in Session 2 were implemented and verified. Key adjustment
 - `./gradlew :prism-demo:linkDebugExecutableMacosArm64` — PASS (native executable links)
 
 ### Commits
-- *(pending — awaiting user commit request)*
+- `174d093` — feat: wire PrismSurface into demos with suspend factory, add Android + macOS native
+
+---
+
+## Session 4 — Fix double-close vulnerability in PrismSurface (2026-02-16 17:00 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/native-prism-surface-stubs`
+
+### Intent
+Fix a double-close vulnerability found during critical review: `detach()` could be called multiple times, each calling `close()` on the underlying wgpu context (GLFW/iOS/Canvas). Double-closing GLFW windows is undefined behavior.
+
+### What Changed
+
+- **[2026-02-16 17:00 PST]** `PrismSurface.{jvm,ios,macos,linux,mingw,wasmJs}.kt` — All 6 platform implementations converted from `private val` constructor properties to mutable backing fields (`private var _glfwContext`, `_iosContext`, `_canvasContext`). `detach()` now nulls the backing field after `close()`, preventing double-close. Properties (`wgpuContext`, `windowHandler`) delegate to the backing field, so they return `null` after detach.
+
+### Issues
+- **JVM was in broken state** — Previous edit changed constructor from `private val glfwContext` to plain `glfwContext` param and added `_glfwContext` backing field, but `detach()` still referenced `glfwContext` (now a non-property constructor param). This was a compile error. Fixed by updating `detach()` to use `_glfwContext`.
+
+### Verification
+- `./gradlew ktfmtFormat` — PASS
+- `./gradlew ktfmtCheck detektJvmMain` — PASS
+- `./gradlew :prism-renderer:jvmTest :prism-demo:jvmTest` — PASS
+- `./gradlew :prism-demo:compileKotlinMacosArm64 :prism-demo:compileKotlinIosArm64 :prism-demo:compileKotlinWasmJs` — PASS
+
+### Commits
+- `2c30579` — fix: prevent double-close in MinGW and WASM PrismSurface detach()
 
 ---
 

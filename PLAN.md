@@ -79,9 +79,9 @@ prism-core
 | prism-input | **Complete** | ~200 | InputManager, events, key/mouse/touch |
 | prism-assets | **Complete** | ~300 | AssetManager, loaders, FileReader per platform |
 | prism-audio | **Stub** | ~100 | Interface + StubAudioEngine only |
-| prism-compose | **Stub** | ~250 | Composables defined, platform actuals are empty |
-| prism-native-widgets | **Stub** | ~350 | PrismSurface defined, all actuals empty |
-| prism-demo | **Complete** | ~200 | DemoApp scene setup, waiting for renderer |
+| prism-compose | **Complete** | ~600 | PrismView, PrismOverlay, EngineStore/DemoStore MVI, Material3 controls |
+| prism-native-widgets | **Complete** | ~600 | PrismSurface with suspend factory (`createPrismSurface()`), PrismPanel (AWT), 7 platform actuals |
+| prism-demo | **Complete** | ~800 | JVM GLFW, JVM Compose, WASM, iOS native, iOS Compose, macOS native demos |
 | prism-flutter | **Minimal** | ~80 | Basic bridge, not a priority |
 
 **Total: ~4,200 lines of Kotlin**
@@ -560,6 +560,14 @@ fun main() {
 - XCFramework (iosArm64 + iosSimulatorArm64) built via Gradle, Xcode project via xcodegen
 - Shared DemoScene.tick() deduplicating rotation logic across GLFW, WASM, and iOS
 - **Validates:** Kotlin/Native compilation, Metal backend, iOS platform integration, Compose Multiplatform iOS interop
+
+### M7.5: PrismSurface + Native Demos ✅
+- PrismSurface refactored to suspend factory pattern (`createPrismSurface()`) — no `runBlocking` inside PrismSurface
+- All 7 platform actuals: JVM (GLFW), iOS (MTKView), macOS (GLFW/Metal), Linux (GLFW/X11), MinGW (GLFW/HWND), WASM (Canvas), Android (stub)
+- All demo consumers wired through PrismSurface (JVM GLFW, iOS native, iOS Compose, WASM)
+- macOS native demo: GLFW/Metal window + AppKit floating NSPanel controls (speed slider, pause button)
+- Android build targets added to full dependency chain (prism-math, prism-core, prism-renderer, prism-native-widgets)
+- **Validates:** suspend factory API consistency, native platform integration, Android target resolution
 
 ### M8: Android Support
 - PanamaPort integration for FFI support

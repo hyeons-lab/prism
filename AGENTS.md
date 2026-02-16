@@ -44,6 +44,9 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
 ./gradlew assemblePrismDemoDebugXCFramework        # iOS XCFramework (debug)
 
+# Run macOS native demo (GLFW + AppKit controls)
+./gradlew :prism-demo:runDebugExecutableMacosArm64
+
 # Generate Xcode project (requires xcodegen: brew install xcodegen)
 cd prism-ios-demo && xcodegen generate
 
@@ -177,6 +180,8 @@ module-name/src/
 **Native Widgets (prism-native-widgets):**
 - `PrismPanel` - AWT Canvas subclass with wgpu surface creation from native handles (macOS/Windows/Linux)
 - `AwtRenderingContext` - Custom RenderingContext bypassing GLFW's glfwGetWindowSize()
+- `PrismSurface` - Platform-specific rendering surface wrapping wgpu context (GLFW on JVM/desktop native, MTKView on iOS, Canvas on WASM)
+- `createPrismSurface()` - Suspend factory function per platform; creates wgpu context and returns ready-to-use PrismSurface
 
 ### Platform Implementations
 
@@ -185,9 +190,9 @@ module-name/src/
 - **Web/WASM**: HTML Canvas with WebGPU API, requestAnimationFrame game loop
 - **iOS Native (MTKView)**: MTKView + MTKViewDelegateProtocol via Kotlin/Native ObjC interop, wgpu4k `iosContextRenderer`
 - **iOS Compose**: UIKitView embedding MTKView in Compose hierarchy, DemoStore MVI with Material3 controls
-- **macOS Native**: CAMetalLayer with Metal backend (wgpu4k C-interop, planned)
-- **Android**: SurfaceView with Vulkan backend, PanamaPort for FFI (planned)
-- **Linux/Windows Native**: Native windowing with Vulkan/DX12 (planned)
+- **macOS Native (GLFW)**: GLFW windowing with Metal backend via wgpu4k `glfwContextRenderer`, AppKit NSPanel for floating controls
+- **Android**: Build targets added (prism-math, prism-core, prism-renderer, prism-native-widgets); wgpu4k rendering via PanamaPort planned (M8)
+- **Linux/Windows Native**: GLFW windowing with Vulkan/DX12 via wgpu4k `glfwContextRenderer` (compiles, untested)
 
 ### Module Dependency Graph
 
@@ -245,7 +250,7 @@ prism-demo
 - minSdk: 31 (Android 8.0+)
 - compileSdk: 36
 - targetSdk: 36
-- AGP: 8.12.3
+- AGP: 8.13.0
 
 ### wgpu4k Setup
 
@@ -320,7 +325,7 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Current Project Status
 
-**Phase:** iOS native support complete (M7), all major platforms rendering
+**Phase:** PrismSurface wiring complete, Android targets added, macOS native demo working
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -344,12 +349,16 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - ✅ iOS Compose demo: UIKitView embedding MTKView with DemoStore MVI + Material3 controls
 - ✅ iOS app with UITabBarController: Native (MTKView) + Compose tabs
 - ✅ Shared DemoScene.tick() deduplicating rotation logic across all platforms
+- ✅ PrismSurface suspend factory pattern: all 7 platform actuals (JVM, iOS, macOS, Linux, MinGW, WASM, Android)
+- ✅ All demo consumers wired through `createPrismSurface()` (JVM GLFW, iOS native, iOS Compose, WASM)
+- ✅ macOS native demo with AppKit floating controls panel (NSPanel + NSSlider + NSButton)
+- ✅ Android build targets added to prism-math, prism-core, prism-renderer, prism-native-widgets
 
 **What's in progress:**
-- 🚧 Platform-specific RenderSurface implementations (Windows/Linux surfaces untested)
+- 🚧 Android wgpu4k rendering integration (PanamaPort, M8)
 
 **What's next:**
-- ⏭️ Android support (M8)
+- ⏭️ Android wgpu4k rendering via PanamaPort (M8)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
 - ⏭️ Flutter integration (PrismBridge, platform plugins, rendering surface)
