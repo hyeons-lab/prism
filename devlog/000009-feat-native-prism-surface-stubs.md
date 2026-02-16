@@ -71,5 +71,5 @@ Complete all native PrismSurface implementations with real wgpu surfaces, refact
 
 - PR review (#24)
 - Test macOS native demo: `./gradlew :prism-demo:runDebugExecutableMacosArm64`
-- Test JVM GLFW demo: `./gradlew :prism-demo:run`
+- Test JVM GLFW demo: `./gradlew :prism-demo:jvmRun`
 - Android: wire wgpu4k rendering when PanamaPort is integrated (M8)

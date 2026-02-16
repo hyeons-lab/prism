@@ -625,7 +625,7 @@ fun main() {
 
 ## 10. Verification Plan
 1. `./gradlew :prism-renderer:build` — compiles with wgpu4k
-2. `./gradlew :prism-demo:run` — opens GLFW window, renders triangle
+2. `./gradlew :prism-demo:jvmRun` — opens GLFW window, renders triangle
 3. Upgrade to rotating cube with camera
 4. Add lighting + materials
 5. Wire ECS RenderSystem, render multiple entities

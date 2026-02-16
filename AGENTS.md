@@ -36,8 +36,9 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 # Clean build
 ./gradlew clean build
 
-# Run demo app (JVM Desktop)
-./gradlew :prism-demo:run
+# Run demo apps (JVM Desktop)
+./gradlew :prism-demo:jvmRun              # GLFW window (Metal/Vulkan)
+./gradlew :prism-demo:runCompose           # Compose Desktop with embedded 3D
 
 # Build demo for specific platform
 ./gradlew :prism-demo:jvmJar            # JVM executable JAR
