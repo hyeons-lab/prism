@@ -1,448 +1,98 @@
 # 000001-initial-scaffolding
 
-## Session 1 — Project Scaffolding (10:00 PST, sonnet-4-5)
-
 **Agent:** Claude Code (claude-sonnet-4-5-20250929) @ `prism` branch `main`
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main` (from Session 2 onward)
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `chore/ktfmt-detekt-subprojects` (Sessions 10-11)
 
-### Intent
-Establish structured guidance for Claude Code when working with the Prism engine codebase, and create a lightweight session tracking system (devlog) for recoverability and context preservation.
+## Intent
 
-### What Changed
-- **[2026-02-14 10:05 PST]** `AGENTS.md` — Created comprehensive project guidance document covering architecture, build commands, KMP conventions, code quality standards, tech stack, and contribution guidelines
-- **[2026-02-14 10:15 PST]** `CLAUDE.md` — Created top-level instructions file referencing AGENTS.md
-- **[2026-02-14 10:36 PST]** `devlog/README.md` — Created devlog conventions
-- **[2026-02-14 10:42 PST]** `AGENTS.md` — Added Session Logs section with devlog requirements and timestamp format
-- **[2026-02-14 11:15 PST]** `AGENTS.md` — Added guideline to log failed attempts and lessons learned
-- **[2026-02-14 11:30 PST]** `.gitignore` — Added build artifacts (.kotlin/, kotlin-js-store/)
-- **[2026-02-14 11:40 PST]** `AGENTS.md` — Enhanced "Update as you go" guideline to emphasize proactive devlog updates
+Establish project scaffolding (AGENTS.md, devlog system), integrate wgpu4k for GPU rendering, implement a rotating lit cube demo on JVM Desktop via GLFW, wire up ECS-driven rendering, set up CI with GitHub Actions, add code quality tooling (KtFmt + Detekt), and add unit tests for prism-renderer.
 
-### Decisions
-- **[2026-02-14 10:30 PST]** **Use `devlog/` not `.devlog/`** — Visible and version-controlled, not hidden
-- **[2026-02-14 10:35 PST]** **Git-tracked logs** — Part of repo history, not ephemeral
-- **[2026-02-14 10:48 PST]** **Include timezone in timestamps** — `[YYYY-MM-DD HH:MM TZ]` format for cross-timezone tracking
-- **[2026-02-14 11:15 PST]** **Log failures and lessons learned** — Document failed attempts to prevent repeating mistakes
-- **[2026-02-14 11:40 PST]** **Proactive devlog updates** — Update automatically as work progresses, not on user request
+## What Changed
 
-### Research & Discoveries
-- **KMP references used:**
-  - expect/actual pattern: https://kotlinlang.org/docs/multiplatform-expect-actual.html
-  - Source set structure: https://kotlinlang.org/docs/multiplatform-discover-project.html
-  - Inline function visibility rules: https://kotlinlang.org/docs/inline-functions.html#restrictions-for-public-api-inline-functions
+- **2026-02-14T10:05-08:00** `AGENTS.md` — Created comprehensive project guidance document covering architecture, build commands, KMP conventions, code quality standards, tech stack, and contribution guidelines. Later updated with wgpu4k setup section, devlog requirements, detekt commands, and CI quality check command.
+- **2026-02-14T10:15-08:00** `CLAUDE.md` — Created top-level instructions file referencing AGENTS.md.
+- **2026-02-14T10:36-08:00** `devlog/README.md` — Created devlog conventions. Later rewritten with branch-scoped naming.
+- **2026-02-14T10:50-08:00** `gradle.properties`, `settings.gradle.kts`, `gradle/libs.versions.toml` — Build system setup: added KMP properties, `mavenLocal()` for wgpu4k, wgpu4k 0.2.0-SNAPSHOT deps. Later added `wgpu4kCommit` for pinning, `kotlin.incremental.native=true`.
+- **2026-02-14T10:53-08:00** `prism-renderer/build.gradle.kts`, `prism-core/build.gradle.kts`, `prism-{ecs,assets,native-widgets}/build.gradle.kts` — Added wgpu4k deps, `-Xexpect-actual-classes` compiler flag.
+- **2026-02-14T10:58-08:00** `prism-core/.../Engine.kt`, `prism-ecs/.../World.kt` — Changed `subsystems`/`entities` from `private` to `@PublishedApi internal` for inline function access.
+- **2026-02-14T11:00-08:00** `prism-core/.../Platform.{wasmJs,macos,linux,mingw}.kt` — Created native Platform actual implementations. Fixed `js()` call, added error handling for Linux/MinGW.
+- **2026-02-14T11:03-08:00** `prism-renderer/.../RenderSurface.{macos,linux,mingw}.kt` — Created native RenderSurface stubs.
+- **2026-02-14T11:10-08:00** `prism-renderer/.../WgpuRenderer.kt` — Created full Renderer implementation using wgpu4k. Later added uniform buffers, bind groups, surface.present(), per-frame AutoClosableContext, `surfacePreConfigured` param, `onResize` callback.
+- **2026-02-14T11:30-08:00** `.gitignore` — Added build artifacts. Later refined `*.dylib` to specific `**/libWGPU*.{dylib,so,dll}` patterns.
+- **2026-02-14T14:10-08:00** `prism-renderer/.../Shaders.kt` — WGSL shader sources with vertex + fragment shaders, uniform layout.
+- **2026-02-14T14:25-08:00** `prism-demo/build.gradle.kts` — Added mainClass `GlfwMainKt`, wgpu4k deps, JVM args, `jvmToolchain(25)`.
+- **2026-02-14T14:30-08:00** `prism-demo/.../GlfwMain.kt` — GLFW windowed demo. Initially raw wgpu4k API, then rewrote to Engine + ECS with camera entity, cube entity, rotation via TransformComponent.
+- **2026-02-14T17:09-08:00** `prism-ecs/.../CameraComponent.kt` — New data class wrapping Camera for ECS queries.
+- **2026-02-14T17:09-08:00** `prism-ecs/.../RenderSystem.kt` — Implemented `initialize()` (shader module + pipeline) and `update()` (camera query, mesh iteration, draw).
+- **2026-02-14T17:24-08:00** `README.md`, `LICENSE` — Public-facing README + Apache 2.0 license. Later added PBR + glTF milestones.
+- **2026-02-14T17:47-08:00** `build.gradle.kts` — Added `subprojects {}` block applying KtFmt (Google style, 100-char) and Detekt to all subprojects. Configured detekt with `detekt.yml`, jvmTarget 22, wired KMP tasks into `check`.
+- **2026-02-14T18:10-08:00** `detekt.yml` — Generated from defaults, disabled MagicNumber, tuned thresholds for TooManyFunctions, LongParameterList, LongMethod.
+- **2026-02-14T18:12-08:00** `RenderPass.kt` → `RenderPassDescriptor.kt`, `Surface.kt` → `RenderSurface.kt` — Renamed to match MatchingDeclarationName rule.
+- **2026-02-14T19:30-08:00** `.github/workflows/ci.yml` — CI workflow with JDK 25, wgpu4k Maven cache, ktfmtCheck, detekt, jvmTest. Later improved with shallow fetch, conditional Rust install, combined Gradle invocations, commit-based cache key.
+- **2026-02-14T20:30-08:00** `gradle/libs.versions.toml` — Reverted detekt from `2.0.0-alpha.2` to `1.23.8`.
+- **2026-02-14T20:39-08:00** Package rename `engine.prism` → `com.hyeonslab.prism` across 121 files.
+- **2026-02-14T21:30-08:00** `prism-renderer/src/commonTest/kotlin/.../{ColorTest,MeshTest,VertexLayoutTest,CameraTest,ShaderTest}.kt` — 95 unit tests for renderer data classes and factories.
 
-### Commits
+## Decisions
+
+- **2026-02-14T10:30-08:00** **Use `devlog/` not `.devlog/`** — Visible and version-controlled, not hidden.
+- **2026-02-14T10:52-08:00** **wgpu4k from source** — Built 0.2.0-SNAPSHOT from source to Maven local; 0.1.1 had different API.
+- **2026-02-14T11:10-08:00** **Import aliases for name collisions** — `import ... as WGPUColor` etc. to avoid clashes with Prism types.
+- **2026-02-14T14:00-08:00** **Direct GLFW for initial demo** — Simpler than Compose for M2.
+- **2026-02-14T14:15-08:00** **Uniform buffer layout** — 128 bytes: VP mat4 at offset 0, model mat4 at offset 64. Material color in separate 16-byte buffer.
+- **2026-02-14T16:30-08:00** **JVM toolchain 25 required** — wgpu4k inline functions compiled at JVM target 25.
+- **2026-02-14T17:09-08:00** **RenderSystem owns pipeline creation** — Shader module and pipeline created in `RenderSystem.initialize()`.
+- **2026-02-14T17:24-08:00** **Apache 2.0 license** — Consistent with wgpu4k. Copyright: Hyeons' Lab.
+- **2026-02-14T17:47-08:00** **Apply KtFmt + Detekt via `subprojects {}` block** — Single block applies both plugins to all 12 subprojects.
+- **2026-02-14T18:10-08:00** **Disable MagicNumber globally** — 226/248 detekt issues were MagicNumber in math library. Too noisy for a game engine.
+- **2026-02-14T18:10-08:00** **jvmTarget 22 for detekt** — Detekt's embedded compiler max is 22; project uses JVM 25 for wgpu4k FFI.
+- **2026-02-14T19:30-08:00** **Single CI job** — All checks in one job to avoid duplicating wgpu4k setup. JVM-only to avoid native compilation issues.
+- **2026-02-14T21:10-08:00** **Pass CI step outputs via env, not `${{ }}`** — Avoids shell injection risk.
+- **2026-02-14T21:30-08:00** **Kotest matchers throughout tests** — `shouldBe`, `shouldContain`, `plusOrMinus`. No `kotlin.test` assertions (only `@Test`).
+- **2026-02-14T21:30-08:00** **No GPU tests** — All tests are pure logic. WgpuRenderer tested manually via demo.
+
+## Research & Discoveries
+
+- **wgpu4k**: Kotlin Multiplatform WebGPU bindings. Package is `io.ygdrasil.webgpu` (not `io.ygdrasil.wgpu`). Key patterns: `WGPUContext`, `.bind()` within `AutoClosableContext`, `ArrayBuffer.of(floatArray)` for GPU buffer uploads.
+- **PanamaPort**: enables Project Panama FFI on Android 8.0+ — https://github.com/AnomalousEngine/PanamaPort
+- **wgpu4k JVM toolchain requirement**: compiled with JVM target 25; modules using inline functions must match.
+- **`ffi.LibraryLoader.load()`** must be called explicitly before any wgpu API usage on JVM.
+- **wgpu4k render loop**: `autoClosableContext { }` per frame, `.bind()` on ephemeral resources, `surface.present()` after the context block.
+- **`glfwContextRenderer()`** does NOT configure the surface — must call `surface.configure()` separately.
+- **Detekt + KMP**: plain `detekt` task is NO-SOURCE in KMP. Use `detektMetadataCommonMain` and `detektJvmMain` explicitly.
+- **wgpu4k repo**: moved from `AskiaAI/wgpu4k` to `wgpu4k/wgpu4k`.
+
+## Issues
+
+- **wgpu4k 0.2.0.b1 not available** — resolved by building from source.
+- **`invalid texture` panic** — JVM target mismatch. Fix: `jvmToolchain(25)`.
+- **`UnsatisfiedLinkError: wgpuCreateInstance`** — Native library not auto-loaded. Fix: `LibraryLoader.load()`.
+- **`UnsupportedClassVersionError`** — Gradle JavaExec using JDK 21. Fix: Java 25 toolchain launcher.
+- **Detekt effectively disabled** — Plain `detekt` task is NO-SOURCE in KMP. Fixed by wiring `detektMetadata*Main` and `detektJvmMain` into `check`.
+- **`Invalid value (25) passed to --jvm-target`** — Detekt doesn't support JVM 25. Fixed: `jvmTarget = "22"`.
+- **BUILD_STATUS.md was stale** — Listed 8 modules as broken when all compiled fine.
+- **Build failed: detekt `2.0.0-alpha.2` not found** — Reverted to `1.23.8`.
+
+## Lessons Learned
+
+- `@PublishedApi internal` pattern needed for collections accessed by inline reified functions.
+- Detekt rule categories matter: `FunctionNaming` is under `naming`, not `style`.
+- Detekt jvmTarget max is 22 as of detekt 1.23.x.
+- `shouldContain` from `io.kotest.matchers.string` gives better failure messages than `(x.contains(y)) shouldBe true`.
+- Tests that re-derive the implementation are tautological — test observable behavior instead.
+
+## Commits
+
 - `634b171` — docs: add project documentation and session tracking system
 - `13af90f` — chore: add build artifacts to .gitignore and update devlog
 - `ab2f818` — docs: emphasize proactive devlog updates in AGENTS.md
-
----
-
-## Session 2 — Build System + WgpuRenderer (10:50 PST, sonnet-4-5 → opus-4-6)
-
-**Agent:** Claude Code (claude-sonnet-4-5-20250929 → claude-opus-4-6) @ `prism` branch `main`
-**Model switch:** Sonnet 4.5 → Opus 4.6 for more capable implementation work on WgpuRenderer
-
-### Intent
-Complete Phase 1 (build system setup) and begin Phase 2 (WgpuRenderer implementation). Get wgpu4k integrated and compiling, then implement the core WgpuRenderer class.
-
-### What Changed
-
-#### Build System (Phase 1)
-- **[2026-02-14 10:50 PST]** `gradle.properties` — Added KMP properties (`enableCInteropCommonization`, `ignoreDisabledTargets`, `experimental.macos.enabled`)
-- **[2026-02-14 10:51 PST]** `settings.gradle.kts` — Fixed `dependencyResolutionManagement`, added `mavenLocal()` for locally-built wgpu4k
-- **[2026-02-14 10:52 PST]** `gradle/libs.versions.toml` — Added wgpu4k 0.2.0-SNAPSHOT and wgpu4k-toolkit dependencies
-- **[2026-02-14 10:53 PST]** `prism-renderer/build.gradle.kts` — Added wgpu4k + wgpu4k-toolkit deps, `-Xexpect-actual-classes` flag
-- **[2026-02-14 10:54 PST]** `prism-core/build.gradle.kts` — Added `-Xexpect-actual-classes` compiler flag
-
-#### Compilation Fixes
-- **[2026-02-14 10:58 PST]** `prism-core/.../Engine.kt` — Changed `subsystems` from `private` to `@PublishedApi internal` for inline function access
-- **[2026-02-14 10:59 PST]** `prism-core/.../Platform.wasmJs.kt` — Fixed `js()` call (top-level function, `@OptIn(ExperimentalWasmJsInterop)`)
-- **[2026-02-14 11:00 PST]** `prism-core/.../Platform.{macos,linux,mingw}.kt` — Created native Platform actual implementations
-- **[2026-02-14 11:03 PST]** `prism-renderer/.../RenderSurface.{macos,linux,mingw}.kt` — Created native RenderSurface stubs
-
-#### WgpuRenderer (Phase 2)
-- **[2026-02-14 11:10 PST]** `prism-renderer/.../WgpuRenderer.kt` — Created full Renderer implementation using wgpu4k (type mapping, WGPUContext, depth texture, ArrayBuffer uploads, import aliases)
-- **[2026-02-14 11:15 PST]** `PLAN.md` — Added Android and iOS as target platforms, PanamaPort for Android FFI
-
-### Decisions
-- **[2026-02-14 10:52 PST]** **wgpu4k from source** — Built 0.2.0-SNAPSHOT from source to Maven local; 0.1.1 from Maven Central had different API structure
-- **[2026-02-14 10:55 PST]** **Package is `io.ygdrasil.webgpu`** — Not `io.ygdrasil.wgpu` as initially assumed
-- **[2026-02-14 11:10 PST]** **Import aliases for name collisions** — `import ... as WGPUColor` etc. to avoid clashes with Prism types
-- **[2026-02-14 11:00 PST]** **`@PublishedApi internal` pattern** — Needed for Engine.subsystems to support inline reified function
-- **[2026-02-14 11:12 PST]** **`close()` not `destroy()`** — wgpu4k uses AutoCloseable pattern
-
-### Research & Discoveries
-- **wgpu4k** — Kotlin Multiplatform WebGPU bindings
-  - Repo: https://github.com/AnomalousEngine/wgpu4k (formerly ygdrasil-io/wgpu4k)
-  - API docs: types live in `io.ygdrasil.webgpu` package (not `io.ygdrasil.wgpu`)
-  - Key patterns: `WGPUContext` wraps device + adapter + surface + renderingContext; `.bind()` within `AutoClosableContext` for resource lifecycle; `ArrayBuffer.of(floatArray)` for GPU buffer uploads
-  - Enum style: PascalCase (`GPULoadOp.Clear`, `GPUStoreOp.Store`)
-- **PanamaPort** — enables Project Panama FFI on Android 8.0+
-  - Repo: https://github.com/AnomalousEngine/PanamaPort
-- **WebGPU spec** — https://www.w3.org/TR/webgpu/
-- **WGSL spec** — https://www.w3.org/TR/WGSL/
-
-### Issues
-- wgpu4k 0.2.0.b1 not available on Maven Central or JitPack — resolved by building from source
-- Gradle daemon OOM when publishing all wgpu4k modules — resolved with `--no-daemon` and increased heap
-
-### Commits
 - `8b873e1` — feat: implement WgpuRenderer with native platform support
-
----
-
-## Session 3 — M1/M2 Rotating Cube on JVM Desktop (14:00 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Get a rotating cube rendering in a GLFW window on JVM/macOS — completing milestones M1 (uniform buffers, bind groups, surface present) and M2 (GLFW demo with rotating cube).
-
-### What Changed
-- **[2026-02-14 14:00 PST]** `prism-{ecs,assets,native-widgets}/build.gradle.kts` — Added `-Xexpect-actual-classes` compiler flag
-- **[2026-02-14 14:05 PST]** `prism-math/.../Mat4.kt` — Fixed `perspective()` and `orthographic()` Z-mapping from OpenGL [-1,1] to WebGPU [0,1] clip space
-- **[2026-02-14 14:10 PST]** `prism-renderer/.../Shaders.kt` — WGSL shader sources with vertex + fragment shaders. Uniform layout: group(0) binding(0) Uniforms (VP + model, 128 bytes), group(0) binding(1) MaterialUniforms (baseColor, 16 bytes)
-- **[2026-02-14 14:20 PST]** `prism-renderer/.../WgpuRenderer.kt` — Added uniform buffer (128 bytes: VP + model), material uniform buffer (16 bytes), bind group, surface.present()
-- **[2026-02-14 14:20 PST]** `prism-renderer/.../Renderer.kt` — Added `setMaterialColor(color: Color)` default method
-- **[2026-02-14 14:25 PST]** `prism-demo/build.gradle.kts` — Changed mainClass to `GlfwMainKt`, added wgpu4k deps, JVM args, `jvmToolchain(25)`
-- **[2026-02-14 14:30 PST]** `prism-demo/.../GlfwMain.kt` — GLFW windowed demo using raw wgpu4k API. 800x600 window, rotating cube at 45 deg/sec with directional lighting
-- **[2026-02-14 14:35 PST]** `prism-ecs/.../World.kt` — Changed `entities` from `private` to `@PublishedApi internal`
-- **[2026-02-14 14:35 PST]** `prism-demo/.../DemoApp.kt` — Fixed FQN conflict with `engine` property name
-
-### Decisions
-- **[2026-02-14 14:00 PST]** **Direct GLFW for M2** — Simpler than Compose for initial demo
-- **[2026-02-14 14:15 PST]** **Uniform buffer layout** — 128 bytes: VP mat4 at offset 0, model mat4 at offset 64. Material color in separate 16-byte buffer
-- **[2026-02-14 14:15 PST]** **Bind group from auto-derived layout** — Using `renderPipeline.getBindGroupLayout(0u)`
-- **[2026-02-14 16:30 PST]** **JVM toolchain 25 required** — wgpu4k inline functions compiled at JVM target 25
-
-### Research & Discoveries
-- **wgpu4k JVM toolchain requirement**: wgpu4k 0.2.0-SNAPSHOT is compiled with JVM target 25. Any module using wgpu4k inline functions must also target JVM 25. Without this, the native FFI layer silently malfunctions.
-- **`ffi.LibraryLoader.load()`** must be called explicitly before any wgpu API usage on JVM
-- **wgpu4k render loop**: `autoClosableContext { }` per frame, `.bind()` on ephemeral resources, `surface.present()` after the context block
-- **Surface configuration**: `glfwContextRenderer()` does NOT configure the surface. Must call `surface.configure()` separately.
-
-### Issues
-- **[RESOLVED] `invalid texture` panic** — JVM target mismatch. Fix: `jvmToolchain(25)` in prism-demo
-- **[RESOLVED] `UnsatisfiedLinkError: wgpuCreateInstance`** — Native library not auto-loaded. Fix: `LibraryLoader.load()`
-- **[RESOLVED] `UnsupportedClassVersionError`** — Gradle JavaExec using JDK 21. Fix: Java 25 toolchain launcher
-- **[OPEN] KtFmt not working** — Plugin declared in root but not applied to subprojects. Deferred.
-
-### Result
-**M1 and M2 milestones COMPLETE.** Running `./gradlew :prism-demo:jvmRun` opens an 800x600 GLFW window with a rotating blue cube with directional lighting.
-
-### Commits
 - `a3b2fb4` — build: add JVM toolchain 25 to prism-demo module
-
----
-
-## Session 4 — Critical Review + Fixes (11:45 PST, sonnet-4-5 → opus-4-6)
-
-**Agent:** Claude Code (claude-sonnet-4-5-20250929 → claude-opus-4-6) @ `prism` branch `main`
-**Model switch:** Sonnet 4.5 → Opus 4.6 for addressing review issues
-
-### Intent
-Perform a critical review of all changes made in this branch, then fix the identified issues.
-
-### Review Summary
-6 commits, 33 files, 1,805 insertions reviewed. Found 4 critical issues, 3 major issues, 3 minor issues. See full review details below.
-
-### What Changed (Fixes)
-- **[2026-02-14 11:50 PST]** `.gitignore` — Changed `*.dylib` to specific `**/libWGPU*.{dylib,so,dll}` patterns
-- **[2026-02-14 11:52 PST]** `AGENTS.md` — Added "wgpu4k Setup" section with build instructions, license info (Apache 2.0), verification steps
-- **[2026-02-14 11:54 PST]** `Platform.linux.kt` — Added `check(result == 0)` for gettimeofday; replaced star imports with explicit imports
-- **[2026-02-14 11:54 PST]** `Platform.mingw.kt` — Added `0xFFFFFFFFL` mask to prevent sign-extension in FILETIME conversion; explicit imports
-- **[2026-02-14 11:55 PST]** `BUILD_STATUS.md` — Rewrote to reflect reality: all 11 modules compile successfully
-- **[2026-02-14 12:10 PST]** Consolidated devlog from 4 files per day to 1 file per day format; updated AGENTS.md and README.md conventions
-
-### Decisions
-- **[2026-02-14 11:50 PST]** **Specific dylib patterns over wildcard** — `**/libWGPU*.dylib` instead of `*.dylib`
-- **[2026-02-14 11:54 PST]** **Skip macOS Platform error handling** — NSDate().timeIntervalSince1970 always returns valid; no error path
-- **[2026-02-14 11:54 PST]** **Add bitmask to Windows FILETIME** — `toLong()` on `UInt` can sign-extend; mask with `0xFFFFFFFFL`
-- **[2026-02-14 11:55 PST]** **All modules already fixed** — BUILD_STATUS.md was outdated; all had flags applied
-- **[2026-02-14 12:05 PST]** **One file per day for devlog** — Replaced `YYYY-MM-DD_sequence.md` with `YYYY-MM-DD.md` using `## Session N` headers within. Reduces file proliferation (4 files today → 1) while preserving session boundaries.
-
-### Issues
-- **BUILD_STATUS.md was stale** — Listed 8 modules as broken when they all compiled fine. Lesson: always verify by running the actual build.
-
-### Critical Review Findings
-
-**Critical (fixed):**
-1. `.gitignore` too broad (`*.dylib`) — fixed to specific patterns
-2. Missing wgpu4k documentation — added setup section to AGENTS.md
-3. No error handling in native Platform code — added checks
-4. BUILD_STATUS.md outdated — rewritten
-
-**Major (tracked):**
-5. WgpuRenderer.kt has 446 lines without tests
-6. RenderSurface native stubs are empty TODOs
-7. No CI/CD configuration
-
-**Minor (addressed):**
-8. Devlog file proliferation — fixed by consolidating to one-file-per-day
-9. JVM toolchain 25 may cause onboarding friction — documented in AGENTS.md
-10. No THIRD_PARTY_LICENSES.md — tracked for future
-
-### Commits
 - `59619b4` — fix: address critical review issues
-
----
-
-## Session 5 — M4: ECS-Driven Rendering (17:09 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Wire up the full engine pipeline: ECS entities → RenderSystem → WgpuRenderer → GPU. M1-M3 had a working rotating cube but GlfwMain.kt bypassed WgpuRenderer and used raw wgpu4k API directly. M4 makes the rendering go through the proper Engine + ECS architecture.
-
-### What Changed
-- **[2026-02-14 17:09 PST]** `prism-renderer/.../WgpuRenderer.kt` — Fixed resource lifecycle: added per-frame `AutoClosableContext` (`frameContext`), command encoder registered via `.bind()`, surface texture view registered via `.bind()`, depth texture view created once and stored (not per-frame). Added `surface.configure()` in `initialize()`. Removed old `autoClosableContext` field.
-- **[2026-02-14 17:09 PST]** `prism-ecs/.../components/CameraComponent.kt` — **NEW.** Data class wrapping `Camera` for ECS queries.
-- **[2026-02-14 17:09 PST]** `prism-ecs/.../systems/RenderSystem.kt` — Implemented `initialize()` (creates shader module + pipeline) and `update()` (queries CameraComponent, iterates MeshComponent entities, lazy-uploads meshes, sets material colors, draws).
-- **[2026-02-14 17:09 PST]** `prism-demo/.../GlfwMain.kt` — Rewrote from raw wgpu4k API to Engine + ECS. Creates Engine with WgpuRenderer subsystem, World with RenderSystem, camera entity (TransformComponent + CameraComponent), cube entity (TransformComponent + MeshComponent + MaterialComponent). GLFW loop updates cube rotation via TransformComponent and calls `world.update()`.
-
-### Decisions
-- **[2026-02-14 17:09 PST]** **`with(ctx) { resource.bind() }` for standalone AutoClosableContext** — `bind()` is a receiver-scoped extension in wgpu4k, so standalone usage requires `with()` to restore the receiver context.
-- **[2026-02-14 17:09 PST]** **Depth texture view created once, not per-frame** — Unlike surface texture views (which change each frame), the depth texture view is stable and doesn't need per-frame `.bind()`.
-- **[2026-02-14 17:09 PST]** **RenderSystem owns pipeline creation** — Shader module and pipeline created in `RenderSystem.initialize()`, not in GlfwMain.
-
-### Issues
-- None encountered. All three modules compiled successfully on first attempt.
-
----
-
-## Session 6 — README + LICENSE (17:24 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Create a public-facing README.md and Apache 2.0 LICENSE file for the repository. The project had detailed internal docs (AGENTS.md, PLAN.md, BUILD_STATUS.md) but no introduction for newcomers.
-
-### What Changed
-- **[2026-02-14 17:24 PST]** `README.md` — **NEW.** Public-facing introduction with overview, features, architecture diagram, quick start guide, tech stack table, platform support matrix, milestone status table, contributing section, and license footer.
-- **[2026-02-14 17:24 PST]** `LICENSE` — **NEW.** Standard Apache License 2.0 text with "Copyright 2025-2026 Hyeons' Lab".
-
-### Decisions
-- **[2026-02-14 17:24 PST]** **Link to detailed docs rather than duplicate** — README links to BUILD_STATUS.md, PLAN.md, and AGENTS.md for deep dives instead of repeating their content.
-- **[2026-02-14 17:24 PST]** **Apache 2.0 license** — Consistent with wgpu4k's license. Copyright holder: Hyeons' Lab.
-
-### Commits
 - `fb339ba` — docs: add README and Apache 2.0 LICENSE
 - `f28a84f` — docs: add PBR and glTF milestones to project plan
-
-**Note:** Second commit added during this session after user requested PBR + glTF milestones:
-- **[2026-02-14 17:32 PST]** `PLAN.md` — Added Phase 7 (PBR materials: Cook-Torrance BRDF, IBL, HDR tone mapping) and Phase 8 (glTF 2.0/.glb loader, mesh/material/scene import, platform texture decoding). Added milestones M9 (PBR) and M10 (glTF). Added verification steps 7-8.
-- **[2026-02-14 17:32 PST]** `README.md` — Added M9 and M10 rows to milestone status table.
-- **[2026-02-14 17:32 PST]** `BUILD_STATUS.md` — Added M9 and M10 milestone headers.
-
----
-
-## Session 7 — Wire KtFmt + Detekt to Subprojects (17:47 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-KtFmt and Detekt plugins were declared in the root `build.gradle.kts` with `apply false` but never applied to any subproject. Running `./gradlew ktfmtFormat` did nothing. Wire both plugins to all subprojects so formatting and static analysis actually work.
-
-### What Changed
-- **[2026-02-14 17:47 PST]** `build.gradle.kts` — Added `subprojects {}` block applying `com.ncorti.ktfmt.gradle` and `io.gitlab.arturbosch.detekt` to all subprojects. Configured KtFmt with Google style and 100-char max width.
-- **[2026-02-14 17:48 PST]** 113 source files — Auto-formatted by `./gradlew ktfmtFormat` (Google style, 100-char width). Major formatting changes across all modules.
-
-### Decisions
-- **[2026-02-14 17:47 PST]** **Apply via `subprojects {}` block** — Single block in root build.gradle.kts applies both plugins to all 12 subprojects. No per-module configuration needed.
-
-### Issues
-- **[PRE-EXISTING] `prism-assets:compileKotlinLinuxX64` fails** — Missing `actual` declaration for `FileReader` on linuxX64 native target. Not related to formatting changes. JVM build passes cleanly.
-
----
-
-## Session 8 — Investigate Detekt NO-SOURCE in KMP (17:53 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Investigate why `./gradlew detekt` reports `NO-SOURCE` for all 12 subprojects despite detekt being applied to all subprojects in Session 7.
-
-### Research & Discoveries
-- **Root cause:** The plain `detekt` task is the "classic" single-project detekt task that looks for sources at `src/main/kotlin` (standard JVM layout). Since this is a KMP project, there is no `src/main/kotlin` -- sources live in `src/commonMain/kotlin`, `src/jvmMain/kotlin`, etc.
-- **KMP-specific tasks exist:** When detekt is applied to a KMP project, it auto-creates per-target tasks:
-  - `detektMetadataCommonMain` — analyzes `src/commonMain/kotlin` (where ~90% of code lives)
-  - `detektJvmMain` — analyzes `src/jvmMain/kotlin` (with type resolution, marked EXPERIMENTAL)
-  - `detektIosArm64Main`, `detektMacosArm64Main`, `detektWasmJsMain`, etc. — per-platform
-  - `detektMetadataAppleMain`, `detektMetadataNativeMain`, `detektMetadataIosMain` — intermediate source sets
-- **Confirmed `detektMetadataCommonMain` works:** Running `:prism-math:detektMetadataCommonMain` found 79 weighted issues (MagicNumber, TooManyFunctions, LongParameterList). Running `:prism-core:detektMetadataCommonMain` found 7 issues (MagicNumber).
-- **`check` task only depends on plain `detekt`:** The Gradle `check` lifecycle task (run during `./gradlew build`) only depends on the NO-SOURCE plain `detekt` task, not the KMP-specific ones. So `./gradlew build` also doesn't run real detekt analysis.
-- **No detekt config file exists:** No `detekt.yml` or similar config file in the project. All rules use defaults.
-
-### Decisions
-- **[2026-02-14 17:53 PST]** **Investigation only** — Reporting findings without making changes. The fix would involve either: (a) configuring the plain `detekt` task's source sets to include KMP sources, or (b) making `check` depend on the KMP-specific detekt tasks, or (c) replacing `./gradlew detekt` in CI/AGENTS.md with specific task names like `detektMetadataCommonMain`.
-
-### Issues
-- **Detekt is effectively disabled** — Despite being applied in Session 7, detekt analyzes zero source files. `maxIssues=0` in AGENTS.md implies it should block bad code, but it currently blocks nothing. The KMP-specific tasks that DO work (`detektMetadataCommonMain`) already find issues that would fail CI if wired up.
-
----
-
-## Session 9 — Wire Detekt for KMP + Fix Easy Issues (18:10 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Wire detekt to actually analyze KMP source sets, create a config file with sensible rules, and fix easy issues immediately.
-
-### What Changed
-- **[2026-02-14 18:10 PST]** `detekt.yml` — **NEW.** Generated from detekt defaults, then configured: disabled MagicNumber (226 issues in math lib), raised thresholds for TooManyFunctions (25 in classes), LongParameterList (8/10), LongMethod (100), CyclomaticComplexMethod (20 + ignoreSingleWhenExpression), ReturnCount (4). Excluded compose/demo from FunctionNaming. Disabled ForbiddenComment. Set MaxLineLength to 100 (matches ktfmt).
-- **[2026-02-14 18:10 PST]** `build.gradle.kts` — Configured detekt extension to use `detekt.yml`, set jvmTarget to 22 for detekt tasks (detekt's embedded Kotlin compiler doesn't support JVM target 25), wired KMP-specific detekt tasks (`detektMetadata*Main`, `detektJvmMain`, `detektWasmJsMain`) into Gradle `check` lifecycle.
-- **[2026-02-14 18:12 PST]** `PrismBridge.kt` — Added `@Suppress("UnusedParameter")` at class level (7 unused params in stub functions).
-- **[2026-02-14 18:12 PST]** `RenderPass.kt` → `RenderPassDescriptor.kt` — Renamed to match single top-level declaration (MatchingDeclarationName).
-- **[2026-02-14 18:12 PST]** `Surface.kt` → `RenderSurface.kt` — Renamed to match single top-level declaration (MatchingDeclarationName).
-- **[2026-02-14 18:15 PST]** `Texture.kt`, `Pipeline.kt`, `Camera.kt`, `Shader.kt` — Fixed 4 `toString()` methods exceeding 100-char MaxLineLength.
-- **[2026-02-14 18:15 PST]** `Mesh.kt` — Added `@Suppress("LongMethod")` to `cube()` (239 lines of vertex data, not logic).
-
-### Decisions
-- **[2026-02-14 18:10 PST]** **Disable MagicNumber globally** — 226/248 issues were MagicNumber, almost all in math library (matrix indices, trig constants). Too noisy for a game engine. Future task to re-enable with targeted suppressions.
-- **[2026-02-14 18:10 PST]** **Generate default config then modify** — Used `detektGenerateConfig` to create full default config, then modified specific rules. Ensures all rules are visible and documented.
-- **[2026-02-14 18:10 PST]** **jvmTarget 22 for detekt** — Detekt's embedded Kotlin compiler only supports up to JVM target 22. The project uses JVM 25 for wgpu4k FFI, but detekt analysis doesn't need FFI features.
-- **[2026-02-14 18:10 PST]** **Wire detektMetadata + detektJvm + detektWasmJs into check** — These cover commonMain (~90% of code), JVM-specific code, and WASM-specific code. Platform-specific native tasks excluded (they'd require native compilation toolchains).
-
-### Issues
-- **[RESOLVED] `Invalid value (25) passed to --jvm-target`** — Detekt's embedded compiler doesn't support JVM 25. Fixed by setting `jvmTarget = "22"` on all Detekt tasks.
-- **[RESOLVED] `Property 'style>FunctionNaming' is misspelled`** — FunctionNaming and MatchingDeclarationName belong under the `naming` category, not `style`. Fixed in detekt.yml.
-
-### Lessons Learned
-- Detekt rule categories matter: `FunctionNaming` and `MatchingDeclarationName` are under `naming`, not `style`. When in doubt, generate the default config with `detektGenerateConfig` to see correct category placement.
-- Detekt + KMP: the plain `detekt` task is useless in KMP projects. Always use `detektMetadataCommonMain` and `detektJvmMain` explicitly.
-- Detekt jvmTarget max is 22 as of detekt 1.23.x. Projects using JVM 25 must override `jvmTarget = "22"` on all Detekt tasks.
-
-### Commits
 - `47bcc46` — chore: wire KtFmt and Detekt plugins to all subprojects
 - `47cc7d0` — ci: add GitHub Actions workflow for CI checks
 - `8b7c355` — fix(ci): update wgpu4k repo URL to wgpu4k/wgpu4k
-
----
-
-## Session 10 — GitHub Actions CI (19:30 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `chore/ktfmt-detekt-subprojects`
-
-### Intent
-Add a GitHub Actions CI workflow that runs formatting, static analysis, compilation, and tests on pushes to main and all PRs. Enable branch protection by having checks pass at least once.
-
-### What Changed
-- **[2026-02-14 19:30 PST]** `.github/workflows/ci.yml` — **NEW.** CI workflow with: JDK 25 (Temurin), Gradle setup with caching, wgpu4k Maven Local cache (keyed on libs.versions.toml hash), ktfmtCheck, detektMetadataCommonMain + detektJvmMain, compileKotlinJvm, jvmTest.
-- **[2026-02-14 19:30 PST]** `AGENTS.md` — Updated detekt commands from `./gradlew detekt` to `./gradlew detektMetadataCommonMain detektJvmMain`. Updated CI quality check command.
-
-### Decisions
-- **[2026-02-14 19:30 PST]** **Single job, not parallel jobs** — All checks in one job to avoid duplicating wgpu4k setup overhead. Can split later if CI time becomes an issue.
-- **[2026-02-14 19:30 PST]** **Cache wgpu4k by libs.versions.toml hash** — Invalidates when any dependency version changes (slightly broader than ideal, but simple and reliable).
-- **[2026-02-14 19:30 PST]** **JVM-only for CI** — Only `compileKotlinJvm` and `jvmTest`, not full cross-platform build, to avoid pre-existing native compilation issues (linuxX64 FileReader missing actual).
-
-### Issues
-- **[RESOLVED] wgpu4k repo moved** — `AskiaAI/wgpu4k` returned 404. Repo is now at `wgpu4k/wgpu4k`. Fixed URL in ci.yml.
-- **[PENDING] wgpu4k CI build untested** — First run will reveal if `publishToMavenLocal` works on a clean Ubuntu runner (may need Rust toolchain or other native deps).
-
-### Lessons Learned
-- wgpu4k repo moved from `AskiaAI/wgpu4k` to `wgpu4k/wgpu4k`. Update AGENTS.md references if they exist.
-
----
-
-## Session 11 — Package Rename + Detekt Fix (20:30 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `chore/ktfmt-detekt-subprojects`
-
-### Intent
-Continue from previous sessions. The working tree had a package rename from `engine.prism` to `com.hyeonslab.prism` and build config updates (maven-publish, gradle.properties publishing metadata) that were uncommitted. Also, the detekt plugin version had been changed to `2.0.0-alpha.2` in the working tree, which broke the build (plugin not found on Gradle Plugin Portal).
-
-### What Changed
-- **[2026-02-14 20:30 PST]** `gradle/libs.versions.toml` — Reverted detekt version from `2.0.0-alpha.2` back to `1.23.8` (latest stable). The alpha was not available on Gradle Plugin Portal.
-- **[2026-02-14 20:35 PST]** `prism-input/build.gradle.kts` — Fixed ktfmt formatting (auto-formatted by `./gradlew ktfmtFormat`)
-- **[2026-02-14 20:39 PST]** Committed all pending changes: package rename across 121 files, maven-publish config, AGENTS.md updates, build.gradle.kts detekt wiring fixes.
-
-### Decisions
-- **[2026-02-14 20:30 PST]** **Stick with detekt 1.23.8** — The `2.0.0-alpha.2` version is not available on the Gradle Plugin Portal. Latest stable is `1.23.8`. The `detekt.yml` config is compatible with both versions.
-
-### Issues
-- **[RESOLVED] Build failed: detekt `2.0.0-alpha.2` not found** — Someone had changed the version in the working tree to an alpha release not available on the plugin portal. Reverted to `1.23.8`.
-
-### Commits
 - `97dbdb1` — refactor: rename package from engine.prism to com.hyeonslab.prism
-
----
-
-## Session 12 — CI Caching & Diagnostics Improvements (21:03 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-Fix CI caching inefficiencies: wgpu4k cache key was based on entire `libs.versions.toml` (any dep bump triggers ~15min rebuild), Rust installed unconditionally even on cache hits, no diagnostic logging, and 4 separate Gradle invocations added JVM startup overhead. Also pin wgpu4k to a specific commit for deterministic builds.
-
-### What Changed
-- **[2026-02-14 21:03 PST]** `gradle/libs.versions.toml` — Added `wgpu4kCommit = "3fc6e3297fee6b558efc6dcb29aec1a6629b0e90"` for pinning wgpu4k to a specific commit
-- **[2026-02-14 21:10 PST]** `.github/workflows/ci.yml` — Rewrote CI workflow with 7 improvements:
-  1. **Shallow fetch of specific commit** — `git init` + `git fetch --depth 1 origin $COMMIT` + `git checkout FETCH_HEAD` instead of full clone. Deterministic (pinned to commit hash) AND fast (no full history)
-  2. **Removed `restore-keys`** — Eliminates stale artifact hazard; cache is exact-match only on commit hash
-  3. **Input validation** — Fails fast with `::error::` annotation if wgpu4k version/commit extraction from `libs.versions.toml` returns empty
-  4. **`${{ }}` injection eliminated** — All step outputs passed via `env:` blocks and referenced as shell variables (`"$WGPU4K_COMMIT"`) instead of inline `${{ }}` interpolation in `run:` blocks
-  5. **Conditional Rust/cache setup** — Rust toolchain and `Swatinem/rust-cache` only installed on cache miss
-  6. **Timing logged even on failure** — `|| EXIT=$?` captures exit code, writes timing to `$GITHUB_STEP_SUMMARY`, then `exit ${EXIT:-0}` re-raises
-  7. **Removed redundant `compileKotlinJvm`** — `jvmTest` already depends on compilation
-  - Also: commit-based cache key (`wgpu4k-<os>-<commit>`), `setup-gradle` with `cache-read-only` for PRs, combined 4 Gradle invocations into 2, diagnostics for cache status / wgpu4k build / Gradle build cache
-
-### Decisions
-- **[2026-02-14 21:03 PST]** **Commit hash in version catalog** — Store wgpu4k commit hash alongside its version in `libs.versions.toml` so CI can extract it for both caching and checkout
-- **[2026-02-14 21:10 PST]** **Shallow fetch + pinned commit** — `git fetch --depth 1 origin <commit>` is both deterministic (exact commit) and fast (no full history). Removed `restore-keys` to avoid stale cache artifacts
-- **[2026-02-14 21:10 PST]** **Pass step outputs via env, not `${{ }}`** — Avoids shell injection risk from untrusted interpolation in `run:` blocks
-- **[2026-02-14 21:03 PST]** **Conditional Rust install** — Saves ~30s on cache hits by skipping Rust toolchain setup entirely
-- **[2026-02-14 21:03 PST]** **2 Gradle invocations instead of 4** — Reduces JVM startup overhead; lint+analysis and compile+test are natural groupings
-
----
-
-## Session 13 — Add Unit Tests for prism-renderer (21:30 PST, opus-4-6)
-
-**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `main`
-
-### Intent
-The prism-renderer module had 13 source files (461+ lines in WgpuRenderer alone) with zero tests. Session 4's critical review flagged this as a major issue (#5). Add tests for everything that doesn't require a GPU runtime — pure data classes, factory methods, math computations, and shader metadata.
-
-### What Changed
-- **[2026-02-14 21:30 PST]** `prism-renderer/src/commonTest/kotlin/.../ColorTest.kt` — **NEW.** 15 tests: color constants, `fromRgba8()` conversion (zeros, max, mid-range, default alpha, out-of-range behavior).
-- **[2026-02-14 21:30 PST]** `prism-renderer/src/commonTest/kotlin/.../MeshTest.kt` — **NEW.** 25 tests: triangle/quad/cube factories (counts, labels, layouts), unit-length normals for all three shapes, cube per-face normal consistency, empty mesh, GPU buffers null, vertexCount from stride, zero-stride edge case, toString.
-- **[2026-02-14 21:30 PST]** `prism-renderer/src/commonTest/kotlin/.../VertexLayoutTest.kt` — **NEW.** 22 tests: all 4 factory methods (stride, attribute count, attribute properties), VertexAttributeFormat enum properties, full contiguous offset validation (all intermediate + last attribute).
-- **[2026-02-14 21:30 PST]** `prism-renderer/src/commonTest/kotlin/.../CameraTest.kt` — **NEW.** 19 tests: default values, view/projection/VP matrices, VP combines both matrices, VP reflects position change, custom configs, toString for perspective/ortho modes.
-- **[2026-02-14 21:30 PST]** `prism-renderer/src/commonTest/kotlin/.../ShaderTest.kt` — **NEW.** 14 tests: Shaders constants, vertex/fragment shader properties (stage, entryPoint, code content via `shouldContain`), ShaderSource default entryPoint, ShaderModule construction/handle/toString.
-
-**Total: 95 tests, 0 failures, 0 skipped.**
-
-### Decisions
-- **[2026-02-14 21:30 PST]** **Kotest matchers throughout** — `shouldBe`, `shouldNotBe`, `shouldBeNull()`, `shouldBeFalse()`, `shouldNotBeZero()`, `shouldContain`, `plusOrMinus`. No `kotlin.test` assertions (only `@Test` annotation).
-- **[2026-02-14 21:30 PST]** **No GPU tests** — All tests are pure logic. WgpuRenderer requires a GPU context and is tested manually via the demo app.
-- **[2026-02-14 21:35 PST]** **Derive normal offsets from layout metadata** — Normal tests use `attributes.first { it.name == "normal" }.offset` instead of hardcoded index `+3`, so tests stay correct if layout order changes.
-- **[2026-02-14 21:35 PST]** **Removed low-value Kotlin infrastructure tests** — Data class equality/copy, enum entry count, and valueOf tests were testing Kotlin language guarantees, not application logic.
-
-### Issues
-- **[RESOLVED] `Mat4.IDENTITY` doesn't exist** — Mat4 uses `identity()` function, not `IDENTITY` constant. Fixed to `Mat4.identity()`.
-- **[RESOLVED] `Mat4.values` doesn't exist** — Mat4 stores data in `data` field, not `values`. Fixed to `Mat4.data`.
-- **[RESOLVED] ShaderTest tautology** — `code shouldBe code` line asserted nothing. Removed.
-- **[RESOLVED] Tautological VP test** — `viewProjectionMatrix() == projectionMatrix() * viewMatrix()` just re-derived the implementation. Replaced with tests that VP differs from both view-only and projection-only, and that moving the camera changes VP.
-- **[RESOLVED] Weak contiguous offset check** — Only validated last attribute, not intermediate gaps. Now checks every adjacent pair.
-- **[RESOLVED] Hardcoded normal offsets** — `vertices[base + 3]` assumed position-first layout. Now derived from layout metadata.
-
-### Lessons Learned
-- `shouldContain` from `io.kotest.matchers.string` gives better failure messages than `(x.contains(y)) shouldBe true`.
-- Don't use `plusOrMinus` for exact float literals — it obscures intent and can mask bugs. Reserve it for computed values.
-- Tests that re-derive the implementation (`f(x) == g(x)` where `f` calls `g`) are tautological — test observable behavior instead.
-
-### Commits
-- _(pending)_
-
----
-
-## Next Steps
-- [x] Add CI configuration (GitHub Actions) — done in Sessions 10/12
-- [x] Add unit tests for renderer (95 tests across 5 files) — done in Session 13
-- [x] Wire up KtFmt + Detekt to subprojects — done in Sessions 7/9
-- [ ] WASM/Canvas integration for web
-- [ ] Compose Multiplatform integration (M5)
-- [ ] Complete native RenderSurface implementations (iOS, Android, Linux, Windows)
-- [ ] Re-enable MagicNumber with targeted suppressions
-- [ ] Refactor Mesh.cube() to extract vertex data
-- [ ] Reduce FlutterMethodHandler cyclomatic complexity
-- [ ] PBR materials — Cook-Torrance BRDF, IBL, HDR (M9)
-- [ ] glTF 2.0 asset loading (M10)
