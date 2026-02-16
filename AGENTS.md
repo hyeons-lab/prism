@@ -368,16 +368,50 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 ## Development Workflow
 
+### Git Worktree Workflow
+
+All feature work MUST use git worktrees. Do not switch branches in the main checkout.
+
+**Starting a new feature:**
+1. From the main checkout (`~/development/prism`), create a worktree:
+   ```bash
+   git worktree add worktrees/<branch-name> -b <branch-name>
+   ```
+   Branch names should describe the work (e.g. `feat/pbr-materials`, `fix/wasm-depth-buffer`).
+2. `cd worktrees/<branch-name>` and do all work there.
+3. Create a draft PR immediately:
+   ```bash
+   gh pr create --draft --title "WIP: <description>" --body ""
+   ```
+4. As you implement, update the PR title and description to reflect the current state:
+   ```bash
+   gh pr edit <number> --title "<final title>" --body "<description>"
+   ```
+
+**Finishing:**
+- Push, mark PR as ready, and get it merged.
+- Only after the PR is merged, clean up:
+  ```bash
+  cd ~/development/prism
+  git worktree remove worktrees/<branch-name>
+  git branch -d <branch-name>
+  ```
+
+**Rules:**
+- Never delete a worktree whose PR is still open.
+- Keep the main checkout on `main` — use it only for creating worktrees and housekeeping.
+
 ### Adding a New Feature
 
-1. **Plan:** Determine which module(s) need changes
-2. **Interface:** Define abstractions in `commonMain` first
-3. **Implement:** Add platform-specific `actual` implementations
-4. **Test:** Write tests in `commonTest` and platform-specific test sources
-5. **Format:** Run `./gradlew ktfmtFormat`
-6. **Validate:** Run `./gradlew ktfmtCheck detektJvmMain jvmTest`
-7. **Commit:** Use conventional commit format
-8. **PR:** Match PR description to commit body
+1. **Create worktree:** Follow the Git Worktree Workflow above
+2. **Plan:** Determine which module(s) need changes
+3. **Interface:** Define abstractions in `commonMain` first
+4. **Implement:** Add platform-specific `actual` implementations
+5. **Test:** Write tests in `commonTest` and platform-specific test sources
+6. **Format:** Run `./gradlew ktfmtFormat`
+7. **Validate:** Run `./gradlew ktfmtCheck detektJvmMain jvmTest`
+8. **Commit:** Use conventional commit format
+9. **PR:** Match PR description to commit body
 
 ### Debugging Tips
 

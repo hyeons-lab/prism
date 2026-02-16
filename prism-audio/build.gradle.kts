@@ -1,4 +1,5 @@
 plugins {
+  id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.maven.publish)
 }
@@ -8,8 +9,7 @@ kotlin {
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
-  linuxX64()
-  mingwX64()
+  // linuxX64/mingwX64 removed — no platform code. Re-add when needed.
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 

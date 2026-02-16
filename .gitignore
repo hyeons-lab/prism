@@ -27,6 +27,9 @@ prism-ios-demo/*.xcodeproj
 prism-ios-demo/*.xcworkspace
 prism-ios-demo/DerivedData/
 
+# Worktrees
+worktrees/
+
 # Local config
 local.properties
 .claude/
