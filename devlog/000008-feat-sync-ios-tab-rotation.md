@@ -80,6 +80,9 @@ Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `P
 - **[2026-02-15 PST]** `prism-ios-demo/project.yml` — Renamed project `PrismDemo` → `PrismiOSDemo`, target `PrismDemoApp` → `PrismiOSDemo`, product name `PrismDemoApp` → `PrismiOSDemo`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`.
 - **[2026-02-15 PST]** `prism-demo/README.md` — Updated xcodebuild scheme `PrismDemoApp` → `PrismiOSDemo`, xcodeproj `PrismDemo.xcodeproj` → `PrismiOSDemo.xcodeproj`, app name `PrismDemoApp.app` → `PrismiOSDemo.app`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`. Added note explaining the relationship between `prism-demo` (KMP module) and `prism-ios-demo` (Swift consumer app).
 - **[2026-02-15 PST]** `prism-ios-demo/README.md` — New file. Documents the iOS demo app, its relationship to the KMP `prism-demo` module, build/run instructions, and project structure.
+- **[2026-02-15 PST]** `IosConstants.kt` — Added `@Volatile` to all mutable fields in `SharedDemoTime` for thread safety across display-link threads.
+- **[2026-02-15 PST]** `IosDemoController.kt`, `ComposeIosEntry.kt` — Material allocation now guarded by color-change check to avoid per-frame GC pressure.
+- **[2026-02-15 PST]** `ComposeDemoControls.kt` — Added `contentDescription` accessibility labels to color swatch buttons.
 
 ### Decisions
 - **[2026-02-15 PST]** **`PrismiOSDemo` as new name** — Clear disambiguation: `PrismDemo` is the KMP XCFramework module name (used by `import PrismDemo` in Swift), while `PrismiOSDemo` is the iOS app project/target/scheme name.
@@ -87,4 +90,4 @@ Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `P
 - **[2026-02-15 PST]** **Swift `import PrismDemo` unchanged** — This imports the KMP XCFramework module, not the app. No Swift source changes needed.
 
 ### Commits
-- `92e227b` — refactor: rename iOS Xcode project to PrismiOSDemo and clarify demo roles
+- `e051248` — refactor: rename iOS Xcode project to PrismiOSDemo and clarify demo roles

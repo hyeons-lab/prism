@@ -212,9 +212,11 @@ private class ComposeRenderDelegate(
     val cubeTransform = scene.world.getComponent<TransformComponent>(scene.cubeEntity)
     cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, angle)
 
-    // Update material color
+    // Update material color only when it actually changes to avoid per-frame allocation
     val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-    cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
+    if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
+      cubeMaterial.material = Material(baseColor = currentState.cubeColor)
+    }
 
     // Run ECS update (triggers RenderSystem)
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)

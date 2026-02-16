@@ -98,7 +98,9 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
 
     // Sync cube color from shared store (color picker lives on the Compose tab)
     val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-    cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
+    if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
+      cubeMaterial.material = Material(baseColor = currentState.cubeColor)
+    }
 
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
     scene.world.update(time)
