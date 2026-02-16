@@ -194,6 +194,8 @@ module-name/src/
 - **macOS Native (GLFW)**: GLFW windowing with Metal backend via wgpu4k `glfwContextRenderer`, AppKit NSPanel for floating controls
 - **Android**: Build targets added (prism-math, prism-core, prism-renderer, prism-native-widgets); wgpu4k rendering via PanamaPort planned (M8)
 - **Linux/Windows Native**: GLFW windowing with Vulkan/DX12 via wgpu4k `glfwContextRenderer` (compiles, untested)
+- **Flutter (iOS/Android)**: Platform channels + native rendering via PrismBridge (planned, M11)
+- **Flutter Web**: WebGPU via HtmlElementView (planned, M11)
 
 ### Module Dependency Graph
 
@@ -330,6 +332,8 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 Every new body of work **must** use a git worktree. This keeps parallel work isolated and avoids branch-switching disruptions:
 
+> **Important:** Create the worktree and branch _before_ entering plan mode or starting any exploration. This ensures the main checkout stays clean and files don't change while you're reading them.
+
 ```bash
 # Create a worktree for your branch (inside worktrees/ directory)
 git worktree add worktrees/<branch-name> -b <branch-name>
@@ -401,7 +405,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ⏭️ Android wgpu4k rendering via PanamaPort (M8)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
-- ⏭️ Flutter integration (PrismBridge, platform plugins, rendering surface)
+- ⏭️ Flutter integration: iOS/Android (platform channels, native rendering) + Flutter Web (WebGPU via HtmlElementView)
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
@@ -439,6 +443,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 **Rules:**
 - Never delete a worktree whose PR is still open.
 - Keep the main checkout on `main` — use it only for creating worktrees and housekeeping.
+- Always create the worktree first, before planning or exploring. Do all work — including reading code and writing plans — inside the worktree.
 
 ### Adding a New Feature
 

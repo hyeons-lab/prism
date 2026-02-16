@@ -2,9 +2,9 @@
 
 A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU.
 
-> **This is an experiment.** Prism is being vibe-coded with [Claude](https://claude.ai) — the engine, the tests, the CI, and even this README. Every design decision, debug session, and dead end is captured in the [`devlog/`](devlog/) directory. AI-assisted PRs are welcome.
+[Website](https://hyeons-lab.github.io/prism/) | [GitHub](https://github.com/hyeons-lab/prism) | [Roadmap](PLAN.md)
 
-<!-- TODO: Add screenshot/gif of rotating cube demo -->
+> **This is an experiment.** Prism is being vibe-coded with [Claude](https://claude.ai) — the engine, the tests, the CI, and even this README. Every design decision, debug session, and dead end is captured in the [`devlog/`](devlog/) directory. AI-assisted PRs are welcome.
 
 ## Overview
 
@@ -119,6 +119,8 @@ import Prism
 | iOS | Metal via wgpu4k + MTKView | Working |
 | macOS Native | Metal via wgpu4k + GLFW | Working |
 | Android | Vulkan (PanamaPort) | In Progress |
+| Flutter (iOS/Android) | Platform channels + native rendering | Planned |
+| Flutter Web | WebGPU via HtmlElementView | Planned |
 
 ## Project Status
 
@@ -135,6 +137,7 @@ import Prism
 | M8 | Android support | In Progress |
 | M9 | PBR materials | Planned |
 | M10 | glTF asset loading | Planned |
+| M11 | Flutter integration | Planned |
 
 See [BUILD_STATUS.md](BUILD_STATUS.md) for detailed status and [PLAN.md](PLAN.md) for the full technical specification.
 
