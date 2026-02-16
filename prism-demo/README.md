@@ -8,11 +8,15 @@ Demo application showcasing Prism Engine across platforms. Renders a rotating li
 
 Three entry points are available:
 
-| Entry point | File | Description |
+| Entry point | File | Gradle task |
 |---|---|---|
-| **GLFW** | `jvmMain/.../GlfwMain.kt` | Default. Pure GLFW window, no UI controls. Run with `./gradlew :prism-demo:run`. |
-| **Compose + AWT** | `jvmMain/.../ComposeMain.kt` | JFrame with `PrismPanel` (AWT Canvas + Metal surface) and a `ComposePanel` sidebar for Material3 controls. Run with `./gradlew :prism-demo:runCompose`. |
-| **Compose Desktop** | `jvmMain/.../Main.kt` | Compose `Window` with `PrismOverlay` (3D + UI). Requires an IDE run configuration targeting `main()`. |
+| **GLFW** (default) | `jvmMain/.../GlfwMain.kt` | `./gradlew :prism-demo:jvmRun` |
+| **Compose + AWT** | `jvmMain/.../ComposeMain.kt` | `./gradlew :prism-demo:runCompose` |
+| **Compose Desktop** | `jvmMain/.../Main.kt` | IDE run configuration targeting `main()` |
+
+- **GLFW** — Pure GLFW window, no UI controls. Requires `-XstartOnFirstThread` on macOS (applied automatically by the build).
+- **Compose + AWT** — JFrame with `PrismPanel` (AWT Canvas + Metal surface) and a `ComposePanel` sidebar for Material3 controls.
+- **Compose Desktop** — Compose `Window` with `PrismOverlay` (3D + UI). No Gradle task registered; run from an IDE.
 
 ### Web (WASM/JS)
 
@@ -20,11 +24,14 @@ Three entry points are available:
 |---|---|---|
 | **WebGPU Canvas** | `wasmJsMain/.../Main.kt` | HTML Canvas with WebGPU via `canvasContextRenderer()` and `requestAnimationFrame()`. No UI controls. |
 
-Build: `./gradlew :prism-demo:wasmJsBrowserDistribution`
+| Task | Description |
+|---|---|
+| `./gradlew :prism-demo:wasmJsBrowserDevelopmentRun` | Dev server with hot reload |
+| `./gradlew :prism-demo:wasmJsBrowserDistribution` | Production build to `build/dist/wasmJs/productionExecutable/` |
 
 ### iOS
 
-The iOS demo is a Swift app (`prism-ios-demo/`) with a `UITabBarController` containing two tabs:
+The iOS demo is a Swift app (`prism-ios-demo/`) that showcases how to consume the KMP `prism-demo` XCFramework from native Swift. It uses a `UITabBarController` with two tabs:
 
 | Tab | Rendering | UI Controls | Entry point |
 |---|---|---|---|
@@ -43,14 +50,16 @@ Both tabs share a single `DemoStore` and `SharedDemoTime` so rotation angle, pau
 cd prism-ios-demo && xcodegen generate
 
 # Build and launch on simulator
-xcodebuild -project prism-ios-demo/PrismDemo.xcodeproj \
-  -scheme PrismDemoApp \
+xcodebuild -project prism-ios-demo/PrismiOSDemo.xcodeproj \
+  -scheme PrismiOSDemo \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
   -configuration Debug build
 
-xcrun simctl install booted prism-ios-demo/build/Debug-iphonesimulator/PrismDemoApp.app
-xcrun simctl launch booted com.hyeonslab.prism.demo
+xcrun simctl install booted prism-ios-demo/build/Debug-iphonesimulator/PrismiOSDemo.app
+xcrun simctl launch booted com.hyeonslab.prism.ios.demo
 ```
+
+> **Note:** `prism-demo` is the KMP multiplatform module — shared Kotlin code that runs on JVM, WASM, and iOS. It produces the `PrismDemo.xcframework` consumed by Swift. `prism-ios-demo` is the native Swift iOS app that embeds this framework. Swift code uses `import PrismDemo` to access KMP types.
 
 ## Shared Code (commonMain)
 

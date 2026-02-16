@@ -1,4 +1,4 @@
-name: PrismDemo
+name: PrismiOSDemo
 options:
   bundleIdPrefix: com.hyeonslab.prism
   deploymentTarget:
@@ -10,7 +10,7 @@ settings:
     SWIFT_VERSION: "5.9"
 
 targets:
-  PrismDemoApp:
+  PrismiOSDemo:
     type: application
     platform: iOS
     sources:
@@ -18,8 +18,8 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.hyeonslab.prism.demo
-        PRODUCT_NAME: PrismDemoApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.hyeonslab.prism.ios.demo
+        PRODUCT_NAME: PrismiOSDemo
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"

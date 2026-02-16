@@ -66,3 +66,25 @@ Rename `ios-demo/` to `prism-ios-demo/` for naming consistency, sync cube color 
 - **[2026-02-15 PST]** **Sync cube color to Native tab** — Both tabs now read `cubeColor` from `sharedDemoStore` per frame. The color picker UI remains on the Compose tab only, but changes are reflected on the Native tab immediately.
 
 > **Correction:** Session 1 references to `ios-demo/` in "What Changed" and elsewhere now refer to `prism-ios-demo/` after the rename in this session.
+
+---
+
+## Session 3 — Rename Xcode project to PrismiOSDemo (2026-02-15 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `feat/sync-ios-tab-rotation`
+
+### Intent
+Rename the `prism-ios-demo/` Xcode project from `PrismDemo`/`PrismDemoApp` to `PrismiOSDemo` to eliminate confusion with the KMP `prism-demo` module. Update bundle ID, documentation, and add README explaining the relationship between the two projects.
+
+### What Changed
+- **[2026-02-15 PST]** `prism-ios-demo/project.yml` — Renamed project `PrismDemo` → `PrismiOSDemo`, target `PrismDemoApp` → `PrismiOSDemo`, product name `PrismDemoApp` → `PrismiOSDemo`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`.
+- **[2026-02-15 PST]** `prism-demo/README.md` — Updated xcodebuild scheme `PrismDemoApp` → `PrismiOSDemo`, xcodeproj `PrismDemo.xcodeproj` → `PrismiOSDemo.xcodeproj`, app name `PrismDemoApp.app` → `PrismiOSDemo.app`, bundle ID `com.hyeonslab.prism.demo` → `com.hyeonslab.prism.ios.demo`. Added note explaining the relationship between `prism-demo` (KMP module) and `prism-ios-demo` (Swift consumer app).
+- **[2026-02-15 PST]** `prism-ios-demo/README.md` — New file. Documents the iOS demo app, its relationship to the KMP `prism-demo` module, build/run instructions, and project structure.
+
+### Decisions
+- **[2026-02-15 PST]** **`PrismiOSDemo` as new name** — Clear disambiguation: `PrismDemo` is the KMP XCFramework module name (used by `import PrismDemo` in Swift), while `PrismiOSDemo` is the iOS app project/target/scheme name.
+- **[2026-02-15 PST]** **New bundle ID `com.hyeonslab.prism.ios.demo`** — Adds `.ios` segment to distinguish from any future demo apps on other platforms.
+- **[2026-02-15 PST]** **Swift `import PrismDemo` unchanged** — This imports the KMP XCFramework module, not the app. No Swift source changes needed.
+
+### Commits
+- `92e227b` — refactor: rename iOS Xcode project to PrismiOSDemo and clarify demo roles
