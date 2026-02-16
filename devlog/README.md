@@ -1,6 +1,6 @@
 # devlog/
 
-Development session logs maintained by Claude Code. Each file tracks changes, decisions, and reasoning for a single feature branch.
+Development logs maintained by Claude Code. Each file tracks changes, decisions, and reasoning for a single feature branch.
 
 See [CONVENTIONS.md](CONVENTIONS.md) for full conventions.
 

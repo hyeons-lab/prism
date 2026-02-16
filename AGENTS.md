@@ -394,9 +394,9 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
 5. **Android PanamaPort:** Not yet integrated; planned for Phase 8
 
-## Session Logs (devlog/)
+## Development Logs (devlog/)
 
-See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. Claude Code must maintain session logs proactively.
+See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. Claude Code must maintain development logs proactively.
 
 ## Random Notes
 

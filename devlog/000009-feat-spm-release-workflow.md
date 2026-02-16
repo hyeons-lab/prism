@@ -18,6 +18,8 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - **2026-02-16T02:40-08:00** `prism-ios/README.md` — Updated Distribution section from old tag-push description to `workflow_dispatch` approach.
 - **2026-02-16T08:40-08:00** `devlog/CONVENTIONS.md` — New file with concise devlog convention (~40 lines): formats, per-session sections, rules. Extracted from ~145-line inline section in AGENTS.md.
 - **2026-02-16T08:40-08:00** `devlog/README.md` — Replaced 37-line verbose README with concise quick-reference table (14 lines).
+- **2026-02-16T09:30-08:00** `devlog/000001-initial-scaffolding.md` through `devlog/000008-feat-sync-ios-tab-rotation.md` — Flattened all 8 existing devlog files to new convention: removed `## Session N` headers, converted timestamps to ISO 8601, collapsed multi-session content into single flat sections.
+- **2026-02-16T09:40-08:00** `AGENTS.md` — Renamed "Session Logs" section to "Development Logs" to match flat devlog convention.
 
 ## Decisions
 
@@ -46,6 +48,8 @@ Enable iOS consumers to integrate Prism as a library via Swift Package Manager. 
 - `15075f5` — fix: use workflow_dispatch for release to fix SPM version resolution
 - `1bcc6a5` — docs: extract devlog convention into DEVLOG.md and simplify
 - `40174de` — docs: update devlog with session 4 and fill pending commit hash
+- `df06df0` — docs: flatten devlog format, move conventions to devlog/CONVENTIONS.md, use ISO 8601
+- `1bde5f6` — docs: flatten devlog files 000001-000008 to new convention
 
 ## Next Steps
 
