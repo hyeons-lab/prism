@@ -64,3 +64,31 @@ Address Copilot review comments on PR #19 and fix Gradle deprecation warnings fo
 ### Commits
 - `699d7c5` — fix: address PR review feedback on Apple CI job
 - `b8783ad` — fix: address PR feedback and upgrade Compose Multiplatform to 1.10.1
+
+---
+
+## Session 3 — Fix K/N thread warning on macOS CI (2026-02-15 PST, claude-opus-4-6)
+
+**Agent:** Claude Code (claude-opus-4-6) @ `prism` branch `chore/improve-xcframework-ci-times`
+
+### Intent
+Fix Kotlin/Native compiler warning "The number of threads 4 is more than the number of processors 3" appearing during XCFramework build on macOS CI runner.
+
+### What Changed
+- **[2026-02-15 PST]** `.github/workflows/ci.yml` — Added `-Pkotlin.native.parallelThreads=3` to the apple job's Gradle invocation to match the macOS-latest runner's 3 vCPUs. Also added `@OptIn(ExperimentalKotlinGradlePluginApi)` to suppress `mainRun` experimental API warning.
+- **[2026-02-15 PST]** `prism-demo/build.gradle.kts` — Added `@OptIn(ExperimentalKotlinGradlePluginApi::class)` on the `jvm { mainRun { ... } }` block.
+
+### Decisions
+- **[2026-02-15 PST]** **Use `-Pkotlin.native.parallelThreads=3` in apple CI job** — macOS-latest runners have 3 vCPUs (M1). The KGP defaults `kotlin.native.parallelThreads` to 4 (hardcoded in `nativeCacheKindProperties.kt`), which is passed as `-Xbackend-threads=4` to the K/N compiler. On a 3-vCPU runner this triggers the warning. Setting to 3 matches the runner's actual vCPU count. Initial attempt with `--max-workers=3` didn't work because that controls Gradle parallelism, not the K/N compiler's internal thread pool.
+
+### Issues
+- **`--max-workers=3` did NOT fix the K/N thread warning** — `--max-workers` controls Gradle worker count, not the K/N compiler's `-Xbackend-threads` flag. The KGP sets `-Xbackend-threads` from `kotlin.native.parallelThreads` (default 4), completely independent of Gradle workers. Had to trace through `KotlinNativeLink.kt` → `getKonanParallelThreads()` → `PropertiesProvider.nativeParallelThreads` → `kotlin.native.parallelThreads` to find the correct property.
+
+### Research & Discoveries
+- GitHub-hosted macOS runners (macos-latest = macOS 15 arm64): 3 vCPUs, 7 GB RAM, 14 GB SSD
+- GitHub-hosted ubuntu-latest: 4 vCPUs, 16 GB RAM, 14 GB SSD
+- **`kotlin.native.parallelThreads`** is the Gradle property that controls K/N backend threads (undocumented in official Kotlin docs)
+- KGP source chain: `PropertiesProvider.nativeParallelThreads` → `getKonanParallelThreads()` → defaults to 4 → passed as `-Xbackend-threads=N` to K/N compiler
+- The K/N compiler's `SetupConfiguration.kt` checks `nThreads > availableProcessors` and warns if exceeded
+- KT-70915 tracks the issue of K/N link tasks overloading machines when config cache enables parallel linking
+- `mainRun` API in KGP requires `@OptIn(ExperimentalKotlinGradlePluginApi::class)`

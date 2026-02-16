@@ -257,7 +257,8 @@ jobs:
         run: |
           START=$SECONDS
           ./gradlew iosSimulatorArm64Test :prism-demo:assemblePrismDemoDebugXCFramework \
-            --configuration-cache-problems=warn || EXIT=$?
+            --configuration-cache-problems=warn \
+            -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### iOS Tests + XCFramework: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 

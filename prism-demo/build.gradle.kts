@@ -8,6 +8,7 @@ plugins {
 
 kotlin {
   jvmToolchain(25)
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
   macosArm64()
 
