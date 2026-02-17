@@ -192,7 +192,7 @@ module-name/src/
 - **iOS Native (MTKView)**: MTKView + MTKViewDelegateProtocol via Kotlin/Native ObjC interop, wgpu4k `iosContextRenderer`
 - **iOS Compose**: UIKitView embedding MTKView in Compose hierarchy, DemoStore MVI with Material3 controls
 - **macOS Native (GLFW)**: GLFW windowing with Metal backend via wgpu4k `glfwContextRenderer`, AppKit NSPanel for floating controls
-- **Android**: Build targets added (prism-math, prism-core, prism-renderer, prism-native-widgets); wgpu4k rendering via PanamaPort planned (M8)
+- **Android**: SurfaceView + wgpu4k `androidContextRenderer` with Vulkan backend, Choreographer-driven render loop
 - **Linux/Windows Native**: GLFW windowing with Vulkan/DX12 via wgpu4k `glfwContextRenderer` (compiles, untested)
 - **Flutter (iOS/Android)**: Platform channels + native rendering via PrismBridge (planned, M11)
 - **Flutter Web**: WebGPU via HtmlElementView (planned, M11)
@@ -240,9 +240,9 @@ prism-demo
 - **Build System:** Gradle 9.2.0 with Kotlin DSL
 - **GPU Backend:** wgpu4k 0.2.0-SNAPSHOT (io.ygdrasil:wgpu4k + wgpu4k-toolkit) - WebGPU bindings (built from source, Maven local)
 - **Shader Language:** WGSL (WebGPU Shading Language)
-- **UI Framework:** Jetpack Compose Multiplatform 1.10.0
+- **UI Framework:** Jetpack Compose Multiplatform 1.10.1
 - **Windowing (JVM):** GLFW via wgpu4k's glfw-native
-- **Android FFI:** PanamaPort (for Foreign Function & Memory API on Android 8.0+) - planned
+- **Android FFI:** wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`)
 - **Async:** kotlinx-coroutines 1.10.2
 - **Serialization:** kotlinx-serialization 1.9.0
 - **I/O:** kotlinx-io 0.8.2
@@ -328,34 +328,11 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ## Branching & Plan Workflow
 
-### Worktrees (Required)
+### Write a Plan Before Starting
 
-- Never commit directly to `main`. All changes go through pull requests.
-- Every feature **must** use a git worktree — no direct branch switching in the main checkout.
-- The main checkout stays on `main` and is used only for worktree creation and housekeeping.
-- Always fetch before creating a worktree to ensure you branch from the latest `main`:
-  ```bash
-  # From the main checkout (on main branch)
-  git fetch origin
-  git worktree add worktrees/<branch-name> -b <type>/<branch-name> origin/main
-  cd worktrees/<branch-name>
-  git branch --unset-upstream
-  ```
-  The `--unset-upstream` step is required because Git automatically tracks `origin/main` when branching from a remote ref — a push without it would go to main. The correct upstream will be set automatically on the first `git push -u origin <type>/<branch-name>`.
-- All work (reading, planning, coding) happens inside the worktree.
-- After PR merges, clean up the worktree, delete the local branch, and pull main:
-  ```bash
-  # From the main checkout
-  git worktree remove worktrees/<branch-name>
-  git branch -d <type>/<branch-name>
-  git pull origin main
-  ```
+> All feature work uses git worktrees — see [Git Worktree Workflow](#git-worktree-workflow) in the Development Workflow section below.
 
-The `worktrees/` directory is gitignored. All worktrees live there to keep the project root clean.
-
-### Plan-First Workflow
-
-Before writing code, create both a branch devlog and a plan file (inside the worktree):
+Before writing code, create a plan file in `devlog/plans/`:
 
 1. **Create worktree** (see above)
 2. **Set up devlog directory** (see [Devlog in New Projects](#devlog-in-new-projects) below)
@@ -410,7 +387,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 
 ## Current Project Status
 
-**Phase:** PrismSurface wiring complete, Android targets added, macOS native demo working
+**Phase:** Android rendering via wgpu4k/Vulkan complete (M8), all platforms operational
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -437,13 +414,13 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ PrismSurface suspend factory pattern: all 7 platform actuals (JVM, iOS, macOS, Linux, MinGW, WASM, Android)
 - ✅ All demo consumers wired through `createPrismSurface()` (JVM GLFW, iOS native, iOS Compose, WASM)
 - ✅ macOS native demo with AppKit floating controls panel (NSPanel + NSSlider + NSButton)
-- ✅ Android build targets added to prism-math, prism-core, prism-renderer, prism-native-widgets
+- ✅ Android build targets added to all modules (migrated to `com.android.kotlin.multiplatform.library`)
+- ✅ Android wgpu4k rendering via Vulkan with SurfaceView + Choreographer render loop (M8 complete)
+- ✅ Android demo APK with rotating lit cube
 
 **What's in progress:**
-- 🚧 Android wgpu4k rendering integration (PanamaPort, M8)
 
 **What's next:**
-- ⏭️ Android wgpu4k rendering via PanamaPort (M8)
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
 - ⏭️ Flutter integration: iOS/Android (platform channels, native rendering) + Flutter Web (WebGPU via HtmlElementView)
@@ -454,7 +431,9 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
 ### Git Worktree Workflow
 
-All feature work MUST use git worktrees. Do not switch branches in the main checkout.
+All feature work MUST use git worktrees. Do not switch branches in the main checkout. The `worktrees/` directory is gitignored — all worktrees live there to keep the project root clean.
+
+> **Important:** Create the worktree and branch _before_ entering plan mode or starting any exploration. This gives you a frozen snapshot of the codebase — parallel work in other worktrees won't change files while you're reading them.
 
 **Starting a new feature:**
 1. From the main checkout (`~/development/prism`), fetch and create a worktree:
@@ -527,7 +506,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 2. **expect/actual warnings:** Add `-Xexpect-actual-classes` to module build.gradle.kts (needed in prism-assets, prism-native-widgets, prism-ecs)
 3. **wgpu4k suspend functions:** wgpu4k uses `suspend` for some APIs; bridge with `runBlocking` or make engine loop coroutine-based
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
-5. **Android PanamaPort:** Not yet integrated; planned for Phase 8
+5. **Android demo:** Uses `com.android.application` + `androidTarget()` (deprecated in AGP 9); library modules use `com.android.kotlin.multiplatform.library`
 
 ## Development Logs (devlog/)
 

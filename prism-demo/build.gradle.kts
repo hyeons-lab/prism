@@ -5,12 +5,14 @@ plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.compose.multiplatform)
+  alias(libs.plugins.android.application)
 }
 
 kotlin {
   jvmToolchain(25)
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
+  androidTarget()
   macosArm64 { binaries { executable { entryPoint = "com.hyeonslab.prism.demo.main" } } }
 
   val xcf = XCFramework("PrismDemo")
@@ -56,6 +58,7 @@ kotlin {
       implementation(compose.desktop.currentOs)
       implementation(libs.kotlinx.coroutines.swing)
     }
+    androidMain.dependencies { implementation(libs.kotlinx.coroutines.android) }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
       implementation(libs.kotest.assertions.core)
@@ -64,6 +67,18 @@ kotlin {
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }
+}
+
+android {
+  namespace = "com.hyeonslab.prism.demo"
+  compileSdk = libs.versions.compileSdk.get().toInt()
+  defaultConfig {
+    applicationId = "com.hyeonslab.prism.demo"
+    minSdk = libs.versions.minSdk.get().toInt()
+    targetSdk = libs.versions.targetSdk.get().toInt()
+    versionCode = 1
+    versionName = "0.1.0"
+  }
 }
 
 // Common JVM args for all demo tasks

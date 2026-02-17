@@ -41,6 +41,7 @@ wgpu4k-toolkit = { module = "io.ygdrasil:wgpu4k-toolkit", version.ref = "wgpu4k"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
