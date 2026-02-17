@@ -37,6 +37,8 @@
 
 2026-02-16T14:25-08:00 Used Choreographer.FrameCallback for render loop — vsync-aligned like requestAnimationFrame on web and CADisplayLink on iOS. Consistent with other platform render loops.
 
+2026-02-16T20:00-08:00 Forked webgpu-ktypes (third fork under hyeons-lab) rather than keeping deprecated `writeBuffer` workaround — proper fix at the source ensures all buffer types are correct, not just the ones we happened to use. All three forks (wgpu4k-native, wgpu4k, webgpu-ktypes) use the same branch naming convention and `com.hyeons-lab` group ID.
+
 ## Issues
 
 2026-02-16T14:15-08:00 Adding Android target to prism-assets and prism-compose broke build — these modules have expect/actual declarations (FileReader, PrismView) that previously only needed jvmMain actuals. With the new KMP Android plugin, Android is a separate target from JVM and needs its own actuals. Fixed by creating androidMain actual files.
@@ -45,7 +47,11 @@
 
 2026-02-16T17:00-08:00 Second runtime crash on API 36: `RuntimeException: Failed to get ByteBuffer address`. Root cause: `Queue.native.android.kt` uses `getDeclaredMethod("address")` reflection on `ByteBuffer`, which is a hidden API blocked on API 36. **Fixed:** Replaced with JNA `Native.getDirectBufferPointer()`.
 
-2026-02-16T18:00-08:00 White screen on API 36 despite render loop running at 120fps. No exceptions. Render pipeline fully executing (configure → getCurrentTexture → render → submit → present). Suspected SurfaceView Z-ordering: Vulkan surface renders behind the window and the default white window background covers it. See "Debugging: White Screen Investigation" section below.
+2026-02-16T18:00-08:00 White screen on API 36 despite render loop running at 120fps. No exceptions. Render pipeline fully executing (configure → getCurrentTexture → render → submit → present). Root cause was TWO bugs: sRGB double-gamma encoding and ByteBuffer byte order. See "White Screen Root Cause: Two Bugs" section below.
+
+2026-02-16T19:30-08:00 sRGB double-gamma: Android Vulkan preferred format is `RGBA8UnormSrgb`. Prism Color values are already sRGB-encoded → GPU applies gamma again → near-white output. Fixed with `srgbToLinear()` conversion detecting sRGB surface format.
+
+2026-02-16T19:45-08:00 ByteBuffer byte order: `webgpu-ktypes` `ArrayBuffer.of(FloatArray)` uses `ByteBuffer.allocateDirect()` defaulting to BIG_ENDIAN. ARM64 Android is LITTLE_ENDIAN → all multi-byte GPU data garbled. Fixed in webgpu-ktypes fork with `.order(ByteOrder.nativeOrder())`.
 
 2026-02-16T16:00-08:00 Forked wgpu4k-native to `hyeons-lab/wgpu4k-native`, branch `fix/android-api35-package-relocation`. Relocated 5 shim files from `java.lang.foreign` to `com.hyeonslab.foreign`. Updated imports in `ffi/FFI.kt`, `ffi/MemoryAllocator.android.kt`, `Structures.android.kt`, and generator template. Changed Maven group to `com.hyeons-lab` to avoid collision with upstream snapshots. Published to Maven local.
 
@@ -56,6 +62,12 @@
 2026-02-16T17:30-08:00 settings.gradle.kts — Added `includeGroup("com.hyeons-lab")` to mavenLocal content filter so Gradle can resolve the forked wgpu4k-native artifacts.
 
 2026-02-16T18:00-08:00 APK installed and launched on Galaxy Fold (API 36). No crashes! Render loop running at 120fps. But display shows white screen — no cube, no blue background.
+
+2026-02-16T19:30-08:00 WgpuRenderer.kt — Added `surfaceIsSrgb` detection and `srgbToLinear()` conversion for clear color and material color. Changed `alphaMode` to `Auto`, `usage` to `RenderAttachment` only. Fixed white screen caused by sRGB double-gamma.
+
+2026-02-16T19:45-08:00 WgpuRenderer.kt — Switched from deprecated `writeBuffer(FloatArray/IntArray)` to `writeBuffer(ArrayBuffer.of(array))` using fixed webgpu-ktypes fork with correct byte order.
+
+2026-02-16T20:00-08:00 Forked webgpu-ktypes to `hyeons-lab/webgpu-ktypes`, branch `fix/android-api35-package-relocation`. Added `.order(ByteOrder.nativeOrder())` to all multi-byte `ByteBuffer.allocateDirect()` calls. Changed group to `com.hyeons-lab`. Updated wgpu4k fork to reference new coordinates (`com.hyeons-lab:webgpu-ktypes:0.0.9-SNAPSHOT`). Upgraded both forks to Gradle 9.2.0.
 
 ## Debugging: White Screen Investigation
 
@@ -81,19 +93,36 @@ Supporting evidence:
 2. If that fails, try custom SurfaceView subclass with `setWillNotDraw(false)` + `draw()` + `invalidate()` approach matching wgpu4k-native demo
 3. If that fails, investigate whether `wgpuSurfaceConfigure` + `wgpuSurfacePresent` actually work correctly with `androidContextRenderer()` on API 36
 
-### Upstream Patches Applied
+### White Screen Root Cause: Two Bugs
+
+**Bug 1: sRGB double-gamma encoding**
+Android Vulkan preferred surface format is `RGBA8UnormSrgb`. Prism `Color` stores sRGB values (e.g., CORNFLOWER_BLUE = 0.392, 0.584, 0.929). When passed to an sRGB surface, the GPU applies gamma encoding again — `pow(srgb, 1/2.2)` on already-encoded values produces near-white. Pure 0.0/1.0 values are unaffected (identical in linear and sRGB space), which is why pure GREEN worked but CORNFLOWER_BLUE appeared white.
+
+**Fix:** Added `surfaceIsSrgb` detection (`textureFormat.name.endsWith("Srgb")`) and `srgbToLinear()` conversion (standard IEC 61966-2-1 formula) applied to clear color and material color values.
+
+**Bug 2: ByteBuffer byte order on Android ARM64**
+`webgpu-ktypes` v0.0.9 `ArrayBuffer.of(FloatArray)` uses `ByteBuffer.allocateDirect()` which defaults to BIG_ENDIAN regardless of platform. ARM64 Android is LITTLE_ENDIAN. All multi-byte GPU buffer data (vertices, indices, uniforms) was byte-swapped — garbled geometry invisible to the renderer.
+
+**Fix:** Forked webgpu-ktypes to `hyeons-lab/webgpu-ktypes`, added `.order(ByteOrder.nativeOrder())` to all `ByteBuffer.allocateDirect()` calls for multi-byte types (Short, Int, Float, Double, UShort, UInt). ByteArray/UByteArray not affected (single-byte, no endianness). Changed group to `com.hyeons-lab`. Updated wgpu4k fork to reference new coordinates.
+
+2026-02-16T20:00-08:00 Both fixes confirmed working — rotating lit cube visible on Galaxy Fold (API 36).
+
+### Known Upstream Bug (not blocking)
+`Surface.native.kt:90` — `toAlphaMode()` uses `formatCount` instead of `alphaModeCount` to size the alpha modes array. Works because the array read still produces valid values, but technically reads wrong count.
+
+### Upstream Patches Applied (updated)
 
 | Repo | Fork | Branch | What |
 |------|------|--------|------|
 | wgpu4k-native | hyeons-lab/wgpu4k-native | `fix/android-api35-package-relocation` | Relocate `java.lang.foreign` shims → `com.hyeonslab.foreign`; change group to `com.hyeons-lab` |
-| wgpu4k | hyeons-lab/wgpu4k | `fix/android-api35-wgpu4k-native-snapshot` | Reference `com.hyeons-lab` coordinates; fix `Queue.native.android.kt` ByteBuffer reflection |
+| wgpu4k | hyeons-lab/wgpu4k | `fix/android-api35-wgpu4k-native-snapshot` | Reference `com.hyeons-lab` coordinates; fix `Queue.native.android.kt` ByteBuffer reflection; use `com.hyeons-lab:webgpu-ktypes` fork; upgrade Gradle to 9.2.0 |
+| webgpu-ktypes | hyeons-lab/webgpu-ktypes | `fix/android-api35-package-relocation` | Fix ByteBuffer byte order (nativeOrder); change group to `com.hyeons-lab`; upgrade Gradle to 9.2.0 |
 
-Both patches required for API 35+ (Android 15+). Published to Maven local.
-
-### Known Upstream Bug (not blocking)
-`Surface.native.kt:90` — `toAlphaMode()` uses `formatCount` instead of `alphaModeCount` to size the alpha modes array. Works because the array read still produces valid values, but technically reads wrong count.
+All three patches required for Android API 35+ (Android 15+). Published to Maven local.
 
 ## Commits
 
 ca843cf — chore: add devlog and plan for Android rendering (M8)
 9eeda31 — feat: implement Android rendering support (M8)
+92888a5 — fix: sRGB double-gamma and ByteBuffer byte order on Android ARM64
+4ff0133 — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
