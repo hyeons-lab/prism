@@ -119,8 +119,8 @@ jobs:
         run: |
           START=$SECONDS
           ./gradlew macosArm64Test iosSimulatorArm64Test \
-            :prism-ios:assemblePrismDebugXCFramework \
             :prism-demo:assemblePrismDemoDebugXCFramework \
+            :prism-ios:assemblePrismDebugXCFramework \
             --configuration-cache \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
@@ -133,8 +133,7 @@ jobs:
           echo "|-----------|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
 
           FAIL=0
-          for FW in "prism-ios/build/XCFrameworks/debug/Prism.xcframework:Prism" \
-                     "prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework:PrismDemo"; do
+          for FW in "prism-ios/build/XCFrameworks/debug/Prism.xcframework:Prism"; do
             XCF_ROOT="${FW%%:*}"
             FW_NAME="${FW##*:}"
             for SLICE in ios-arm64 ios-arm64-simulator; do
@@ -155,13 +154,6 @@ jobs:
         with:
           name: Prism-debug.xcframework
           path: prism-ios/build/XCFrameworks/debug/Prism.xcframework
-          retention-days: 14
-
-      - name: Upload PrismDemo XCFramework
-        uses: actions/upload-artifact@v4
-        with:
-          name: PrismDemo-debug.xcframework
-          path: prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework
           retention-days: 14
 
       - name: Get xcodegen version

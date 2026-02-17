@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Prism Engine — Cross-Platform 3D with Kotlin Multiplatform</title>
+    <meta
+      name="description"
+      content="A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU. One codebase for Desktop, Web, iOS, Android, and Native."
+    />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <meta property="og:title" content="Prism Engine" />
+    <meta property="og:description" content="A modular, cross-platform 3D game engine built with Kotlin Multiplatform and WebGPU." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://hyeons-lab.github.io/prism/" />
+    <meta property="og:image" content="https://hyeons-lab.github.io/prism/logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Prism Engine" />
+    <meta name="twitter:description" content="Cross-platform 3D engine built with Kotlin Multiplatform and WebGPU." />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a href="#demo" class="skip-link">Skip to content</a>
+
+    <!-- Nav -->
+    <nav class="nav" aria-label="Main navigation">
+      <div class="nav-inner">
+        <a href="#hero" class="nav-logo"><span>&gt;</span> prism</a>
+        <ul class="nav-links">
+          <li><a href="#demo">Demo</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#platforms">Platforms</a></li>
+          <li><a href="#milestones">Milestones</a></li>
+          <li><a href="#quickstart">Quick Start</a></li>
+          <li>
+            <a href="https://github.com/hyeons-lab/prism">GitHub</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero" id="hero">
+      <span class="hero-badge">Kotlin Multiplatform + WebGPU</span>
+      <h1><span>Prism</span> Engine</h1>
+      <p class="hero-tagline">
+        A modular, cross-platform 3D game engine. One Kotlin codebase for
+        Desktop, Web, iOS, Android, and Native &mdash; powered by WebGPU via
+        wgpu4k.
+      </p>
+      <div class="hero-buttons">
+        <a href="https://github.com/hyeons-lab/prism" class="btn btn-primary">View on GitHub</a>
+        <a href="#quickstart" class="btn btn-secondary">Get Started</a>
+      </div>
+    </section>
+
+    <!-- Demo -->
+    <section id="demo">
+      <div class="container">
+        <p class="section-label">Live Demo</p>
+        <h2 class="section-title">WebGPU in your browser</h2>
+        <p class="section-desc">
+          A spinning cube rendered with WebGPU &mdash; the same graphics API
+          that powers Prism across every platform.
+        </p>
+        <div class="demo-wrapper">
+          <canvas id="demo-canvas" role="img" aria-label="Spinning lit cube rendered with WebGPU, textured with the Hyeons' Lab logo"></canvas>
+          <div id="demo-fallback" class="demo-fallback" hidden>
+            <p>
+              Your browser doesn't support WebGPU yet.<br />
+              Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
+              <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
+            </p>
+          </div>
+        </div>
+        <p class="demo-caption">Drag to rotate &mdash; WebGPU rendered with WGSL shaders, texture mapping, and Blinn-Phong lighting.</p>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features">
+      <div class="container">
+        <p class="section-label">Features</p>
+        <h2 class="section-title">Everything you need for 3D</h2>
+        <p class="section-desc">
+          Prism provides a complete engine stack &mdash; from math primitives to
+          ECS to GPU rendering &mdash; all shared across every platform.
+        </p>
+        <div class="features-grid">
+          <div class="feature-card">
+            <span class="feature-icon">V</span>
+            <h3>Math Library</h3>
+            <p>
+              Vec2/3/4, Mat3/4, Quaternion, and Transform with operator
+              overloads. Inline value classes for zero-overhead abstraction.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">E</span>
+            <h3>Entity-Component-System</h3>
+            <p>
+              World, Entity, Component, and System with query-based iteration.
+              Built-in TransformComponent, MeshComponent, and RenderSystem.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">R</span>
+            <h3>wgpu4k Renderer</h3>
+            <p>
+              WebGPU-backed pipeline with WGSL shaders, depth testing, and
+              lighting. Runs on Metal, Vulkan, DX12, and WebGPU.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">S</span>
+            <h3>Scene Graph</h3>
+            <p>
+              Node hierarchy with MeshNode, CameraNode, and LightNode.
+              Parent-child transforms propagate automatically.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">C</span>
+            <h3>Compose Integration</h3>
+            <p>
+              Embed 3D surfaces in Jetpack Compose Multiplatform UIs. MVI
+              architecture with Store, State, and Events.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">P</span>
+            <h3>Native Surfaces</h3>
+            <p>
+              PrismSurface with suspend factory across JVM (GLFW), iOS
+              (MTKView), macOS (GLFW), WASM (Canvas), and more.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">I</span>
+            <h3>Input System</h3>
+            <p>
+              Cross-platform keyboard, mouse, and touch abstractions.
+              InputManager dispatches events uniformly on every target.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">A</span>
+            <h3>Asset Management</h3>
+            <p>
+              Loader interfaces for meshes, shaders, and textures with
+              platform-specific file I/O via kotlinx-io.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section id="architecture">
+      <div class="container">
+        <p class="section-label">Architecture</p>
+        <h2 class="section-title">Modular by design</h2>
+        <p class="section-desc">
+          Each module has a single responsibility. Depend on only what you need.
+        </p>
+        <div class="arch-diagram">
+          <pre>
+<span class="hl">prism-math</span>              <span class="dim">Vector/matrix math, transforms</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl">prism-core</span>        <span class="dim">Engine core, subsystems, game loop</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-green">prism-renderer</span>    <span class="dim">wgpu4k rendering + WGSL shaders</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-scene       <span class="dim">Scene graph</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-ecs         <span class="dim">Entity-Component-System</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-assets      <span class="dim">Asset loading</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-input       <span class="dim">Cross-platform input</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-audio       <span class="dim">Audio engine (stub)</span>
+
+<span class="hl-green">prism-renderer</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
+
+<span class="hl">prism-demo</span>                   <span class="dim">Demo app (rotating lit cube)</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Platform Support -->
+    <section id="platforms">
+      <div class="container">
+        <p class="section-label">Platform Support</p>
+        <h2 class="section-title">Write once, render everywhere</h2>
+        <p class="section-desc">
+          Prism targets every major platform through Kotlin Multiplatform and
+          wgpu4k's WebGPU abstraction.
+        </p>
+        <div class="arch-diagram">
+          <table class="platform-table">
+            <thead>
+              <tr>
+                <th>Platform</th>
+                <th>Backend</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>JVM Desktop (macOS)</td>
+                <td>Metal via wgpu4k + GLFW</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>JVM Desktop (macOS)</td>
+                <td>Metal via wgpu4k + Compose/AWT</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>Web (WASM/JS)</td>
+                <td>WebGPU</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>iOS</td>
+                <td>Metal via wgpu4k + MTKView</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>macOS Native</td>
+                <td>Metal via wgpu4k + GLFW</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>Android</td>
+                <td>Vulkan (PanamaPort)</td>
+                <td class="status-wip">In Progress</td>
+              </tr>
+              <tr>
+                <td>JVM Desktop (Linux)</td>
+                <td>Vulkan via wgpu4k + GLFW</td>
+                <td class="status-planned">Planned</td>
+              </tr>
+              <tr>
+                <td>JVM Desktop (Windows)</td>
+                <td>DX12/Vulkan via wgpu4k + GLFW</td>
+                <td class="status-planned">Planned</td>
+              </tr>
+              <tr>
+                <td>Flutter (iOS/Android)</td>
+                <td>Platform channels + native rendering</td>
+                <td class="status-planned">Planned</td>
+              </tr>
+              <tr>
+                <td>Flutter Web</td>
+                <td>WebGPU via HtmlElementView</td>
+                <td class="status-planned">Planned</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Milestones -->
+    <section id="milestones">
+      <div class="container">
+        <p class="section-label">Milestones</p>
+        <h2 class="section-title">Progress</h2>
+        <p class="section-desc">
+          Prism is under active development. Here's where things stand.
+        </p>
+        <div class="milestones">
+          <div class="milestone done">
+            <span class="milestone-tag">M1</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Triangle on screen</h4>
+              <p>JVM Desktop with wgpu4k</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M2</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Rotating cube</h4>
+              <p>Camera, depth buffer, transforms</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M3</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Lit cube</h4>
+              <p>Materials, directional lighting, WGSL shaders</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M4</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>ECS-driven rendering</h4>
+              <p>World, Entity, Component, System pipeline</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M5</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Compose integration</h4>
+              <p>Embedded 3D in Compose Desktop via MVI</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M6</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Web/WASM</h4>
+              <p>WebGPU rendering in the browser</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M7</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>iOS native</h4>
+              <p>MTKView + wgpu4k, Compose iOS demo</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M7.5</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>PrismSurface + macOS native</h4>
+              <p>Suspend factory, AppKit controls</p>
+            </div>
+          </div>
+          <div class="milestone wip">
+            <span class="milestone-tag">M8</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Android support</h4>
+              <p>Vulkan via PanamaPort</p>
+            </div>
+          </div>
+          <div class="milestone planned">
+            <span class="milestone-tag">M9</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>PBR materials</h4>
+              <p>Cook-Torrance BRDF, IBL, HDR</p>
+            </div>
+          </div>
+          <div class="milestone planned">
+            <span class="milestone-tag">M10</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>glTF asset loading</h4>
+              <p>glTF 2.0 meshes, textures, animations</p>
+            </div>
+          </div>
+          <div class="milestone planned">
+            <span class="milestone-tag">M11</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Flutter integration</h4>
+              <p>Platform channels, native rendering, and Flutter Web via WebGPU</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section id="quickstart">
+      <div class="container">
+        <p class="section-label">Quick Start</p>
+        <h2 class="section-title">Up and running in minutes</h2>
+        <div class="quickstart-steps">
+          <div class="quickstart-step">
+            <h3><span class="step-num">1</span> Build wgpu4k from source</h3>
+            <pre class="code-block"><span class="cmd">git clone</span> https://github.com/wgpu4k/wgpu4k.git
+<span class="cmd">cd</span> wgpu4k
+<span class="cmd">./gradlew</span> publishToMavenLocal</pre>
+          </div>
+          <div class="quickstart-step">
+            <h3><span class="step-num">2</span> Clone and build Prism</h3>
+            <pre class="code-block"><span class="cmd">git clone</span> https://github.com/hyeons-lab/prism.git
+<span class="cmd">cd</span> prism
+<span class="cmd">./gradlew</span> build</pre>
+          </div>
+          <div class="quickstart-step">
+            <h3><span class="step-num">3</span> Run the demo</h3>
+            <pre class="code-block"><span class="comment"># GLFW window (Metal on macOS)</span>
+<span class="cmd">./gradlew</span> :prism-demo:jvmRun
+
+<span class="comment"># Compose Desktop with embedded 3D</span>
+<span class="cmd">./gradlew</span> :prism-demo:runCompose
+
+<span class="comment"># WASM in the browser</span>
+<span class="cmd">./gradlew</span> :prism-demo:wasmJsBrowserDistribution</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <ul class="footer-links">
+        <li>
+          <a href="https://github.com/hyeons-lab/prism">GitHub</a>
+        </li>
+        <li>
+          <a href="https://github.com/hyeons-lab/prism/blob/main/PLAN.md">Roadmap</a>
+        </li>
+        <li>
+          <a href="https://github.com/hyeons-lab/prism/blob/main/LICENSE">License</a>
+        </li>
+      </ul>
+      <p>Apache License 2.0 &mdash; Copyright 2025-2026 Hyeons' Lab</p>
+    </footer>
+    <script type="module">
+      import { initDemo } from "./demo.js";
+      const canvas = document.getElementById("demo-canvas");
+      const fallback = document.getElementById("demo-fallback");
+      const logoUrl = "logo.png";
+      const ok = await initDemo(canvas, logoUrl).catch(() => false);
+      if (!ok) {
+        canvas.hidden = true;
+        fallback.hidden = false;
+      }
+    </script>
+  </body>
+</html>
