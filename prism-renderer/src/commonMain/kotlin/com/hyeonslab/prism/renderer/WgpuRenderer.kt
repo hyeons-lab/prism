@@ -1,10 +1,9 @@
-@file:Suppress("DEPRECATION")
-
 package com.hyeonslab.prism.renderer
 
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.math.Mat4
+import io.ygdrasil.webgpu.ArrayBuffer
 import io.ygdrasil.webgpu.AutoClosableContext
 import io.ygdrasil.webgpu.BindGroupDescriptor
 import io.ygdrasil.webgpu.BindGroupEntry
@@ -50,7 +49,6 @@ import io.ygdrasil.webgpu.VertexBufferLayout
 import io.ygdrasil.webgpu.VertexState
 import io.ygdrasil.webgpu.WGPUContext
 import io.ygdrasil.webgpu.beginRenderPass
-import io.ygdrasil.webgpu.writeBuffer
 import kotlin.math.pow
 
 /**
@@ -136,7 +134,7 @@ class WgpuRenderer(
 
     // Write default white color
     val defaultColor = floatArrayOf(1f, 1f, 1f, 1f)
-    device.queue.writeBuffer(materialUniformBuffer!!, 0u, defaultColor)
+    device.queue.writeBuffer(materialUniformBuffer!!, 0u, ArrayBuffer.of(defaultColor))
   }
 
   override fun update(time: Time) {
@@ -251,7 +249,7 @@ class WgpuRenderer(
     currentCamera = camera
     val ub = uniformBuffer ?: return
     val vpMatrix = camera.viewProjectionMatrix()
-    device.queue.writeBuffer(ub, 0u, vpMatrix.data)
+    device.queue.writeBuffer(ub, 0u, ArrayBuffer.of(vpMatrix.data))
   }
 
   override fun setMaterialColor(color: Color) {
@@ -267,7 +265,7 @@ class WgpuRenderer(
       } else {
         floatArrayOf(color.r, color.g, color.b, color.a)
       }
-    device.queue.writeBuffer(mb, 0u, colorData)
+    device.queue.writeBuffer(mb, 0u, ArrayBuffer.of(colorData))
   }
 
   override fun drawMesh(mesh: Mesh, transform: Mat4) {
@@ -276,7 +274,7 @@ class WgpuRenderer(
     // Write model matrix to uniform buffer at offset 64 (after viewProjection)
     val ub = uniformBuffer
     if (ub != null) {
-      device.queue.writeBuffer(ub, 64u, transform.data)
+      device.queue.writeBuffer(ub, 64u, ArrayBuffer.of(transform.data))
     }
 
     val vertexBuffer =
@@ -424,14 +422,14 @@ class WgpuRenderer(
     val vertexSizeBytes = (mesh.vertices.size * Float.SIZE_BYTES).toLong()
     val vertexBuffer = createBuffer(BufferUsage.VERTEX, vertexSizeBytes, "${mesh.label} Vertices")
     val gpuVertexBuffer = vertexBuffer.handle as WGPUBuffer
-    device.queue.writeBuffer(gpuVertexBuffer, 0u, mesh.vertices)
+    device.queue.writeBuffer(gpuVertexBuffer, 0u, ArrayBuffer.of(mesh.vertices))
     mesh.vertexBuffer = vertexBuffer
 
     if (mesh.isIndexed) {
       val indexSizeBytes = (mesh.indices.size * Int.SIZE_BYTES).toLong()
       val indexBuffer = createBuffer(BufferUsage.INDEX, indexSizeBytes, "${mesh.label} Indices")
       val gpuIndexBuffer = indexBuffer.handle as WGPUBuffer
-      device.queue.writeBuffer(gpuIndexBuffer, 0u, mesh.indices)
+      device.queue.writeBuffer(gpuIndexBuffer, 0u, ArrayBuffer.of(mesh.indices))
       mesh.indexBuffer = indexBuffer
     }
   }
