@@ -149,8 +149,8 @@ runs:
       shell: bash
       run: |
         echo "### wgpu Dependencies Build" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Dependency | Group | Artifacts |" >> "$GITHUB_STEP_SUMMARY"
-        echo "|------------|-------|-----------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Group | Files | Size |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|-------|-------|------|" >> "$GITHUB_STEP_SUMMARY"
         for GROUP_PATH in io/ygdrasil com/hyeons-lab; do
           DIR=~/.m2/repository/$GROUP_PATH
           if [ -d "$DIR" ]; then

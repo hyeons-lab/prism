@@ -2,6 +2,7 @@ package com.hyeonslab.prism.compose
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 
@@ -13,6 +14,6 @@ private val log = Logger.withTag("PrismView.Android")
  */
 @Composable
 actual fun PrismView(store: EngineStore, modifier: Modifier) {
-  log.w { "PrismView Android: Compose integration not yet implemented" }
+  LaunchedEffect(Unit) { log.w { "PrismView Android: Compose integration not yet implemented" } }
   Box(modifier = modifier)
 }

@@ -93,7 +93,9 @@ class WgpuRenderer(
   private var height: Int = renderingContext.height.toInt()
 
   private val depthFormat = GPUTextureFormat.Depth24Plus
-  private val surfaceIsSrgb = renderingContext.textureFormat.name.endsWith("Srgb")
+  private val surfaceIsSrgb =
+    renderingContext.textureFormat == GPUTextureFormat.RGBA8UnormSrgb ||
+      renderingContext.textureFormat == GPUTextureFormat.BGRA8UnormSrgb
 
   override fun initialize(engine: Engine) {
     if (!surfacePreConfigured) {

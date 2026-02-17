@@ -9,6 +9,7 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -22,6 +23,7 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
 
   private var scene: DemoScene? = null
   private var surface: com.hyeonslab.prism.widget.PrismSurface? = null
+  private var initJob: Job? = null
   private var running = false
 
   private var startTimeNanos = 0L
@@ -49,24 +51,26 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
       scene?.updateAspectRatio(width, height)
       return
     }
+    if (initJob?.isActive == true) return
 
-    scope.launch {
-      val prismSurface = createPrismSurface(holder, width, height)
-      surface = prismSurface
+    initJob =
+      scope.launch {
+        val prismSurface = createPrismSurface(holder, width, height)
+        surface = prismSurface
 
-      val wgpuContext =
-        checkNotNull(prismSurface.wgpuContext) { "wgpu context not available on Android" }
-      val demoScene = createDemoScene(wgpuContext, width, height)
-      scene = demoScene
+        val wgpuContext =
+          checkNotNull(prismSurface.wgpuContext) { "wgpu context not available on Android" }
+        val demoScene = createDemoScene(wgpuContext, width, height)
+        scene = demoScene
 
-      startTimeNanos = System.nanoTime()
-      lastFrameTimeNanos = startTimeNanos
-      frameCount = 0L
-      running = true
+        startTimeNanos = System.nanoTime()
+        lastFrameTimeNanos = startTimeNanos
+        frameCount = 0L
+        running = true
 
-      log.i { "Render loop starting" }
-      Choreographer.getInstance().postFrameCallback(this@PrismDemoActivity)
-    }
+        log.i { "Render loop starting" }
+        Choreographer.getInstance().postFrameCallback(this@PrismDemoActivity)
+      }
   }
 
   override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -98,6 +102,25 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
   }
 
   // -- Lifecycle --
+
+  override fun onPause() {
+    super.onPause()
+    if (running) {
+      running = false
+      Choreographer.getInstance().removeFrameCallback(this)
+      log.i { "onPause — render loop paused" }
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    if (scene != null && !running) {
+      running = true
+      lastFrameTimeNanos = System.nanoTime()
+      Choreographer.getInstance().postFrameCallback(this)
+      log.i { "onResume — render loop resumed" }
+    }
+  }
 
   override fun onDestroy() {
     super.onDestroy()

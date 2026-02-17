@@ -123,6 +123,6 @@ All three patches required for Android API 35+ (Android 15+). Published to Maven
 ## Commits
 
 ca843cf — chore: add devlog and plan for Android rendering (M8)
-9eeda31 — feat: implement Android rendering support (M8)
+8994356 — feat: implement Android rendering support (M8)
 92888a5 — fix: sRGB double-gamma and ByteBuffer byte order on Android ARM64
 4ff0133 — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
