@@ -14,7 +14,12 @@ ktfmt = "0.25.0"
 lifecycleCompose = "2.8.4"
 mavenPublish = "0.36.0"
 wgpu4k = "0.2.0-SNAPSHOT"
-wgpu4kCommit = "3fc6e3297fee6b558efc6dcb29aec1a6629b0e90"
+wgpu4kCommit = "0ee61438c5c1c0d48d38807f994677d03b8d3fba"
+wgpu4kRepo = "hyeons-lab/wgpu4k"
+wgpu4kNativeCommit = "c56af9c743f105f5ea74e16cb66160a9428b45fb"
+wgpu4kNativeRepo = "hyeons-lab/wgpu4k-native"
+webgpuKtypesCommit = "213ff3d22213e58cc4f2f59e69b1c42e0816c4d1"
+webgpuKtypesRepo = "hyeons-lab/webgpu-ktypes"
 
 # SDK versions
 compileSdk = "36"
