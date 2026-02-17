@@ -49,7 +49,7 @@ Each module declares its own targets individually. The full set across all modul
 | `macosArm64` | macOS Native | GLFW + Metal via wgpu4k K/Native |
 | `linuxX64` | Linux Native | GLFW + Vulkan (compiles, untested) |
 | `mingwX64` | Windows Native | GLFW + DX12/Vulkan (compiles, untested) |
-| `android` | Android | Stub (PanamaPort planned for M8) |
+| `android` | Android | Vulkan via wgpu4k-toolkit-android AAR |
 
 Not every module declares every target — lower-level modules (prism-math, prism-core) have the broadest target coverage, while higher-level modules (prism-compose, prism-demo) target fewer platforms.
 
@@ -84,7 +84,7 @@ The `prism-ios-demo` Xcode project is generated via xcodegen (`project.yml`).
 
 ### Android
 
-AGP 8.13.0, `compileSdk = 36`, `minSdk = 31`, `targetSdk = 36`. Android targets are added to prism-math, prism-core, prism-renderer, and prism-native-widgets, but the wgpu4k rendering integration (via PanamaPort) is not yet implemented.
+AGP 8.13.0, `compileSdk = 36`, `minSdk = 31`, `targetSdk = 36`. All library modules use `com.android.kotlin.multiplatform.library` with `kotlin { android {} }` DSL. Android rendering uses wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`) for Vulkan-backed rendering via `androidContextRenderer()`. Three upstream forks under `hyeons-lab` org (wgpu4k-native, wgpu4k, webgpu-ktypes) fix Android API 35+ compatibility issues (package relocation, ByteBuffer byte order, hidden API removal).
 
 ---
 
@@ -482,7 +482,7 @@ Each platform also provides a `suspend fun createPrismSurface(...)` factory that
 | WASM | `canvasContextRenderer(canvas, w, h)` | `CanvasContext` | `createPrismSurface(canvas: HTMLCanvasElement, width, height)` |
 | Linux Native | `glfwContextRenderer(w, h, title)` | `GLFWContext` | `createPrismSurface(width, height, title)` |
 | MinGW Native | `glfwContextRenderer(w, h, title)` | `GLFWContext` | `createPrismSurface(width, height, title)` |
-| Android | Stub (no wgpu4k) | — | No factory yet |
+| Android | `androidContextRenderer(holder, w, h)` | `AndroidContext` | `createPrismSurface(holder: SurfaceHolder, width, height)` |
 
 All GLFW-based surfaces start with a hidden window. Callers must call `glfwShowWindow()` after setup.
 
@@ -566,6 +566,7 @@ All converge on `DemoScene`:
 | WASM | `Main.kt` | `GlobalScope.launch` + recursive `requestAnimationFrame` |
 | iOS Native | `IosDemoController.kt` | `MTKViewDelegateProtocol.drawInMTKView` (60fps Metal display link) |
 | iOS Compose | `ComposeIosEntry.kt` | `UIKitView` + `ComposeRenderDelegate` |
+| Android | `PrismDemoActivity.kt` | `Choreographer.FrameCallback` (vsync-aligned) |
 | macOS Native | `MacosDemoMain.kt` | `while(running)` + `glfwPollEvents()` + AppKit `NSPanel` controls |
 
 ### ECS Rendering Pipeline (End-to-End)
@@ -601,6 +602,14 @@ All converge on `DemoScene`:
 - **No `runBlocking`** — must use `GlobalScope.launch` for top-level async entry points.
 - **`@JsFun` externals** — `performance.now()` for high-resolution timing, DOM element access.
 - **`web.html.HTMLCanvasElement`** — wgpu4k uses this type, NOT `org.w3c.dom.HTMLCanvasElement`.
+
+### Android
+
+- **SurfaceView + Choreographer** — `SurfaceHolder.Callback` for surface lifecycle, `Choreographer.FrameCallback` for vsync-aligned render loop (like `requestAnimationFrame` on web).
+- **wgpu4k-toolkit-android AAR** — provides `androidContextRenderer(surfaceHolder, width, height)` which creates Vulkan surface from `ANativeWindow`. No PanamaPort needed.
+- **sRGB surface handling** — Android Vulkan preferred format is `RGBA8UnormSrgb`. WgpuRenderer detects sRGB format and applies `srgbToLinear()` conversion to clear color and material color to prevent double-gamma encoding.
+- **Three upstream forks** — required for API 35+ (Android 15+): wgpu4k-native (relocate `java.lang.foreign` shims), wgpu4k (fix ByteBuffer reflection), webgpu-ktypes (fix `ByteBuffer.allocateDirect()` byte order to native order).
+- **Known limitation** — API 35+ `java.lang.foreign` boot classpath shadowing. Worked around via package relocation in wgpu4k-native fork.
 
 ### macOS Native
 
@@ -655,7 +664,6 @@ All converge on `DemoScene`:
 - Object pooling for temporary vectors/matrices in tight loops
 
 **Platform:**
-- Android wgpu4k rendering via PanamaPort
 - Frame rate limiting in GameLoop
 - Transform hierarchy in ECS (TransformSystem)
 - Flutter platform channel integration

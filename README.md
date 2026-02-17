@@ -118,7 +118,7 @@ import Prism
 | Web (WASM/JS) | WebGPU | Working |
 | iOS | Metal via wgpu4k + MTKView | Working |
 | macOS Native | Metal via wgpu4k + GLFW | Working |
-| Android | Vulkan (PanamaPort) | In Progress |
+| Android | Vulkan via wgpu4k | Working |
 | Flutter (iOS/Android) | Platform channels + native rendering | Planned |
 | Flutter Web | WebGPU via HtmlElementView | Planned |
 
@@ -134,7 +134,7 @@ import Prism
 | M6 | Web/WASM support | Done |
 | M7 | iOS native support | Done |
 | M7.5 | PrismSurface + macOS native demo | Done |
-| M8 | Android support | In Progress |
+| M8 | Android support | Done |
 | M9 | PBR materials | Planned |
 | M10 | glTF asset loading | Planned |
 | M11 | Flutter integration | Planned |

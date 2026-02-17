@@ -12,7 +12,7 @@
 | Linux Desktop | JVM | Vulkan (via wgpu) | JDK 21+ |
 | Web | WASM/JS | WebGPU | Browser with WebGPU support |
 | iOS | Kotlin/Native | Metal (via wgpu) | iOS 13.0+ |
-| Android | Kotlin/Android | Vulkan (via wgpu + PanamaPort) | API 26+ (Android 8.0+) |
+| Android | Kotlin/Android | Vulkan (via wgpu4k-toolkit-android) | API 31+ (Android 12+) |
 | macOS Native | Kotlin/Native | Metal (via wgpu) | macOS 11.0+ |
 
 ### Tech Stack
@@ -22,7 +22,7 @@
 - **Shaders:** WGSL (WebGPU Shading Language)
 - **UI Framework:** Jetpack Compose Multiplatform 1.10.0
 - **Windowing (JVM):** GLFW via wgpu4k's glfw-native
-- **Android FFI:** PanamaPort (Foreign Function & Memory API for Android 8.0+)
+- **Android FFI:** wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`)
 - **Async:** kotlinx-coroutines 1.10.2
 - **Serialization:** kotlinx-serialization 1.9.0
 - **Logging:** Kermit 2.0.8
@@ -158,10 +158,10 @@ device.queue.submit(listOf(encoder.finish().bind()))
 - **Maven repo:** Maven Central (for stable releases like 0.1.1)
 - **GLFW integration:** `io.ygdrasil:glfw-native:0.0.2` for desktop windowing
 - **Android support:**
-  - Requires PanamaPort: `com.github.vova7878:PanamaPort` for FFI
-  - Android API 26+ (Android 8.0+)
-  - Android Gradle Plugin 8.6.0+
-  - compileSdk 35+
+  - Uses wgpu4k-toolkit-android AAR (Vulkan via JNI, no PanamaPort needed)
+  - Android API 31+ (Android 12+)
+  - Android Gradle Plugin 8.13.0+
+  - compileSdk 36+
 - **Gradle properties needed:**
   ```
   kotlin.mpp.enableCInteropCommonization=true
@@ -331,15 +331,15 @@ struct MaterialUniforms {
 **Android — Files to modify:**
 - `prism-renderer/src/androidMain/kotlin/engine/prism/renderer/RenderSurface.android.kt`
 - `prism-demo/src/androidMain/kotlin/MainActivity.kt`
-- Add PanamaPort dependency to support FFI on Android
+- Add wgpu4k-toolkit-android dependency
 
 **Android approach — SurfaceView + Vulkan:**
-1. Add PanamaPort to support Project Panama FFI on Android
-2. Create Android SurfaceView for rendering
-3. Create wgpu surface from ANativeWindow (via JNI/FFI bridge)
-4. Request adapter (Vulkan backend) → device → queue
-5. Package into `WGPUContext`
-6. Handle Android lifecycle (pause/resume)
+1. Use wgpu4k-toolkit-android AAR (`androidContextRenderer(surfaceHolder, width, height)`)
+2. Create Android SurfaceView with SurfaceHolder.Callback
+3. wgpu4k creates Vulkan surface from ANativeWindow internally
+4. Receives `AndroidContext` with `WGPUContext` (device, surface, renderingContext)
+5. Choreographer.FrameCallback for vsync-aligned render loop
+6. Handle Android lifecycle via SurfaceHolder.Callback (surfaceCreated/Destroyed)
 
 **For Compose integration** (later milestone):
 - `PrismView.jvm.kt` will embed a GLFW-backed rendering panel inside a Compose window
