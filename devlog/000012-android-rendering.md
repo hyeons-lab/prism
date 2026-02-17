@@ -41,6 +41,8 @@
 
 2026-02-16T14:15-08:00 Adding Android target to prism-assets and prism-compose broke build — these modules have expect/actual declarations (FileReader, PrismView) that previously only needed jvmMain actuals. With the new KMP Android plugin, Android is a separate target from JVM and needs its own actuals. Fixed by creating androidMain actual files.
 
+2026-02-16T15:00-08:00 Runtime crash on API 36 (Android 16): `InstantiationError: java.lang.foreign.MemorySegment`. Root cause: wgpu4k-native v27.0.4 ships Panama FFI shim classes in the `java.lang.foreign` package (JNA-backed `MemorySegment`, `SegmentAllocator`, etc.). On API 36, Android includes the real `java.lang.foreign` package in the boot classpath, which shadows the shim. The real `MemorySegment` is an interface and cannot be instantiated. This is an upstream wgpu4k-native issue — the shim approach works on API 28-34 but breaks on API 35+ where Android added its own `java.lang.foreign` support.
+
 ## Commits
 
 ca843cf — chore: add devlog and plan for Android rendering (M8)

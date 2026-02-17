@@ -507,6 +507,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 3. **wgpu4k suspend functions:** wgpu4k uses `suspend` for some APIs; bridge with `runBlocking` or make engine loop coroutine-based
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
 5. **Android demo:** Uses `com.android.application` + `androidTarget()` (deprecated in AGP 9); library modules use `com.android.kotlin.multiplatform.library`
+6. **Android API 35+:** wgpu4k-native shim classes in `java.lang.foreign` package are shadowed by the boot classpath on Android 15+, causing `InstantiationError`. Works on API 28-34. Upstream wgpu4k-native issue.
 
 ## Development Logs (devlog/)
 
