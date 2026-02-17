@@ -9,7 +9,12 @@ pluginManagement {
 
 dependencyResolutionManagement {
     repositories {
-        mavenLocal { content { includeGroup("io.ygdrasil") } }
+        mavenLocal {
+            content {
+                includeGroup("io.ygdrasil")
+                includeGroup("com.hyeons-lab")
+            }
+        }
         google()
         mavenCentral()
     }

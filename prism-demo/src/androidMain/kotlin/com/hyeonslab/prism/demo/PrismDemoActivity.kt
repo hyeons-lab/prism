@@ -84,7 +84,15 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
     val elapsed = (frameTimeNanos - startTimeNanos) / 1_000_000_000f
     frameCount++
 
-    scene?.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
+    try {
+      scene?.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
+    } catch (e: Exception) {
+      log.e(e) { "Render error on frame $frameCount" }
+      running = false
+      return
+    }
+
+    if (frameCount % 60 == 0L) log.d { "Frame $frameCount, fps=${1f / deltaTime}" }
 
     Choreographer.getInstance().postFrameCallback(this)
   }

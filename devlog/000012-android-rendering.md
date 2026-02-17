@@ -41,7 +41,57 @@
 
 2026-02-16T14:15-08:00 Adding Android target to prism-assets and prism-compose broke build — these modules have expect/actual declarations (FileReader, PrismView) that previously only needed jvmMain actuals. With the new KMP Android plugin, Android is a separate target from JVM and needs its own actuals. Fixed by creating androidMain actual files.
 
-2026-02-16T15:00-08:00 Runtime crash on API 36 (Android 16): `InstantiationError: java.lang.foreign.MemorySegment`. Root cause: wgpu4k-native v27.0.4 ships Panama FFI shim classes in the `java.lang.foreign` package (JNA-backed `MemorySegment`, `SegmentAllocator`, etc.). On API 36, Android includes the real `java.lang.foreign` package in the boot classpath, which shadows the shim. The real `MemorySegment` is an interface and cannot be instantiated. This is an upstream wgpu4k-native issue — the shim approach works on API 28-34 but breaks on API 35+ where Android added its own `java.lang.foreign` support.
+2026-02-16T15:00-08:00 Runtime crash on API 36 (Android 16): `InstantiationError: java.lang.foreign.MemorySegment`. Root cause: wgpu4k-native v27.0.4 ships Panama FFI shim classes in the `java.lang.foreign` package (JNA-backed `MemorySegment`, `SegmentAllocator`, etc.). On API 36, Android includes the real `java.lang.foreign` package in the boot classpath, which shadows the shim. The real `MemorySegment` is an interface and cannot be instantiated. This is an upstream wgpu4k-native issue — the shim approach works on API 28-34 but breaks on API 35+ where Android added its own `java.lang.foreign` support. **Fixed:** Forked and relocated shims to `com.hyeonslab.foreign`.
+
+2026-02-16T17:00-08:00 Second runtime crash on API 36: `RuntimeException: Failed to get ByteBuffer address`. Root cause: `Queue.native.android.kt` uses `getDeclaredMethod("address")` reflection on `ByteBuffer`, which is a hidden API blocked on API 36. **Fixed:** Replaced with JNA `Native.getDirectBufferPointer()`.
+
+2026-02-16T18:00-08:00 White screen on API 36 despite render loop running at 120fps. No exceptions. Render pipeline fully executing (configure → getCurrentTexture → render → submit → present). Suspected SurfaceView Z-ordering: Vulkan surface renders behind the window and the default white window background covers it. See "Debugging: White Screen Investigation" section below.
+
+2026-02-16T16:00-08:00 Forked wgpu4k-native to `hyeons-lab/wgpu4k-native`, branch `fix/android-api35-package-relocation`. Relocated 5 shim files from `java.lang.foreign` to `com.hyeonslab.foreign`. Updated imports in `ffi/FFI.kt`, `ffi/MemoryAllocator.android.kt`, `Structures.android.kt`, and generator template. Changed Maven group to `com.hyeons-lab` to avoid collision with upstream snapshots. Published to Maven local.
+
+2026-02-16T16:30-08:00 Forked wgpu4k to `hyeons-lab/wgpu4k`, branch `fix/android-api35-wgpu4k-native-snapshot`. Updated `gradle/libs.versions.toml` to reference `com.hyeons-lab:wgpu4k-native` coordinates. Published to Maven local. First crash (InstantiationError) fixed.
+
+2026-02-16T17:00-08:00 Second runtime crash on API 36: `RuntimeException: Failed to get ByteBuffer address`. Root cause: `Queue.native.android.kt` uses reflection (`getDeclaredMethod("address")`) to access hidden `ByteBuffer.address()` API, blocked on API 36. Fixed by replacing with `Pointer.nativeValue(Native.getDirectBufferPointer(this)).toULong()` (JNA public API). Committed to existing wgpu4k fork branch. Rebuilt and published.
+
+2026-02-16T17:30-08:00 settings.gradle.kts — Added `includeGroup("com.hyeons-lab")` to mavenLocal content filter so Gradle can resolve the forked wgpu4k-native artifacts.
+
+2026-02-16T18:00-08:00 APK installed and launched on Galaxy Fold (API 36). No crashes! Render loop running at 120fps. But display shows white screen — no cube, no blue background.
+
+## Debugging: White Screen Investigation
+
+### Confirmed Working
+- wgpu instance, adapter, device creation: OK (no errors in logs)
+- `androidContextRenderer()` completes successfully with `SurfaceRenderingContext`
+- `WgpuRenderer.initialize()` calls `surface.configure()` with correct format/alphaMode
+- `DemoScene` initialized (logged)
+- `Choreographer.FrameCallback` running at 120fps (logged every 60 frames)
+- `scene.tick()` runs without exceptions (try/catch confirms no render errors)
+- Full render pipeline executes: `beginFrame()` → `beginRenderPass(CORNFLOWER_BLUE)` → draw cube → `endRenderPass()` → `endFrame()` (submit + present)
+
+### Hypothesis: SurfaceView Z-ordering
+Android `SurfaceView` places its surface BEHIND the window by default. The framework punches a transparent "hole" through the window background so the surface shows through. If this hole-punching doesn't work correctly, the opaque white window background covers the Vulkan surface.
+
+Supporting evidence:
+- White = window background color (Activity default theme)
+- wgpu4k-native's own Android demo uses `setWillNotDraw(false)` + `draw(Canvas)` + `invalidate()` which is a different rendering pattern tied to Android's view drawing system
+- Vulkan `wgpuSurfacePresent()` presents to the ANativeWindow, which maps to the SurfaceView's dedicated Surface — this is behind the window by default
+
+### Next Steps
+1. Try `surfaceView.setZOrderOnTop(true)` — places Surface on top of window, bypassing hole-punching
+2. If that fails, try custom SurfaceView subclass with `setWillNotDraw(false)` + `draw()` + `invalidate()` approach matching wgpu4k-native demo
+3. If that fails, investigate whether `wgpuSurfaceConfigure` + `wgpuSurfacePresent` actually work correctly with `androidContextRenderer()` on API 36
+
+### Upstream Patches Applied
+
+| Repo | Fork | Branch | What |
+|------|------|--------|------|
+| wgpu4k-native | hyeons-lab/wgpu4k-native | `fix/android-api35-package-relocation` | Relocate `java.lang.foreign` shims → `com.hyeonslab.foreign`; change group to `com.hyeons-lab` |
+| wgpu4k | hyeons-lab/wgpu4k | `fix/android-api35-wgpu4k-native-snapshot` | Reference `com.hyeons-lab` coordinates; fix `Queue.native.android.kt` ByteBuffer reflection |
+
+Both patches required for API 35+ (Android 15+). Published to Maven local.
+
+### Known Upstream Bug (not blocking)
+`Surface.native.kt:90` — `toAlphaMode()` uses `formatCount` instead of `alphaModeCount` to size the alpha modes array. Works because the array read still produces valid values, but technically reads wrong count.
 
 ## Commits
 
