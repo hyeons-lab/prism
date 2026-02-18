@@ -120,9 +120,30 @@ Android Vulkan preferred surface format is `RGBA8UnormSrgb`. Prism `Color` store
 
 All three patches required for Android API 35+ (Android 15+). Published to Maven local.
 
+## What Changed (continued)
+
+2026-02-17 devlog/fork-dependencies.md — **NEW**: Standalone reference document explaining why we maintain forks of wgpu4k-native, wgpu4k, and webgpu-ktypes. Covers the full dependency chain, each fork's specific bug and fix, a summary table, and guidance on when forks can be dropped.
+
+2026-02-17 AGENTS.md — Resolved merge conflict during rebase onto origin/main. Kept the android-support version that references the dedicated Git Worktree Workflow section (origin/main had inlined a duplicate worktree section under "Branching & Plan Workflow").
+
+## Decisions (continued)
+
+2026-02-17 Added fork-dependencies.md as a standalone devlog reference (not branch-numbered) — fork rationale is cross-cutting context that applies across branches and shouldn't be buried in a single branch's devlog. Supplements the detailed narrative in this file with a clean, skimmable reference.
+
+2026-02-17 Rebased onto origin/main — origin/main had new commit (0fdf3ee: AGENTS.md worktree/devlog sync). Resolved one conflict in AGENTS.md.
+
 ## Commits
 
-ca843cf — chore: add devlog and plan for Android rendering (M8)
-8994356 — feat: implement Android rendering support (M8)
-92888a5 — fix: sRGB double-gamma and ByteBuffer byte order on Android ARM64
-4ff0133 — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
+404e069 — chore: add devlog and plan for Android rendering (M8)
+d39c6ab — feat: implement Android rendering support (M8)
+1493b90 — docs: document Android API 36 runtime crash (upstream wgpu4k-native issue)
+040b33a — fix: resolve Android white screen with sRGB color correction and byte-order fix
+0c7e177 — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
+290bcff — docs: update devlog with sRGB, byte-order fixes and webgpu-ktypes fork
+b496769 — docs: update all docs for completed Android rendering (M8)
+f567837 — build: update CI to build all three wgpu fork dependencies
+c428573 — fix: exclude library entries from version extraction in CI
+faeccfb — build: update wgpu4k-native to Kotlin 2.3.0 / JDK 25, increase CI timeout
+9a3b0b5 — fix: address critical review findings
+9425478 — fix: cancel initJob in stopRendering to prevent lifecycle race
+9137acf — docs: add fork dependency rationale reference
