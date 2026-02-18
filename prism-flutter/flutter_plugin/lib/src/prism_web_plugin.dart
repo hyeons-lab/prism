@@ -5,38 +5,56 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 /// JS interop bindings to the Prism WASM module's exported functions.
+/// All control functions take a canvasId to address the correct engine instance.
 @JS('prismInit')
 external void _prismInit(String canvasId);
 
 @JS('prismSetRotationSpeed')
-external void _prismSetRotationSpeed(double speed);
+external void _prismSetRotationSpeed(String canvasId, double speed);
 
 @JS('prismTogglePause')
-external void _prismTogglePause();
+external void _prismTogglePause(String canvasId);
 
 @JS('prismSetCubeColor')
-external void _prismSetCubeColor(double r, double g, double b);
+external void _prismSetCubeColor(
+    String canvasId, double r, double g, double b);
 
 @JS('prismGetState')
-external String _prismGetState();
+external String _prismGetState(String canvasId);
 
 @JS('prismIsInitialized')
-external bool _prismIsInitialized();
+external bool _prismIsInitialized(String canvasId);
 
 @JS('prismShutdown')
-external void _prismShutdown();
+external void _prismShutdown(String canvasId);
 
 /// Web implementation of PrismEngine that calls WASM-exported JS functions
 /// instead of using platform method channels.
+///
+/// Each engine instance is identified by a canvasId, allowing multiple
+/// PrismRenderView widgets to coexist on the same page without conflicting.
 class PrismWebEngine {
   static bool _wasmLoaded = false;
+  static String? _loadedModuleUrl;
 
   /// Load the Kotlin/WASM module and expose its @JsExport functions globally.
   ///
   /// [moduleUrl] is the path to the `.mjs` entry point relative to the web root
   /// (e.g., 'prism-flutter.mjs'). The WASM binary must be co-located.
+  ///
+  /// Only the first call triggers loading; subsequent calls with the same URL
+  /// return immediately. A call with a different URL logs a warning and returns
+  /// without re-loading (hot-swap is not supported).
   static Future<void> ensureWasmLoaded(String moduleUrl) async {
-    if (_wasmLoaded) return;
+    if (_wasmLoaded) {
+      if (_loadedModuleUrl != null && _loadedModuleUrl != moduleUrl) {
+        web.console.warn(
+            'Prism WASM already loaded from $_loadedModuleUrl; '
+                    'ignoring request for $moduleUrl'
+                .toJS);
+      }
+      return;
+    }
 
     final completer = Completer<void>();
 
@@ -79,6 +97,7 @@ class PrismWebEngine {
 
     readyListener = ((web.Event e) {
       _wasmLoaded = true;
+      _loadedModuleUrl = moduleUrl;
       cleanup();
       if (!completer.isCompleted) completer.complete();
     }).toJS;
@@ -99,20 +118,24 @@ class PrismWebEngine {
 
   static void init(String canvasId) => _prismInit(canvasId);
 
-  static Future<void> setRotationSpeed(double speed) async =>
-      _prismSetRotationSpeed(speed);
+  static Future<void> setRotationSpeed(String canvasId, double speed) async =>
+      _prismSetRotationSpeed(canvasId, speed);
 
-  static Future<void> togglePause() async => _prismTogglePause();
+  static Future<void> togglePause(String canvasId) async =>
+      _prismTogglePause(canvasId);
 
-  static Future<void> setCubeColor(double r, double g, double b) async =>
-      _prismSetCubeColor(r, g, b);
+  static Future<void> setCubeColor(
+          String canvasId, double r, double g, double b) async =>
+      _prismSetCubeColor(canvasId, r, g, b);
 
-  static Future<Map<String, dynamic>> getState() async {
-    final json = _prismGetState();
+  static Future<Map<String, dynamic>> getState(String canvasId) async {
+    final json = _prismGetState(canvasId);
     return jsonDecode(json) as Map<String, dynamic>;
   }
 
-  static Future<bool> isInitialized() async => _prismIsInitialized();
+  static Future<bool> isInitialized(String canvasId) async =>
+      _prismIsInitialized(canvasId);
 
-  static Future<void> shutdown() async => _prismShutdown();
+  static Future<void> shutdown(String canvasId) async =>
+      _prismShutdown(canvasId);
 }

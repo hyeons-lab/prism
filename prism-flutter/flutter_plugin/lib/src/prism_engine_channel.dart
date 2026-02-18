@@ -8,6 +8,9 @@ class PrismEngine {
   static const MethodChannel _channel =
       MethodChannel('engine.prism.flutter/engine');
 
+  /// No-op on mobile — canvas binding is only needed for web multi-instance support.
+  void attachCanvas(String canvasId) {}
+
   /// Set the cube rotation speed in degrees per second.
   Future<void> setRotationSpeed(double degreesPerSecond) async {
     await _channel.invokeMethod('setRotationSpeed', {

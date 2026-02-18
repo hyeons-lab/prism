@@ -53,6 +53,7 @@ class _PrismRenderViewState extends State<PrismRenderView> {
       canvas.height = height;
     }
 
+    widget.engine.attachCanvas(_canvasId);
     await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
     PrismWebEngine.init(_canvasId);
   }
@@ -74,9 +75,6 @@ class _PrismRenderViewState extends State<PrismRenderView> {
     );
   }
 
-  @override
-  void dispose() {
-    widget.engine.shutdown();
-    super.dispose();
-  }
+  // Shutdown is NOT called here — the PrismEngine owner (parent widget) is
+  // responsible for calling engine.shutdown() in its own dispose().
 }

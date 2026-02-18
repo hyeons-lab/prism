@@ -3,6 +3,14 @@ import UIKit
 import PrismDemo
 
 /// Flutter plugin entry point for iOS. Registers the method channel and platform view factory.
+///
+/// Method channel contract (must match FlutterMethodHandler.kt on Android):
+///   setRotationSpeed({speed: Float}) → true
+///   togglePause() → true
+///   setCubeColor({r: Float, g: Float, b: Float}) → true
+///   isInitialized() → true
+///   getState() → {rotationSpeed, isPaused, fps}
+///   shutdown() → true
 public class PrismFlutterPlugin: NSObject, FlutterPlugin {
 
     private let store = DemoStore()

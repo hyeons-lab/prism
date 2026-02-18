@@ -1,17 +1,24 @@
 package engine.prism.flutter
 
+import com.hyeonslab.prism.flutter.FlutterMethodHandler
+import com.hyeonslab.prism.flutter.MethodNotImplementedException
+import com.hyeonslab.prism.flutter.PrismBridge
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Flutter plugin entry point for Android. Registers the method channel and platform view factory.
+ * Flutter plugin entry point for Android. Registers the method channel, platform view factory,
+ * and handles activity lifecycle (pause/resume) to stop/start the render loop.
  */
-class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
+class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
 
     private lateinit var channel: MethodChannel
-    private val bridge = com.hyeonslab.prism.flutter.PrismBridge()
-    private val handler = com.hyeonslab.prism.flutter.FlutterMethodHandler(bridge)
+    private val bridge = PrismBridge()
+    private val handler = FlutterMethodHandler(bridge)
+    private var platformView: PrismPlatformView? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, "engine.prism.flutter/engine")
@@ -19,7 +26,7 @@ class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
         binding.platformViewRegistry.registerViewFactory(
             "engine.prism.flutter/render_view",
-            PrismPlatformViewFactory(bridge)
+            PrismPlatformViewFactory(bridge) { platformView = it }
         )
     }
 
@@ -34,10 +41,28 @@ class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             val args = (call.arguments as? Map<String, Any?>) ?: emptyMap()
             val response = handler.handleMethodCall(call.method, args)
             result.success(response)
-        } catch (e: IllegalStateException) {
+        } catch (@Suppress("SwallowedException") e: MethodNotImplementedException) {
             result.notImplemented()
         } catch (e: Exception) {
             result.error("PRISM_ERROR", e.message, null)
         }
+    }
+
+    // -- ActivityAware: pause/resume the render loop with the host activity --
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        platformView?.resumeRendering()
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        platformView?.resumeRendering()
+    }
+
+    override fun onDetachedFromActivity() {
+        platformView?.pauseRendering()
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {
+        platformView?.pauseRendering()
     }
 }

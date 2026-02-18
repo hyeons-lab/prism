@@ -1,8 +1,15 @@
 package com.hyeonslab.prism.flutter
 
+/** Thrown when a Flutter MethodChannel call references an unknown method name. */
+class MethodNotImplementedException(method: String) : Exception("Unknown method: $method")
+
 /**
  * Handles Flutter MethodChannel calls by dispatching to [PrismBridge]. Platform-specific
  * implementations connect this to the actual Flutter MethodChannel.
+ *
+ * The supported methods are: setRotationSpeed, togglePause, setCubeColor, isInitialized, getState,
+ * shutdown. Unknown methods throw [MethodNotImplementedException] — the platform plugin should
+ * catch this and call the appropriate "not implemented" response.
  */
 class FlutterMethodHandler(private val bridge: PrismBridge) {
 
@@ -37,7 +44,7 @@ class FlutterMethodHandler(private val bridge: PrismBridge) {
         bridge.shutdown()
         true
       }
-      else -> error("Unknown method: $method")
+      else -> throw MethodNotImplementedException(method)
     }
   }
 }

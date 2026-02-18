@@ -6,7 +6,6 @@ plugins {
 
 kotlin {
   jvmToolchain(25)
-  jvm()
   android {
     namespace = "com.hyeonslab.prism.flutter"
     compileSdk = libs.versions.compileSdk.get().toInt()

@@ -35,6 +35,17 @@
 - 2026-02-18 `flutter_plugin/lib/src/prism_web_plugin.dart` — Fix event listener leak (remove after fire, guard double-complete)
 - 2026-02-18 `flutter_plugin/lib/src/prism_render_view_web.dart` — Use LayoutBuilder for canvas dimensions instead of hardcoded 800x600
 - 2026-02-18 `flutter_plugin/example/lib/main.dart` — Add dispose() to call engine.shutdown()
+- 2026-02-18 `FlutterWasmEntry.kt` — Refactored from global singleton to instance-based (Map keyed by canvasId); surface tracked for proper shutdown
+- 2026-02-18 `prism_web_plugin.dart` — All JS interop functions now take canvasId parameter; track loaded module URL
+- 2026-02-18 `prism_engine_web.dart` — PrismEngine holds canvasId, routes all calls through it; attachCanvas() method
+- 2026-02-18 `prism_engine_channel.dart` — No-op attachCanvas() for API parity with web
+- 2026-02-18 `prism_render_view_web.dart` — Removed dispose() (ownership belongs to page, not view); calls engine.attachCanvas()
+- 2026-02-18 `PrismFlutterPlugin.kt` — Implements ActivityAware for pause/resume; uses MethodNotImplementedException
+- 2026-02-18 `PrismPlatformView.kt` — Added pauseRendering()/resumeRendering(); removed redundant renderer.resize(); standardized bridge access
+- 2026-02-18 `FlutterMethodHandler.kt` — Added MethodNotImplementedException (replaces broad IllegalStateException)
+- 2026-02-18 `AndroidManifest.xml` — Removed deprecated package attribute (namespace already in build.gradle)
+- 2026-02-18 `PrismFlutterPlugin.swift` — Added method channel contract documentation
+- 2026-02-18 `build.gradle.kts` — Removed unused jvm() target
 
 ## Decisions
 - 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
@@ -44,10 +55,14 @@
 - 2026-02-18 Flutter Web uses conditional imports (`dart.library.js_interop`) to split PrismEngine and PrismRenderView into mobile (MethodChannel) and web (JS interop) variants
 - 2026-02-18 Kotlin/WASM `@JsExport` functions exposed globally via inline ES module loader script — Dart `@JS()` annotations reference `window.*` globals
 - 2026-02-18 Web render loop driven by `requestAnimationFrame` inside Kotlin/WASM — matches mobile pattern (native-driven, not Dart-driven)
+- 2026-02-18 WASM instance-based architecture — each canvas gets its own EngineInstance (store, scene, surface, timing state) in a Map keyed by canvasId, supporting multiple PrismRenderView widgets
+- 2026-02-18 Shutdown ownership: PrismEngine owner (page/parent) is responsible for calling shutdown(); PrismRenderView does NOT call shutdown in its own dispose()
+- 2026-02-18 MethodNotImplementedException — typed exception for unknown method dispatch, instead of broad IllegalStateException catch
 
 ## Issues
 - 2026-02-18 Kotlin 2.3.0 deprecated `moduleName` in wasmJs target — replaced with `outputModuleName.set("prism-flutter")` (Provider API)
 - 2026-02-18 Critical review revealed 13 issues (4 critical, 8 moderate, 1 minor). All fixed in follow-up commit.
+- 2026-02-18 Second review revealed 14 more issues (2 critical, 7 moderate, 5 minor). All fixed — WASM refactored to instance-based, Android ActivityAware added, etc.
 
 ## Commits
 - 5f3c415 — chore: add devlog and plan for Flutter integration (M11)
@@ -66,3 +81,4 @@
 - [x] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
 - [x] Phase 7: Documentation & CI
 - [x] Phase 8: Critical review fixes (13 issues addressed)
+- [x] Phase 9: Second review fixes (14 issues — instance-based WASM, ActivityAware, surface leak, etc.)
