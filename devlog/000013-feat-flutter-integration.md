@@ -46,6 +46,10 @@
 - 2026-02-18 `AndroidManifest.xml` — Removed deprecated package attribute (namespace already in build.gradle)
 - 2026-02-18 `PrismFlutterPlugin.swift` — Added method channel contract documentation
 - 2026-02-18 `build.gradle.kts` — Removed unused jvm() target
+- 2026-02-18 `flutter_plugin/example/web/` — Generated Flutter web boilerplate via `flutter create --platforms=web .` (index.html, manifest.json, favicon.png, icons/)
+- 2026-02-18 `flutter_plugin/example/web/index.html` — Added import map for `@js-joda/core` bare specifier (kotlinx-datetime dependency)
+- 2026-02-18 `prism-flutter/build.gradle.kts` — Added `copyWasmToFlutterWeb` Gradle task to copy WASM + Skiko artifacts to example/web/
+- 2026-02-18 `flutter_plugin/example/.gitignore` — Added WASM build artifact exclusions (web/prism-flutter.*, web/skiko.*)
 
 ## Decisions
 - 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
@@ -58,11 +62,13 @@
 - 2026-02-18 WASM instance-based architecture — each canvas gets its own EngineInstance (store, scene, surface, timing state) in a Map keyed by canvasId, supporting multiple PrismRenderView widgets
 - 2026-02-18 Shutdown ownership: PrismEngine owner (page/parent) is responsible for calling shutdown(); PrismRenderView does NOT call shutdown in its own dispose()
 - 2026-02-18 MethodNotImplementedException — typed exception for unknown method dispatch, instead of broad IllegalStateException catch
+- 2026-02-18 Import map for `@js-joda/core` — resolves bare npm specifier from kotlinx-datetime's WASM output via CDN (jsdelivr), avoids needing a bundler
 
 ## Issues
 - 2026-02-18 Kotlin 2.3.0 deprecated `moduleName` in wasmJs target — replaced with `outputModuleName.set("prism-flutter")` (Provider API)
 - 2026-02-18 Critical review revealed 13 issues (4 critical, 8 moderate, 1 minor). All fixed in follow-up commit.
 - 2026-02-18 Second review revealed 14 more issues (2 critical, 7 moderate, 5 minor). All fixed — WASM refactored to instance-based, Android ActivityAware added, etc.
+- 2026-02-18 Gradle `copyWasmToFlutterWeb` task initially depended on wrong task (`compileProductionExecutableKotlinWasmJs` instead of `compileProductionExecutableKotlinWasmJsOptimize`) — Gradle 9.2 caught the implicit dependency on optimized output directory.
 
 ## Commits
 - 5f3c415 — chore: add devlog and plan for Flutter integration (M11)
@@ -70,6 +76,7 @@
 - 104c395 — feat: implement Android Flutter plugin with platform view
 - ec73dda — feat: implement iOS Flutter plugin with MTKView platform view
 - 9cbaed9 — feat: implement Flutter Web support with Kotlin/WASM and JS interop
+- edc085f — feat: add Flutter Web boilerplate with import map and WASM copy task
 
 ## Progress
 - [x] Phase 0: Build system — uncomment prism-flutter, add Android/wasmJs targets
@@ -82,3 +89,4 @@
 - [x] Phase 7: Documentation & CI
 - [x] Phase 8: Critical review fixes (13 issues addressed)
 - [x] Phase 9: Second review fixes (14 issues — instance-based WASM, ActivityAware, surface leak, etc.)
+- [x] Phase 10: Flutter Web boilerplate — web/ directory, import map, copyWasmToFlutterWeb Gradle task, .gitignore
