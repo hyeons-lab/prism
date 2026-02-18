@@ -8,6 +8,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -15,6 +16,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
+import io.ygdrasil.webgpu.WGPUContext
 
 private val log = Logger.withTag("PrismView.Android")
 
@@ -27,7 +29,17 @@ private val log = Logger.withTag("PrismView.Android")
  * [EngineStateEvent]s through [EngineStore.dispatch].
  */
 @Composable
-actual fun PrismView(store: EngineStore, modifier: Modifier) {
+actual fun PrismView(
+  store: EngineStore,
+  modifier: Modifier,
+  onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)?,
+  onSurfaceResized: ((Int, Int) -> Unit)?,
+) {
+  // Hold the latest callback references so the AndroidView factory and LaunchedEffect
+  // always invoke the current lambda, not a stale closure from initial composition.
+  val currentOnSurfaceReady by rememberUpdatedState(onSurfaceReady)
+  val currentOnSurfaceResized by rememberUpdatedState(onSurfaceResized)
+
   // Track the current SurfaceHolder identity separately from dimensions so that a resize
   // on the same holder dispatches SurfaceResized without recreating the wgpu surface.
   var currentHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
@@ -61,6 +73,7 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
               if (holder === currentHolder && prismSurface != null) {
                 // Same holder, just resized — no need to recreate the wgpu surface.
                 store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+                currentOnSurfaceResized?.invoke(width, height)
               } else {
                 // New holder — trigger wgpu surface (re)creation via LaunchedEffect.
                 currentHolder = holder
@@ -108,9 +121,13 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
       // If so, the surface is no longer wanted — detach and bail out.
       if (currentHolder == null) {
-        log.w { "Surface destroyed during init — discarding new PrismSurface" }
+        log.w { "Surface destroyed during init \u2014 discarding new PrismSurface" }
         surface.detach()
         return@LaunchedEffect
+      }
+      val ctx = surface.wgpuContext
+      if (ctx != null) {
+        currentOnSurfaceReady?.invoke(ctx, width, height)
       }
       prismSurface = surface
       store.dispatch(EngineStateEvent.SurfaceResized(width, height))

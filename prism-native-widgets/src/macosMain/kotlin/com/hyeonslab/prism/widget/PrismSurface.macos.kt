@@ -20,7 +20,7 @@ actual class PrismSurface(glfwContext: GLFWContext? = null) {
   private var engine: Engine? = null
 
   /** wgpu context created via GLFW/Metal. Available when constructed via [createPrismSurface]. */
-  val wgpuContext: WGPUContext?
+  actual val wgpuContext: WGPUContext?
     get() = _glfwContext?.wgpuContext
 
   /** Native GLFW window handle for the render loop. */

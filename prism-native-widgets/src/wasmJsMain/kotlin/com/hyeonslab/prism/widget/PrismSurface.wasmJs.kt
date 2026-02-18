@@ -16,7 +16,7 @@ actual class PrismSurface(canvasContext: CanvasContext? = null) {
   private var engine: Engine? = null
 
   /** wgpu context created from the Canvas. Available when constructed via [createPrismSurface]. */
-  val wgpuContext: WGPUContext?
+  actual val wgpuContext: WGPUContext?
     get() = _canvasContext?.wgpuContext
 
   actual fun attach(engine: Engine) {

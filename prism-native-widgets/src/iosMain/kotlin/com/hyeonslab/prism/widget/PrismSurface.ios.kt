@@ -19,7 +19,7 @@ actual class PrismSurface(iosContext: IosContext? = null) {
   private var engine: Engine? = null
 
   /** wgpu context created from the MTKView. Available when constructed via [createPrismSurface]. */
-  val wgpuContext: WGPUContext?
+  actual val wgpuContext: WGPUContext?
     get() = _iosContext?.wgpuContext
 
   actual fun attach(engine: Engine) {

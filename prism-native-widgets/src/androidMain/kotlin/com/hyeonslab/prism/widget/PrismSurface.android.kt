@@ -17,7 +17,7 @@ actual class PrismSurface(androidContext: AndroidContext? = null) {
 
   /** wgpu context created via Android SurfaceHolder. Available when constructed via
    * [createPrismSurface]. */
-  val wgpuContext: WGPUContext?
+  actual val wgpuContext: WGPUContext?
     get() = _androidContext?.wgpuContext
 
   actual fun attach(engine: Engine) {
@@ -44,12 +44,6 @@ actual class PrismSurface(androidContext: AndroidContext? = null) {
   actual val height: Int
     get() = _height
 }
-
-/**
- * Holds the Android [SurfaceHolder] and dimensions from a [SurfaceHolder.Callback.surfaceChanged]
- * event. Used as Compose state to trigger wgpu surface creation via [createPrismSurface].
- */
-data class AndroidSurfaceInfo(val holder: SurfaceHolder, val width: Int, val height: Int)
 
 /**
  * Creates a [PrismSurface] backed by an Android [SurfaceHolder] with a ready-to-use wgpu context.

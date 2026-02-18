@@ -1,6 +1,7 @@
 package com.hyeonslab.prism.widget
 
 import com.hyeonslab.prism.core.Engine
+import io.ygdrasil.webgpu.WGPUContext
 
 expect class PrismSurface {
   fun attach(engine: Engine)
@@ -11,4 +12,5 @@ expect class PrismSurface {
 
   val width: Int
   val height: Int
+  val wgpuContext: WGPUContext?
 }

@@ -38,15 +38,9 @@ kotlin {
     commonTest.dependencies { implementation(libs.kotlin.test) }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
       implementation(libs.kotlinx.coroutines.swing)
     }
-    androidMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.android)
-    }
+    androidMain.dependencies { implementation(libs.kotlinx.coroutines.android) }
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }

@@ -6,12 +6,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismPanel
+import io.ygdrasil.webgpu.WGPUContext
 
 private val log = Logger.withTag("PrismView.JVM")
 
@@ -25,7 +27,17 @@ private val log = Logger.withTag("PrismView.JVM")
  * All state changes are dispatched as [EngineStateEvent]s through [EngineStore.dispatch].
  */
 @Composable
-actual fun PrismView(store: EngineStore, modifier: Modifier) {
+actual fun PrismView(
+  store: EngineStore,
+  modifier: Modifier,
+  onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)?,
+  onSurfaceResized: ((Int, Int) -> Unit)?,
+) {
+  // Hold the latest callback references so the SwingPanel factory (which captures once)
+  // always invokes the current lambda, not a stale closure from initial composition.
+  val currentOnSurfaceReady by rememberUpdatedState(onSurfaceReady)
+  val currentOnSurfaceResized by rememberUpdatedState(onSurfaceResized)
+
   var panel by remember { mutableStateOf<PrismPanel?>(null) }
   var isReady by remember { mutableStateOf(false) }
 
@@ -35,9 +47,16 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       PrismPanel().also { p ->
         p.onReady = {
           log.i { "PrismPanel surface ready" }
+          val ctx = p.wgpuContext
+          if (ctx != null) {
+            currentOnSurfaceReady?.invoke(ctx, p.width, p.height)
+          }
           isReady = true
         }
-        p.onResized = { w, h -> store.dispatch(EngineStateEvent.SurfaceResized(w, h)) }
+        p.onResized = { w, h ->
+          store.dispatch(EngineStateEvent.SurfaceResized(w, h))
+          currentOnSurfaceResized?.invoke(w, h)
+        }
         panel = p
       }
     },

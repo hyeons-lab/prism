@@ -33,27 +33,9 @@ kotlin {
       implementation(libs.kotlin.test)
       implementation(libs.kotest.assertions.core)
     }
-    jvmMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.core)
-    }
-    androidMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.android)
-    }
-    nativeMain.dependencies {
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.core)
-    }
-    val wasmJsMain by getting {
-      dependencies {
-        implementation(libs.wgpu4k)
-        implementation(libs.wgpu4k.toolkit)
-      }
-    }
+    jvmMain.dependencies { implementation(libs.kotlinx.coroutines.core) }
+    androidMain.dependencies { implementation(libs.kotlinx.coroutines.android) }
+    nativeMain.dependencies { implementation(libs.kotlinx.coroutines.core) }
   }
 
   compilerOptions {

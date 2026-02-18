@@ -24,13 +24,19 @@ private val log = Logger.withTag("DemoScene")
 
 private val defaultRotationSpeed = PI.toFloat() / 4f
 
-/** Holds the engine, ECS world, renderer, and key entity handles for the demo scene. */
+/**
+ * Holds the engine, ECS world, renderer, and key entity handles for the demo scene.
+ *
+ * @param ownsEngine When true, [shutdown] will also shut down the engine. When false (external
+ *   engine from EngineStore), [shutdown] only disposes scene-specific resources.
+ */
 class DemoScene(
   val engine: Engine,
   val world: World,
   val renderer: WgpuRenderer,
   val cubeEntity: Entity,
   val cameraEntity: Entity,
+  private val ownsEngine: Boolean = true,
 ) {
   /**
    * Advances the scene by one frame: rotates the cube and runs the ECS update. Used by
@@ -71,9 +77,27 @@ class DemoScene(
     cameraComponent.camera.aspectRatio = width.toFloat() / height.toFloat()
   }
 
-  fun shutdown() {
+  /**
+   * Releases scene-specific resources (world, renderer subsystem) without shutting down the engine.
+   * Safe to call on scenes that use a shared engine (e.g. from EngineStore).
+   */
+  fun dispose() {
     world.shutdown()
-    engine.shutdown()
+    engine.removeSubsystem(renderer)
+    engine.gameLoop.onRender = null
+  }
+
+  /**
+   * Full shutdown: disposes scene resources and, if this scene owns the engine, shuts down the
+   * engine too.
+   */
+  fun shutdown() {
+    if (ownsEngine) {
+      world.shutdown()
+      engine.shutdown()
+    } else {
+      dispose()
+    }
   }
 }
 
@@ -124,4 +148,58 @@ fun createDemoScene(
   world.initialize()
   log.i { "Demo scene initialized (${width}x${height})" }
   return DemoScene(engine, world, renderer, cubeEntity, cameraEntity)
+}
+
+/**
+ * Creates a demo scene that attaches to an existing [Engine] (e.g. one owned by an [EngineStore]).
+ * The renderer is registered as a subsystem on the engine and [GameLoop.onRender] is wired to drive
+ * the ECS world each frame.
+ *
+ * @param engine An already-initialized engine (typically from [EngineStore.engine]).
+ * @param wgpuContext The WebGPU context to render into.
+ * @param width Initial surface width in pixels.
+ * @param height Initial surface height in pixels.
+ * @param surfacePreConfigured When true, the renderer skips its own surface configuration.
+ * @param initialColor The initial cube material color.
+ */
+fun createDemoScene(
+  engine: Engine,
+  wgpuContext: WGPUContext,
+  width: Int,
+  height: Int,
+  surfacePreConfigured: Boolean = false,
+  initialColor: Color = Color(0.3f, 0.5f, 0.9f),
+): DemoScene {
+  val renderer = WgpuRenderer(wgpuContext, surfacePreConfigured = surfacePreConfigured)
+  engine.addSubsystem(renderer)
+
+  val world = World()
+  world.addSystem(RenderSystem(renderer))
+
+  // Camera
+  val cameraEntity = world.createEntity()
+  val camera = Camera()
+  camera.position = Vec3(2f, 2f, 4f)
+  camera.target = Vec3(0f, 0f, 0f)
+  camera.fovY = 60f
+  camera.aspectRatio = width.toFloat() / height.toFloat()
+  camera.nearPlane = 0.1f
+  camera.farPlane = 100f
+  world.addComponent(cameraEntity, TransformComponent(position = camera.position))
+  world.addComponent(cameraEntity, CameraComponent(camera))
+
+  // Cube
+  val cubeEntity = world.createEntity()
+  world.addComponent(cubeEntity, TransformComponent())
+  world.addComponent(cubeEntity, MeshComponent(mesh = Mesh.cube()))
+  world.addComponent(cubeEntity, MaterialComponent(material = Material(baseColor = initialColor)))
+
+  world.initialize()
+
+  // Wire the ECS update into the engine's render callback so that PrismView's
+  // gameLoop.tick() automatically drives the scene each frame.
+  engine.gameLoop.onRender = { time -> world.update(time) }
+
+  log.i { "Demo scene attached to existing engine (${width}x${height})" }
+  return DemoScene(engine, world, renderer, cubeEntity, cameraEntity, ownsEngine = false)
 }

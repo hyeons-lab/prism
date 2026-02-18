@@ -63,6 +63,12 @@ class Engine(val config: EngineConfig = EngineConfig()) {
     }
   }
 
+  fun removeSubsystem(subsystem: Subsystem) {
+    if (subsystems.remove(subsystem)) {
+      subsystem.shutdown()
+    }
+  }
+
   inline fun <reified T : Subsystem> getSubsystem(): T? {
     return subsystems.filterIsInstance<T>().firstOrNull()
   }

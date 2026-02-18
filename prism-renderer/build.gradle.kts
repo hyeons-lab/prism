@@ -28,8 +28,8 @@ kotlin {
       api(project(":prism-core"))
       implementation(libs.kotlinx.coroutines.core)
       implementation(libs.kermit)
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
+      api(libs.wgpu4k)
+      api(libs.wgpu4k.toolkit)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
