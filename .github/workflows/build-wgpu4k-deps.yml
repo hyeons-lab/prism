@@ -183,21 +183,21 @@ jobs:
           echo "Packaging $ASSET_NAME..."
 
           # Collect all relevant Maven local dirs
-          DIRS=""
+          TAR_ARGS=()
           for GROUP_PATH in io/ygdrasil com/hyeons-lab; do
-            DIR=~/.m2/repository/$GROUP_PATH
+            DIR="$HOME/.m2/repository/$GROUP_PATH"
             if [ -d "$DIR" ]; then
-              DIRS="$DIRS -C ~/.m2/repository $GROUP_PATH"
+              TAR_ARGS+=(-C "$HOME/.m2/repository" "$GROUP_PATH")
             fi
           done
 
-          if [ -z "$DIRS" ]; then
+          if [ "${#TAR_ARGS[@]}" -eq 0 ]; then
             echo "::error::No Maven local artifacts found"
             exit 1
           fi
 
           # Create tarball with zstd compression
-          eval tar --zstd -cf "$ASSET_NAME" $DIRS
+          tar --zstd -cf "$ASSET_NAME" "${TAR_ARGS[@]}"
 
           SIZE=$(du -sh "$ASSET_NAME" | cut -f1)
           echo "Created $ASSET_NAME ($SIZE)"
@@ -213,7 +213,7 @@ jobs:
         run: |
           ASSET_NAME="wgpu4k-deps-${{ runner.os }}.tar.zst"
 
-          # Create the release if it doesn't exist yet
+          # Create the release if it doesn't exist yet (tolerate race from parallel matrix jobs)
           if ! gh release view "$RELEASE_TAG" &>/dev/null; then
             gh release create "$RELEASE_TAG" \
               --title "wgpu4k Dependencies ($CACHE_HASH)" \
@@ -223,10 +223,17 @@ jobs:
           - webgpu-ktypes: \`${{ steps.deps-version.outputs.ktypes_commit }}\`
           - wgpu4k-native: \`${{ steps.deps-version.outputs.native_commit }}\`
           - wgpu4k: \`${{ steps.deps-version.outputs.wgpu4k_commit }}\`" \
-              --prerelease
+              --prerelease 2>/dev/null || {
+              # Another matrix job may have created it between our check and create — verify it exists
+              if ! gh release view "$RELEASE_TAG" &>/dev/null; then
+                echo "::error::Failed to create release $RELEASE_TAG"
+                exit 1
+              fi
+              echo "Release $RELEASE_TAG was created by another job — proceeding to upload"
+            }
           fi
 
-          # Upload the asset (overwrite if somehow it exists)
+          # Upload the asset (--clobber handles the unlikely case of a re-run)
           gh release upload "$RELEASE_TAG" "$ASSET_NAME" --clobber
 
           echo "### wgpu4k Dependencies Release" >> "$GITHUB_STEP_SUMMARY"

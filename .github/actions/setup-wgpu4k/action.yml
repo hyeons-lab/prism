@@ -78,7 +78,9 @@ runs:
         ASSET_NAME="wgpu4k-deps-${RUNNER_OS}.tar.zst"
         echo "Trying to download $ASSET_NAME from release $RELEASE_TAG..."
 
-        if gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+        DL_OUTPUT=$(gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp --repo "$GITHUB_REPOSITORY" 2>&1) && DL_OK=true || DL_OK=false
+
+        if [ "$DL_OK" = "true" ]; then
           echo "::group::Extract pre-built artifacts"
           mkdir -p ~/.m2/repository
           tar --zstd -xf "/tmp/$ASSET_NAME" -C ~/.m2/repository
@@ -87,9 +89,12 @@ runs:
 
           echo "downloaded=true" >> "$GITHUB_OUTPUT"
           echo "Pre-built artifacts restored from release $RELEASE_TAG"
-        else
+        elif echo "$DL_OUTPUT" | grep -qi "not found\|no assets\|release not found"; then
           echo "downloaded=false" >> "$GITHUB_OUTPUT"
           echo "Release asset not available — will build from source"
+        else
+          echo "::warning::gh release download failed unexpectedly: $DL_OUTPUT"
+          echo "downloaded=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Set up Rust toolchain
