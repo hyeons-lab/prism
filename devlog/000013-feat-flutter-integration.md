@@ -26,6 +26,15 @@
 - 2026-02-18 `AGENTS.md` — Updated Platform Implementations, Current Project Status, module descriptions for Flutter M11
 - 2026-02-18 `BUILD_STATUS.md` — Marked M11 as complete with implementation details
 - 2026-02-18 `ARCHITECTURE.md` — Updated prism-flutter module description, added Flutter demo entry points, removed Flutter from planned improvements
+- 2026-02-18 `prism-demo-core/.../IosDemoController.kt` — Added `configureDemo(view, store)` overload for Flutter to pass its own DemoStore
+- 2026-02-18 `flutter_plugin/ios/.../PrismPlatformView.swift` — Pass store to configureDemo, replace fatalError with error label, add shutdown(), log errors
+- 2026-02-18 `flutter_plugin/ios/.../PrismFlutterPlugin.swift` — Track activePlatformView for shutdown, pass store+plugin through factory
+- 2026-02-18 `flutter_plugin/android/.../PrismPlatformView.kt` — Add cube color via MaterialComponent, smoothed FPS (EMA), detachScene() instead of shutdown(), renderer.resize() on surfaceChanged
+- 2026-02-18 `prism-flutter/.../PrismBridge.kt` — Added detachScene() method (clear reference without shutdown)
+- 2026-02-18 `prism-flutter/.../FlutterWasmEntry.kt` — Create store before coroutine (fix race), add cube color application, read canvas dimensions, handle NaN in JSON
+- 2026-02-18 `flutter_plugin/lib/src/prism_web_plugin.dart` — Fix event listener leak (remove after fire, guard double-complete)
+- 2026-02-18 `flutter_plugin/lib/src/prism_render_view_web.dart` — Use LayoutBuilder for canvas dimensions instead of hardcoded 800x600
+- 2026-02-18 `flutter_plugin/example/lib/main.dart` — Add dispose() to call engine.shutdown()
 
 ## Decisions
 - 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
@@ -38,6 +47,7 @@
 
 ## Issues
 - 2026-02-18 Kotlin 2.3.0 deprecated `moduleName` in wasmJs target — replaced with `outputModuleName.set("prism-flutter")` (Provider API)
+- 2026-02-18 Critical review revealed 13 issues (4 critical, 8 moderate, 1 minor). All fixed in follow-up commit.
 
 ## Commits
 - 5f3c415 — chore: add devlog and plan for Flutter integration (M11)
@@ -55,3 +65,4 @@
 - [x] Phase 6: Flutter example app (full demo with UI controls) — done as part of Phase 2
 - [x] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
 - [x] Phase 7: Documentation & CI
+- [x] Phase 8: Critical review fixes (13 issues addressed)

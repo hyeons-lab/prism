@@ -9,7 +9,9 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.demo.DemoIntent
 import com.hyeonslab.prism.demo.DemoScene
 import com.hyeonslab.prism.demo.createDemoScene
+import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.flutter.PrismBridge
+import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.widget.createPrismSurface
 import io.flutter.plugin.platform.PlatformView
 import io.flutter.plugin.platform.PlatformViewFactory
@@ -73,6 +75,7 @@ class PrismPlatformView(
         log.i { "surfaceChanged: ${width}x${height}" }
 
         if (scene != null) {
+            scene?.renderer?.resize(width, height)
             scene?.updateAspectRatio(width, height)
             return
         }
@@ -85,7 +88,10 @@ class PrismPlatformView(
             val wgpuContext = checkNotNull(prismSurface.wgpuContext) {
                 "wgpu context not available on Android"
             }
-            val demoScene = createDemoScene(wgpuContext, width, height)
+            val demoScene = createDemoScene(
+                wgpuContext, width, height,
+                initialColor = bridge.store.state.value.cubeColor,
+            )
             scene = demoScene
             bridge.attachScene(demoScene)
 
@@ -115,33 +121,35 @@ class PrismPlatformView(
         val elapsed = (frameTimeNanos - startTimeNanos) / 1_000_000_000f
         frameCount++
 
+        val currentScene = scene ?: return
         val state = bridge.state.value
 
-        // Update FPS every 60 frames
-        if (deltaTime > 0f && frameCount % 60 == 0L) {
-            val fps = 1f / deltaTime
-            bridge.store.dispatch(DemoIntent.UpdateFps(fps))
+        // Update FPS (smoothed EMA)
+        if (deltaTime > 0f) {
+            val smoothedFps = state.fps * 0.9f + (1f / deltaTime) * 0.1f
+            bridge.store.dispatch(DemoIntent.UpdateFps(smoothedFps))
+        }
+
+        // Update rotation angle
+        if (!state.isPaused) {
+            val speedRadians = Math.toRadians(state.rotationSpeed.toDouble()).toFloat()
+            accumulatedAngle += speedRadians * deltaTime
         }
 
         try {
-            if (!state.isPaused) {
-                val speedRadians = Math.toRadians(state.rotationSpeed.toDouble()).toFloat()
-                accumulatedAngle += speedRadians * deltaTime
-                scene?.tickWithAngle(
-                    deltaTime = deltaTime,
-                    elapsed = elapsed,
-                    frameCount = frameCount,
-                    angle = accumulatedAngle,
-                )
-            } else {
-                // Still render but don't advance the angle
-                scene?.tickWithAngle(
-                    deltaTime = deltaTime,
-                    elapsed = elapsed,
-                    frameCount = frameCount,
-                    angle = accumulatedAngle,
-                )
+            // Update material color when it changes
+            val cubeMaterial =
+                currentScene.world.getComponent<MaterialComponent>(currentScene.cubeEntity)
+            if (cubeMaterial != null && cubeMaterial.material?.baseColor != state.cubeColor) {
+                cubeMaterial.material = Material(baseColor = state.cubeColor)
             }
+
+            currentScene.tickWithAngle(
+                deltaTime = if (state.isPaused) 0f else deltaTime,
+                elapsed = elapsed,
+                frameCount = frameCount,
+                angle = accumulatedAngle,
+            )
         } catch (e: Exception) {
             log.e(e) { "Render error on frame $frameCount" }
             running = false
@@ -164,9 +172,10 @@ class PrismPlatformView(
         initJob?.cancel()
         initJob = null
         Choreographer.getInstance().removeFrameCallback(this)
-        bridge.shutdown()
+        scene?.shutdown()
+        scene = null
+        bridge.detachScene()
         surface?.detach()
         surface = null
-        scene = null
     }
 }

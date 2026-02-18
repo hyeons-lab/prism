@@ -6,6 +6,7 @@ import PrismDemo
 public class PrismFlutterPlugin: NSObject, FlutterPlugin {
 
     private let store = DemoStore()
+    private weak var activePlatformView: PrismPlatformView?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let plugin = PrismFlutterPlugin()
@@ -16,8 +17,12 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
         )
         registrar.addMethodCallDelegate(plugin, channel: channel)
 
-        let factory = PrismPlatformViewFactory(store: plugin.store)
+        let factory = PrismPlatformViewFactory(store: plugin.store, plugin: plugin)
         registrar.register(factory, withId: "engine.prism.flutter/render_view")
+    }
+
+    func trackPlatformView(_ view: PrismPlatformView) {
+        activePlatformView = view
     }
 
     public func handle(
@@ -56,6 +61,7 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
             ])
 
         case "shutdown":
+            activePlatformView?.shutdown()
             result(true)
 
         default:

@@ -34,6 +34,12 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   bool _isPaused = false;
 
   @override
+  void dispose() {
+    _engine.shutdown();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Prism 3D Demo')),

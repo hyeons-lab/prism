@@ -23,6 +23,7 @@ class _PrismRenderViewState extends State<PrismRenderView> {
   late final String _canvasId;
   late final String _viewType;
   bool _initialized = false;
+  web.HTMLCanvasElement? _canvas;
 
   @override
   void initState() {
@@ -37,24 +38,39 @@ class _PrismRenderViewState extends State<PrismRenderView> {
       canvas.id = _canvasId;
       canvas.style.width = '100%';
       canvas.style.height = '100%';
-      canvas.width = 800;
-      canvas.height = 600;
+      _canvas = canvas;
       return canvas;
     });
   }
 
-  Future<void> _initEngine() async {
+  Future<void> _initEngine(int width, int height) async {
     if (_initialized) return;
     _initialized = true;
+
+    final canvas = _canvas;
+    if (canvas != null) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
     await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
     PrismWebEngine.init(_canvasId);
   }
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(
-      viewType: _viewType,
-      onPlatformViewCreated: (_) => _initEngine(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.toInt();
+        final height = constraints.maxHeight.toInt();
+        return HtmlElementView(
+          viewType: _viewType,
+          onPlatformViewCreated: (_) => _initEngine(
+            width > 0 ? width : 800,
+            height > 0 ? height : 600,
+          ),
+        );
+      },
     );
   }
 

@@ -41,6 +41,11 @@ class PrismBridge {
     scene?.updateAspectRatio(width, height)
   }
 
+  /** Detach the scene reference without shutting it down (caller owns the shutdown). */
+  fun detachScene() {
+    scene = null
+  }
+
   fun shutdown() {
     scene?.shutdown()
     scene = null

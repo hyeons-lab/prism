@@ -69,18 +69,29 @@ class PrismWebEngine {
       }
     ''';
 
-    web.window.addEventListener(
-        'prism-wasm-ready',
-        ((web.Event e) {
-          _wasmLoaded = true;
-          completer.complete();
-        }).toJS);
-    web.window.addEventListener(
-        'prism-wasm-error',
-        ((web.Event e) {
-          completer
-              .completeError('Failed to load Prism WASM module: $moduleUrl');
-        }).toJS);
+    late final JSFunction readyListener;
+    late final JSFunction errorListener;
+
+    void cleanup() {
+      web.window.removeEventListener('prism-wasm-ready', readyListener);
+      web.window.removeEventListener('prism-wasm-error', errorListener);
+    }
+
+    readyListener = ((web.Event e) {
+      _wasmLoaded = true;
+      cleanup();
+      if (!completer.isCompleted) completer.complete();
+    }).toJS;
+    errorListener = ((web.Event e) {
+      cleanup();
+      if (!completer.isCompleted) {
+        completer
+            .completeError('Failed to load Prism WASM module: $moduleUrl');
+      }
+    }).toJS;
+
+    web.window.addEventListener('prism-wasm-ready', readyListener);
+    web.window.addEventListener('prism-wasm-error', errorListener);
 
     web.document.head!.appendChild(script);
     return completer.future;

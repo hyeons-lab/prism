@@ -7,8 +7,10 @@ import com.hyeonslab.prism.demo.DemoIntent
 import com.hyeonslab.prism.demo.DemoScene
 import com.hyeonslab.prism.demo.DemoStore
 import com.hyeonslab.prism.demo.createDemoScene
+import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.math.MathUtils
 import com.hyeonslab.prism.renderer.Color
+import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -58,6 +60,12 @@ private var frameCount = 0L
 fun prismInit(canvasId: String) {
   log.i { "Initializing on canvas '$canvasId'" }
 
+  // Create store before launching the coroutine so control methods (setRotationSpeed,
+  // togglePause, setCubeColor) work immediately — the render loop will pick up the
+  // current state when it starts.
+  val demoStore = DemoStore()
+  store = demoStore
+
   val handler = CoroutineExceptionHandler { _, throwable ->
     log.e(throwable) { "Fatal error: ${throwable.message}" }
     logError(throwable.message ?: "Unknown error")
@@ -65,16 +73,19 @@ fun prismInit(canvasId: String) {
 
   GlobalScope.launch(handler) {
     val canvas = getCanvasById(canvasId) ?: error("Canvas element '$canvasId' not found")
-    val width = 800
-    val height = 600
+    val width = if (canvas.width > 0) canvas.width else 800
+    val height = if (canvas.height > 0) canvas.height else 600
 
     val surface = createPrismSurface(canvas, width = width, height = height)
     val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
 
-    val demoStore = DemoStore()
-    store = demoStore
-
-    val demoScene = createDemoScene(wgpuContext, width = width, height = height)
+    val demoScene =
+      createDemoScene(
+        wgpuContext,
+        width = width,
+        height = height,
+        initialColor = demoStore.state.value.cubeColor,
+      )
     scene = demoScene
 
     startTime = performanceNow()
@@ -105,6 +116,12 @@ fun prismInit(canvasId: String) {
         if (!state.isPaused) {
           val speedRadians = MathUtils.toRadians(state.rotationSpeed)
           accumulatedAngle += speedRadians * deltaTime
+        }
+
+        // Update material color when it changes
+        val cubeMaterial = demoScene.world.getComponent<MaterialComponent>(demoScene.cubeEntity)
+        if (cubeMaterial != null && cubeMaterial.material?.baseColor != state.cubeColor) {
+          cubeMaterial.material = Material(baseColor = state.cubeColor)
         }
 
         demoScene.tickWithAngle(
@@ -150,7 +167,9 @@ fun prismSetCubeColor(r: Float, g: Float, b: Float) {
 @JsExport
 fun prismGetState(): String {
   val state = store?.state?.value ?: return "{}"
-  return """{"rotationSpeed":${state.rotationSpeed},"isPaused":${state.isPaused},"fps":${state.fps}}"""
+  val fps = state.fps.let { if (it.isFinite()) it else 0f }
+  val speed = state.rotationSpeed.let { if (it.isFinite()) it else 0f }
+  return """{"rotationSpeed":$speed,"isPaused":${state.isPaused},"fps":$fps}"""
 }
 
 /** Check if engine is initialized. */

@@ -7,9 +7,11 @@ import PrismDemo
 class PrismPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
 
     private let store: DemoStore
+    private weak var plugin: PrismFlutterPlugin?
 
-    init(store: DemoStore) {
+    init(store: DemoStore, plugin: PrismFlutterPlugin) {
         self.store = store
+        self.plugin = plugin
         super.init()
     }
 
@@ -18,7 +20,9 @@ class PrismPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
         viewIdentifier viewId: Int64,
         arguments args: Any?
     ) -> FlutterPlatformView {
-        return PrismPlatformView(frame: frame, store: store)
+        let view = PrismPlatformView(frame: frame, store: store)
+        plugin?.trackPlatformView(view)
+        return view
     }
 
     func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
@@ -30,23 +34,36 @@ class PrismPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
 /// Mirrors the pattern from ViewController.swift: MTKView + configureDemo + IosDemoHandle.
 class PrismPlatformView: NSObject, FlutterPlatformView {
 
-    private let mtkView: MTKView
+    private let containerView: UIView
+    private var mtkView: MTKView?
     private var demoHandle: IosDemoHandle?
     private var isInitialized = false
     private let store: DemoStore
 
     init(frame: CGRect, store: DemoStore) {
         self.store = store
+        self.containerView = UIView(frame: frame)
 
         guard let device = MTLCreateSystemDefaultDevice() else {
-            fatalError("Metal is not supported on this device")
+            // Metal not available — show error label instead of crashing
+            let label = UILabel(frame: frame)
+            label.text = "Metal is not supported on this device"
+            label.textAlignment = .center
+            label.textColor = .white
+            label.backgroundColor = .darkGray
+            containerView.addSubview(label)
+            super.init()
+            return
         }
 
-        mtkView = MTKView(frame: frame, device: device)
-        mtkView.colorPixelFormat = .bgra8Unorm
-        mtkView.depthStencilPixelFormat = .depth32Float
-        mtkView.preferredFramesPerSecond = 60
-        mtkView.isPaused = true
+        let view = MTKView(frame: frame, device: device)
+        view.colorPixelFormat = .bgra8Unorm
+        view.depthStencilPixelFormat = .depth32Float
+        view.preferredFramesPerSecond = 60
+        view.isPaused = true
+        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        containerView.addSubview(view)
+        self.mtkView = view
 
         super.init()
 
@@ -57,24 +74,32 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     }
 
     func view() -> UIView {
-        return mtkView
+        return containerView
+    }
+
+    func shutdown() {
+        mtkView?.isPaused = true
+        mtkView?.delegate = nil
+        demoHandle?.shutdown()
+        demoHandle = nil
     }
 
     private func initializeIfNeeded() {
-        guard !isInitialized else { return }
+        guard !isInitialized, let mtkView = mtkView else { return }
         isInitialized = true
 
-        IosDemoControllerKt.configureDemo(view: mtkView) { [weak self] handle, error in
+        IosDemoControllerKt.configureDemo(view: mtkView, store: store) { [weak self] handle, error in
+            if let error = error {
+                NSLog("Prism Flutter: configureDemo failed: \(error.localizedDescription)")
+                return
+            }
             guard let self = self, let handle = handle else { return }
             self.demoHandle = handle
-            self.mtkView.isPaused = false
+            self.mtkView?.isPaused = false
         }
     }
 
     deinit {
-        mtkView.isPaused = true
-        mtkView.delegate = nil
-        demoHandle?.shutdown()
-        demoHandle = nil
+        shutdown()
     }
 }

@@ -49,7 +49,13 @@ class IosDemoHandle(
  * [DemoRenderDelegate] will update the aspect ratio when [mtkView(drawableSizeWillChange:)] fires
  * with the real dimensions after layout.
  */
-suspend fun configureDemo(view: MTKView): IosDemoHandle {
+suspend fun configureDemo(view: MTKView): IosDemoHandle = configureDemo(view, sharedDemoStore)
+
+/**
+ * Configures the demo with an explicit [DemoStore]. Use this overload when the caller owns the
+ * store instance (e.g. Flutter plugin) rather than sharing [sharedDemoStore].
+ */
+suspend fun configureDemo(view: MTKView, store: DemoStore): IosDemoHandle {
   var width = view.drawableSize.useContents { width.toInt() }
   var height = view.drawableSize.useContents { height.toInt() }
   if (width <= 0 || height <= 0) {
@@ -63,7 +69,7 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
   val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
   val scene = createDemoScene(wgpuContext, width = width, height = height)
 
-  val delegate = DemoRenderDelegate(scene)
+  val delegate = DemoRenderDelegate(scene, store)
   view.delegate = delegate
   log.i { "iOS demo configured — render delegate installed" }
   return IosDemoHandle(surface, scene, delegate)
@@ -74,7 +80,10 @@ suspend fun configureDemo(view: MTKView): IosDemoHandle {
  * the cube rotation and ticks the ECS world.
  */
 @OptIn(BetaInteropApi::class)
-class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDelegateProtocol {
+class DemoRenderDelegate(
+  private val scene: DemoScene,
+  private val store: DemoStore = sharedDemoStore,
+) : NSObject(), MTKViewDelegateProtocol {
 
   private var lastFrameTime = CACurrentMediaTime()
   private var frameCount = 0L
@@ -84,7 +93,7 @@ class DemoRenderDelegate(private val scene: DemoScene) : NSObject(), MTKViewDele
     val deltaTime = (now - lastFrameTime).toFloat()
     lastFrameTime = now
     frameCount++
-    tickDemoFrame(scene, sharedDemoStore, deltaTime, frameCount)
+    tickDemoFrame(scene, store, deltaTime, frameCount)
   }
 
   override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {
