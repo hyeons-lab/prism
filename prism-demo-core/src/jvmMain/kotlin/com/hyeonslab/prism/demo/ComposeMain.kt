@@ -7,7 +7,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,6 +66,9 @@ private fun createAndShowUi() {
         log.i { "Window closing \u2014 disposing scene" }
         activeScene?.dispose()
         activeScene = null
+        // frame.dispose() synchronously removes the ComposePanel, which triggers
+        // Compose's DisposableEffect.onDispose chain (engine shutdown, gameLoop.stop).
+        // The scene is already disposed above, so the engine cleanup is safe.
         frame.dispose()
       }
     }
@@ -83,9 +85,9 @@ private fun createAndShowUi() {
     val demoStore = remember { DemoStore() }
     val uiState by demoStore.state.collectAsStateWithLifecycle()
     var scene by remember { mutableStateOf<DemoScene?>(null) }
-    // rotationAngle is mutated inside gameLoop.onRender which runs on the EDT
-    // (PrismView drives the render loop via Compose's withFrameNanos).
-    var rotationAngle by remember { mutableFloatStateOf(0f) }
+    // Plain array ref — not Compose state. Only accessed inside onRender (EDT)
+    // so no synchronization needed, and avoids unnecessary snapshot writes at 60fps.
+    val rotationAngle = remember { floatArrayOf(0f) }
 
     // Dispose scene resources when the composable leaves composition.
     // EngineStore handles engine shutdown separately via its own DisposableEffect.
@@ -108,6 +110,9 @@ private fun createAndShowUi() {
 
             // Clean up any existing scene (e.g., panel resized triggering re-creation).
             scene?.dispose()
+            // Always clear onRender before re-wiring to prevent lambda chain accumulation
+            // if dispose() didn't run (e.g., scene was null but onRender was set).
+            engineStore.engine.gameLoop.onRender = null
 
             @Suppress("TooGenericExceptionCaught")
             try {
@@ -130,10 +135,11 @@ private fun createAndShowUi() {
 
                 // Update rotation
                 if (!currentState.isPaused) {
-                  rotationAngle += time.deltaTime * MathUtils.toRadians(currentState.rotationSpeed)
+                  rotationAngle[0] +=
+                    time.deltaTime * MathUtils.toRadians(currentState.rotationSpeed)
                 }
                 val cubeTransform = sc.world.getComponent<TransformComponent>(sc.cubeEntity)
-                cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
+                cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle[0])
 
                 // Update material color when it changes
                 val cubeMaterial = sc.world.getComponent<MaterialComponent>(sc.cubeEntity)
@@ -146,10 +152,10 @@ private fun createAndShowUi() {
                 // Run ECS update (triggers RenderSystem)
                 baseOnRender?.invoke(time)
 
-                // Update DemoStore FPS for the controls UI.
-                if (time.deltaTime > 0f) {
-                  val smoothedFps = currentState.fps * 0.9f + (1f / time.deltaTime) * 0.1f
-                  demoStore.dispatch(DemoIntent.UpdateFps(smoothedFps))
+                // Forward EngineStore's smoothed FPS to DemoStore for the controls UI.
+                val engineFps = engineStore.state.value.fps
+                if (engineFps > 0f) {
+                  demoStore.dispatch(DemoIntent.UpdateFps(engineFps))
                 }
               }
             } catch (e: Exception) {

@@ -94,7 +94,11 @@ actual fun PrismView(
     onDispose {
       log.i { "PrismView disposing" }
       store.engine.gameLoop.stop()
-      isReady = false
+      store.engine.gameLoop.onRender = null
+      // isReady is not reset here — setting Compose state during disposal cannot trigger
+      // a recomposition since the composable is already being removed from the tree.
+      // The render loop is cancelled by Compose when its parent LaunchedEffect leaves
+      // composition.
     }
   }
 }

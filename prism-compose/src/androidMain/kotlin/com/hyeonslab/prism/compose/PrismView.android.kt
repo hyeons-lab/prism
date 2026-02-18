@@ -48,9 +48,12 @@ actual fun PrismView(
   // on the same holder dispatches SurfaceResized without recreating the wgpu surface.
   var currentHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
   var prismSurface by remember { mutableStateOf<PrismSurface?>(null) }
-  // Synchronous flag to stop rendering immediately when the surface is destroyed.
-  // Compose state updates are async (take effect on next recomposition), so we need this
-  // to prevent rendering into a destroyed surface in the current frame.
+  // Best-effort flag to skip rendering after surfaceDestroyed. Both the surface callback
+  // and withFrameNanos run on the main thread, so writes are visible to the next
+  // continuation — but a withFrameNanos callback already mid-execution won't see it
+  // until the next iteration. One extra frame may render into the destroyed surface;
+  // this is acceptable because the OS surface isn't actually released until the callback
+  // returns.
   var renderingActive by remember { mutableStateOf(false) }
 
   AndroidView(
@@ -128,8 +131,10 @@ actual fun PrismView(
         val height = rect.height()
         log.i { "Creating PrismSurface: ${width}x${height}" }
 
+        var surface: PrismSurface? = null
+        @Suppress("TooGenericExceptionCaught")
         try {
-          val surface = createPrismSurface(holder, width, height)
+          surface = createPrismSurface(holder, width, height)
           // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
           // If so, the surface is no longer wanted — detach and bail out.
           if (currentHolder == null) {
@@ -137,16 +142,22 @@ actual fun PrismView(
             surface.detach()
             return@collectLatest
           }
+          // Assign prismSurface BEFORE invoking the callback so that if the callback
+          // throws, the surface is still reachable for cleanup (see catch block).
+          prismSurface = surface
+          store.dispatch(EngineStateEvent.SurfaceResized(width, height))
           val ctx = surface.wgpuContext
           if (ctx != null) {
             currentOnSurfaceReady?.invoke(ctx, width, height)
           }
-          prismSurface = surface
-          store.dispatch(EngineStateEvent.SurfaceResized(width, height))
           renderingActive = true
           log.i { "PrismSurface ready" }
         } catch (e: Exception) {
           log.e(e) { "Failed to create PrismSurface: ${width}x${height}" }
+          // Clean up GPU resources if callback threw after surface was created.
+          prismSurface?.detach()
+          prismSurface = null
+          surface?.detach()
         }
       }
   }
@@ -183,6 +194,7 @@ actual fun PrismView(
       log.i { "PrismView disposing" }
       renderingActive = false
       store.engine.gameLoop.stop()
+      store.engine.gameLoop.onRender = null
       prismSurface?.detach()
       prismSurface = null
       currentHolder = null

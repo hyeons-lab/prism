@@ -38,6 +38,8 @@ class DemoScene(
   val cameraEntity: Entity,
   private val ownsEngine: Boolean = true,
 ) {
+  private var disposed = false
+
   /**
    * Advances the scene by one frame: rotates the cube and runs the ECS update. Used by
    * non-interactive demos (GLFW, WASM) where rotation is not user-controllable.
@@ -82,6 +84,8 @@ class DemoScene(
    * Safe to call on scenes that use a shared engine (e.g. from EngineStore).
    */
   fun dispose() {
+    if (disposed) return
+    disposed = true
     world.shutdown()
     engine.removeSubsystem(renderer)
     engine.gameLoop.onRender = null

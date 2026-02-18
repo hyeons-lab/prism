@@ -22,9 +22,11 @@ class Engine(val config: EngineConfig = EngineConfig()) {
     }
 
     // Wire up the game loop callbacks
+    // Iterate over a snapshot to allow safe add/remove during callbacks
+    // (e.g. DemoScene.dispose() calling removeSubsystem during fold/unfold).
     gameLoop.onFixedUpdate = { frameTime ->
       time = frameTime
-      for (subsystem in subsystems) {
+      for (subsystem in subsystems.toList()) {
         subsystem.update(frameTime)
       }
     }
