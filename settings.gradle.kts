@@ -32,7 +32,7 @@ include(":prism-assets")
 include(":prism-audio")
 include(":prism-native-widgets")
 include(":prism-compose")
-// include(":prism-flutter") // Stub — excluded until Flutter integration begins
+include(":prism-flutter")
 include(":prism-ios")
 include(":prism-demo-core")
 include(":prism-android-demo")
