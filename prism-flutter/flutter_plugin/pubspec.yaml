@@ -23,6 +23,3 @@ flutter:
         pluginClass: PrismFlutterPlugin
       ios:
         pluginClass: PrismFlutterPlugin
-      web:
-        pluginClass: none
-        fileName: lib/prism_flutter.dart
