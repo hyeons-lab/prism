@@ -96,7 +96,7 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
       return
     }
 
-    if (frameCount % 60 == 0L) log.d { "Frame $frameCount, fps=${1f / deltaTime}" }
+    if (deltaTime > 0f && frameCount % 60 == 0L) log.d { "Frame $frameCount, fps=${1f / deltaTime}" }
 
     Choreographer.getInstance().postFrameCallback(this)
   }

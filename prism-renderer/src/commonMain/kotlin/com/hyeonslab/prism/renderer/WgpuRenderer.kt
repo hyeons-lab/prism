@@ -99,7 +99,9 @@ class WgpuRenderer(
 
   override fun initialize(engine: Engine) {
     if (!surfacePreConfigured) {
-      // Configure the surface for presentation
+      // Configure the surface for presentation.
+      // RenderAttachment only — CopySrc omitted (not needed for presentation;
+      // can be re-added later for screenshots/readback if needed).
       val format = renderingContext.textureFormat
       val alphaMode = CompositeAlphaMode.Auto
       wgpuContext.surface.configure(
