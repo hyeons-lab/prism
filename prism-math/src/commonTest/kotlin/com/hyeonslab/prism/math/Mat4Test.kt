@@ -263,4 +263,64 @@ class Mat4Test {
     nearCenter.y.shouldBeApprox(0f)
     nearCenter.z.shouldBeApprox(0f) // WebGPU depth range [0, 1]
   }
+
+  // --- toMat3 ---
+
+  @Test
+  fun toMat3OfIdentity() {
+    val m3 = Mat4.identity().toMat3()
+    for (r in 0..2) {
+      for (c in 0..2) {
+        m3[r, c].shouldBeApprox(if (r == c) 1f else 0f)
+      }
+    }
+  }
+
+  @Test
+  fun toMat3ExtractsUpperLeft() {
+    val m = Mat4.rotationY(1.0f) * Mat4.scale(Vec3(2f, 3f, 4f))
+    val m3 = m.toMat3()
+    for (r in 0..2) {
+      for (c in 0..2) {
+        m3[r, c].shouldBeApprox(m[r, c])
+      }
+    }
+  }
+
+  // --- normalMatrix ---
+
+  @Test
+  fun normalMatrixOfIdentity() {
+    val nm = Mat4.identity().normalMatrix()
+    for (r in 0..2) {
+      for (c in 0..2) {
+        nm[r, c].shouldBeApprox(if (r == c) 1f else 0f)
+      }
+    }
+  }
+
+  @Test
+  fun normalMatrixOfRotation() {
+    // For pure rotation, normalMatrix == rotation's upper-left 3x3
+    val rot = Mat4.rotationZ(0.7f)
+    val nm = rot.normalMatrix()
+    val m3 = rot.toMat3()
+    for (r in 0..2) {
+      for (c in 0..2) {
+        nm[r, c].shouldBeApprox(m3[r, c])
+      }
+    }
+  }
+
+  @Test
+  fun normalMatrixNonUniformScale() {
+    // Non-uniform scale: normalMatrix should differ from toMat3()
+    val m = Mat4.scale(Vec3(1f, 2f, 3f))
+    val nm = m.normalMatrix()
+    // normalMatrix = transpose(inverse(upperLeft3x3))
+    // For diagonal scale [1,2,3], inverse = [1, 0.5, 1/3], transpose = same (diagonal)
+    nm[0, 0].shouldBeApprox(1f)
+    nm[1, 1].shouldBeApprox(0.5f)
+    nm[2, 2].shouldBeApprox(1f / 3f)
+  }
 }

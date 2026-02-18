@@ -46,6 +46,15 @@ class Mat4(val data: FloatArray) {
     )
   }
 
+  /** Extract the upper-left 3x3 sub-matrix. */
+  fun toMat3(): Mat3 =
+    Mat3(
+      floatArrayOf(data[0], data[1], data[2], data[4], data[5], data[6], data[8], data[9], data[10])
+    )
+
+  /** Compute the normal matrix: transpose(inverse(upperLeft3x3)). */
+  fun normalMatrix(): Mat3 = toMat3().inverse().transpose()
+
   fun transpose(): Mat4 {
     val result = FloatArray(16)
     for (col in 0..3) {

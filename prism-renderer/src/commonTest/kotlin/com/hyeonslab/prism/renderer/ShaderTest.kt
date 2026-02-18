@@ -8,60 +8,97 @@ import kotlin.test.Test
 
 class ShaderTest {
 
-  // --- Shaders constants ---
+  // --- PBR Shader constants ---
 
   @Test
-  fun uniformsSize() {
+  fun sceneUniformsSize() {
+    Shaders.SCENE_UNIFORMS_SIZE shouldBe 96L
+  }
+
+  @Test
+  fun objectUniformsSize() {
+    Shaders.OBJECT_UNIFORMS_SIZE shouldBe 112L
+  }
+
+  @Test
+  fun pbrMaterialUniformsSize() {
+    Shaders.PBR_MATERIAL_UNIFORMS_SIZE shouldBe 48L
+  }
+
+  @Test
+  fun lightBufferSize() {
+    Shaders.LIGHT_BUFFER_SIZE shouldBe Shaders.MAX_LIGHTS * Shaders.LIGHT_STRIDE
+  }
+
+  @Test
+  fun envUniformsSize() {
+    Shaders.ENV_UNIFORMS_SIZE shouldBe 16L
+  }
+
+  // --- Legacy constants ---
+
+  @Test
+  fun legacyUniformsSize() {
     Shaders.UNIFORMS_SIZE shouldBe 128L
   }
 
   @Test
-  fun materialUniformsSize() {
+  fun legacyMaterialUniformsSize() {
     Shaders.MATERIAL_UNIFORMS_SIZE shouldBe 16L
   }
 
-  // --- Vertex shader ---
+  // --- PBR Vertex shader ---
 
   @Test
-  fun vertexShaderStage() {
-    Shaders.VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
+  fun pbrVertexShaderStage() {
+    Shaders.PBR_VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
   }
 
   @Test
-  fun vertexShaderEntryPoint() {
-    Shaders.VERTEX_SHADER.entryPoint shouldBe "vs_main"
+  fun pbrVertexShaderEntryPoint() {
+    Shaders.PBR_VERTEX_SHADER.entryPoint shouldBe "vs_main"
   }
 
   @Test
-  fun vertexShaderCodeNotEmpty() {
-    Shaders.VERTEX_SHADER.code.shouldNotBeEmpty()
+  fun pbrVertexShaderCodeNotEmpty() {
+    Shaders.PBR_VERTEX_SHADER.code.shouldNotBeEmpty()
   }
 
   @Test
-  fun vertexShaderContainsEntryFunction() {
-    Shaders.VERTEX_SHADER.code shouldContain "fn vs_main"
-  }
-
-  // --- Fragment shader ---
-
-  @Test
-  fun fragmentUnlitStage() {
-    Shaders.FRAGMENT_UNLIT.stage shouldBe ShaderStage.FRAGMENT
+  fun pbrVertexShaderContainsEntryFunction() {
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "fn vs_main"
   }
 
   @Test
-  fun fragmentUnlitEntryPoint() {
-    Shaders.FRAGMENT_UNLIT.entryPoint shouldBe "fs_main"
+  fun pbrVertexShaderContainsBindings() {
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(0)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(1)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(2)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(3)"
+  }
+
+  // --- PBR Fragment shader ---
+
+  @Test
+  fun pbrFragmentShaderStage() {
+    Shaders.PBR_FRAGMENT_SHADER.stage shouldBe ShaderStage.FRAGMENT
   }
 
   @Test
-  fun fragmentUnlitCodeNotEmpty() {
-    Shaders.FRAGMENT_UNLIT.code.shouldNotBeEmpty()
+  fun pbrFragmentShaderEntryPoint() {
+    Shaders.PBR_FRAGMENT_SHADER.entryPoint shouldBe "fs_main"
   }
 
   @Test
-  fun fragmentUnlitContainsEntryFunction() {
-    Shaders.FRAGMENT_UNLIT.code shouldContain "fn fs_main"
+  fun pbrFragmentShaderCodeNotEmpty() {
+    Shaders.PBR_FRAGMENT_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun pbrFragmentShaderContainsBrdfFunctions() {
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn distributionGGX"
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn geometrySmith"
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn fresnelSchlick"
   }
 
   // --- ShaderSource ---
