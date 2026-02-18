@@ -18,7 +18,12 @@ kotlin {
   linuxX64()
   mingwX64()
 
-  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+  wasmJs {
+    browser()
+    binaries.executable()
+    outputModuleName.set("prism-flutter")
+  }
 
   applyDefaultHierarchyTemplate()
 
