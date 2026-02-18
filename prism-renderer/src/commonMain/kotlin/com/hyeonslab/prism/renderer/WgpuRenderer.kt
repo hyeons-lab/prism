@@ -103,7 +103,7 @@ class WgpuRenderer(
       // RenderAttachment only — CopySrc omitted (not needed for presentation;
       // can be re-added later for screenshots/readback if needed).
       val format = renderingContext.textureFormat
-      val alphaMode = CompositeAlphaMode.Auto
+      val alphaMode = CompositeAlphaMode.Opaque
       wgpuContext.surface.configure(
         SurfaceConfiguration(
           device = device,
