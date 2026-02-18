@@ -19,6 +19,8 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - 2026-02-18 `prism-demo-core/jvmMain/.../ComposeMain.kt` — removed cube rotation/color logic, call scene.tick()
 - 2026-02-18 `prism-demo-core/iosMain/.../IosConstants.kt` — removed cubeEntity material color update
 - 2026-02-18 `prism-demo-core/iosMain/.../ComposeIosEntry.kt` — removed initialColor parameter
+- 2026-02-18 `AGENTS.md` — marked M9 complete, updated phase and test counts
+- 2026-02-18 `BUILD_STATUS.md` — M9 milestone complete with full feature list
 
 ## Decisions
 - 2026-02-18 Multi-bind-group layout (4 groups: scene, object, material, environment) — separates data by update frequency, matches standard PBR engine patterns
@@ -29,12 +31,18 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - 2026-02-18 Share single Mesh.sphere() instance across all 49 spheres — GPU upload happens once (mesh.vertexBuffer set on first draw), subsequent draws reuse buffers
 
 ## Issues
+- `Origin3D` type mismatch in cubemap face upload: wgpu4k expects `Origin3D(z = face)` not `arrayOf(0u, 0u, face)` — fixed using named constructor
+- `Math.pow` not KMP-compatible: replaced with `kotlin.math.pow` extension throughout IblGenerator
+- `shouldBeNull()` unavailable without explicit kotest import: used `shouldBe null` pattern instead
+- wgpu4k `TextureDescriptor.mipLevelCount`, `TexelCopyTextureInfo.mipLevel`, `TextureViewDescriptor.mipLevelCount` confirmed present via source jar inspection (all `UInt`-typed with sensible defaults)
 
 ## Commits
 - 16213a2 docs: add devlog and plan for PBR materials (M9)
 - 5fc2bfe feat: implement PBR rendering pipeline (Steps 1-4)
 - 99b6905 feat: add HDR render target + Khronos PBR Neutral tone mapping (Step 5)
 - c88e1e4 feat: add CPU-side IBL generation (Step 6)
+- 9699a87 feat: add PBR sphere grid demo + PBR UI controls (Step 7)
+- 7f0db1b docs: mark M9 PBR materials complete, update BUILD_STATUS + AGENTS
 
 ## Progress
 - [x] Step 1: Data model expansion + math helpers
@@ -44,4 +52,4 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - [x] Step 5: HDR render target + tone mapping pass
 - [x] Step 6: IBL — procedural irradiance, prefiltered env, BRDF LUT
 - [x] Step 7: PBR sphere grid demo + UI controls
-- [ ] Step 8: Platform validation + docs
+- [x] Step 8: Platform validation + docs
