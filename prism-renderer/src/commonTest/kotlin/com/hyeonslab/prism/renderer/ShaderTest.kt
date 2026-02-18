@@ -101,6 +101,55 @@ class ShaderTest {
     Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn fresnelSchlick"
   }
 
+  // --- Tone map vertex shader ---
+
+  @Test
+  fun toneMapVertexShaderStage() {
+    Shaders.TONE_MAP_VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
+  }
+
+  @Test
+  fun toneMapVertexShaderEntryPoint() {
+    Shaders.TONE_MAP_VERTEX_SHADER.entryPoint shouldBe "tm_vs"
+  }
+
+  @Test
+  fun toneMapVertexShaderCodeNotEmpty() {
+    Shaders.TONE_MAP_VERTEX_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun toneMapVertexShaderContainsEntryFunction() {
+    Shaders.TONE_MAP_VERTEX_SHADER.code shouldContain "fn tm_vs"
+  }
+
+  // --- Tone map fragment shader ---
+
+  @Test
+  fun toneMapFragmentShaderStage() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.stage shouldBe ShaderStage.FRAGMENT
+  }
+
+  @Test
+  fun toneMapFragmentShaderEntryPoint() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.entryPoint shouldBe "tm_fs"
+  }
+
+  @Test
+  fun toneMapFragmentShaderCodeNotEmpty() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun toneMapFragmentShaderContainsToneMapFunction() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code shouldContain "fn toneMapKhronosPbrNeutral"
+  }
+
+  @Test
+  fun toneMapFragmentShaderContainsGroup0Binding() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code shouldContain "@group(0)"
+  }
+
   // --- ShaderSource ---
 
   @Test

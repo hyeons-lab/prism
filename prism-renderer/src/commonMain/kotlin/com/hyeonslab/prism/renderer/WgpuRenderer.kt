@@ -146,6 +146,24 @@ class WgpuRenderer(
   // --- PBR Pipeline ---
   private var pbrPipeline: GPURenderPipeline? = null
 
+  // --- HDR render target ---
+  /** When true, PBR renders to RGBA16Float then tone-maps to the swapchain each frame. */
+  var hdrEnabled: Boolean = false
+
+  private var hdrTexture: WGPUTexture? = null
+  private var hdrTextureView: WGPUTextureView? = null
+  private var pbrPipelineHdr: GPURenderPipeline? = null
+
+  // --- Tone mapping pipeline ---
+  private var toneMapBindGroupLayout: GPUBindGroupLayout? = null
+  private var toneMapPipelineLayout: GPUPipelineLayout? = null
+  private var toneMapPipeline: GPURenderPipeline? = null
+  private var toneMapBindGroup: GPUBindGroup? = null
+
+  // --- Per-frame state ---
+  /** Surface view saved during beginRenderPass for use in HDR tone map pass in endFrame. */
+  private var currentSurfaceView: WGPUTextureView? = null
+
   // Scene uniform tracking
   private var currentNumLights: Int = 0
 
@@ -169,7 +187,11 @@ class WgpuRenderer(
     createBindGroupLayouts()
     createPbrBuffers()
     createDefaultBindGroups()
-    createPbrPipeline()
+    createHdrTexture()
+    createToneMapPipeline()
+    updateToneMapBindGroup()
+    pbrPipeline = buildPbrPipeline(renderingContext.textureFormat)
+    pbrPipelineHdr = buildPbrPipeline(GPUTextureFormat.RGBA16Float)
   }
 
   override fun update(time: Time) {
@@ -178,6 +200,11 @@ class WgpuRenderer(
 
   override fun shutdown() {
     pbrPipeline = null
+    pbrPipelineHdr = null
+    toneMapPipeline = null
+    toneMapBindGroup?.close()
+    hdrTextureView?.close()
+    hdrTexture?.close()
     sceneBindGroup?.close()
     objectBindGroup?.close()
     defaultMaterialBindGroup?.close()
@@ -215,12 +242,45 @@ class WgpuRenderer(
   override fun endFrame() {
     val encoder = commandEncoder ?: error("No active command encoder")
     val ctx = frameContext ?: error("No active frame context")
+
+    if (hdrEnabled) {
+      runToneMapPass(encoder)
+    }
+
     val commandBuffer = encoder.finish()
     device.queue.submit(listOf(commandBuffer))
     wgpuContext.surface.present()
     ctx.close()
     frameContext = null
     commandEncoder = null
+    currentSurfaceView = null
+  }
+
+  private fun runToneMapPass(encoder: WGPUCommandEncoder) {
+    val surfaceView = currentSurfaceView ?: return
+    val tmPipeline = toneMapPipeline ?: return
+    val tmBindGroup = toneMapBindGroup ?: return
+
+    val colorAttachment =
+      RenderPassColorAttachment(
+        view = surfaceView,
+        loadOp = GPULoadOp.Clear,
+        storeOp = GPUStoreOp.Store,
+        clearValue = WGPUColor(0.0, 0.0, 0.0, 1.0),
+      )
+
+    val toneMapPass =
+      encoder.beginRenderPass(
+        WGPURenderPassDescriptor(
+          colorAttachments = listOf(colorAttachment),
+          label = "Tone Map Pass",
+        )
+      )
+
+    toneMapPass.setPipeline(tmPipeline)
+    toneMapPass.setBindGroup(0u, tmBindGroup)
+    toneMapPass.draw(3u) // fullscreen triangle
+    toneMapPass.end()
   }
 
   override fun beginRenderPass(descriptor: RenderPassDescriptor) {
@@ -228,20 +288,28 @@ class WgpuRenderer(
     val ctx = frameContext ?: error("No active frame context")
     val surfaceTexture = renderingContext.getCurrentTexture()
     val surfaceView = with(ctx) { surfaceTexture.createView().bind() }
+    currentSurfaceView = surfaceView // save for HDR tone map pass in endFrame
 
     val cc = descriptor.clearColor
+    // HDR and sRGB targets both expect linear color values
+    val needsLinear = hdrEnabled || surfaceIsSrgb
+    val clearColor =
+      if (needsLinear) {
+        val lc = cc.toLinear()
+        WGPUColor(lc.r.toDouble(), lc.g.toDouble(), lc.b.toDouble(), cc.a.toDouble())
+      } else {
+        WGPUColor(cc.r.toDouble(), cc.g.toDouble(), cc.b.toDouble(), cc.a.toDouble())
+      }
+
+    // Route to HDR texture when enabled, otherwise directly to swapchain
+    val renderTarget = if (hdrEnabled && hdrTextureView != null) hdrTextureView!! else surfaceView
+
     val colorAttachment =
       RenderPassColorAttachment(
-        view = surfaceView,
+        view = renderTarget,
         loadOp = GPULoadOp.Clear,
         storeOp = GPUStoreOp.Store,
-        clearValue =
-          if (surfaceIsSrgb) {
-            val lc = cc.toLinear()
-            WGPUColor(lc.r.toDouble(), lc.g.toDouble(), lc.b.toDouble(), cc.a.toDouble())
-          } else {
-            WGPUColor(cc.r.toDouble(), cc.g.toDouble(), cc.b.toDouble(), cc.a.toDouble())
-          },
+        clearValue = clearColor,
       )
 
     val wgpuDescriptor =
@@ -261,8 +329,8 @@ class WgpuRenderer(
 
     currentRenderPass = encoder.beginRenderPass(wgpuDescriptor)
 
-    // Auto-bind PBR pipeline and scene/env bind groups
-    val pipeline = pbrPipeline
+    // Auto-bind appropriate PBR pipeline and scene/env bind groups
+    val pipeline = if (hdrEnabled) pbrPipelineHdr else pbrPipeline
     val sceneBg = sceneBindGroup
     val envBg = envBindGroup
     if (pipeline != null && sceneBg != null && envBg != null) {
@@ -383,6 +451,8 @@ class WgpuRenderer(
     this.height = height
     onResize?.invoke(width, height)
     createDepthTexture()
+    createHdrTexture()
+    updateToneMapBindGroup()
     currentCamera?.aspectRatio = width.toFloat() / height.toFloat()
   }
 
@@ -898,7 +968,13 @@ class WgpuRenderer(
       )
   }
 
-  private fun createPbrPipeline() {
+  /**
+   * Builds a PBR render pipeline targeting [targetFormat].
+   *
+   * Called twice during init: once for the swapchain format (LDR direct path) and once for
+   * RGBA16Float (HDR path, tone-mapped before presentation).
+   */
+  private fun buildPbrPipeline(targetFormat: GPUTextureFormat): GPURenderPipeline {
     val wgslCode = "${Shaders.PBR_VERTEX_SHADER.code}\n\n${Shaders.PBR_FRAGMENT_SHADER.code}"
     val shaderModule =
       device.createShaderModule(ShaderModuleDescriptor(code = wgslCode, label = "PBR Shader"))
@@ -913,37 +989,127 @@ class WgpuRenderer(
         )
       }
 
-    pbrPipeline =
+    return device.createRenderPipeline(
+      RenderPipelineDescriptor(
+        vertex =
+          VertexState(
+            entryPoint = Shaders.PBR_VERTEX_SHADER.entryPoint,
+            module = shaderModule,
+            buffers =
+              listOf(
+                VertexBufferLayout(
+                  arrayStride = layout.stride.toULong(),
+                  attributes = wgpuVertexAttributes,
+                )
+              ),
+          ),
+        fragment =
+          FragmentState(
+            entryPoint = Shaders.PBR_FRAGMENT_SHADER.entryPoint,
+            module = shaderModule,
+            targets = listOf(ColorTargetState(format = targetFormat)),
+          ),
+        primitive = PrimitiveState(cullMode = GPUCullMode.Back),
+        depthStencil =
+          DepthStencilState(
+            format = depthFormat,
+            depthWriteEnabled = true,
+            depthCompare = GPUCompareFunction.Less,
+          ),
+        multisample = MultisampleState(count = 1u, mask = 0xFFFFFFFu),
+        layout = pbrPipelineLayout,
+        label = "PBR Pipeline (${targetFormat.name})",
+      )
+    )
+  }
+
+  private fun createHdrTexture() {
+    hdrTextureView?.close()
+    hdrTexture?.close()
+    hdrTexture =
+      device.createTexture(
+        WGPUTextureDescriptor(
+          size = Extent3D(width.toUInt(), height.toUInt()),
+          format = GPUTextureFormat.RGBA16Float,
+          usage = GPUTextureUsage.RenderAttachment or GPUTextureUsage.TextureBinding,
+          label = "HDR Color Texture",
+        )
+      )
+    hdrTextureView = hdrTexture!!.createView()
+  }
+
+  private fun createToneMapPipeline() {
+    val fragOnly = GPUShaderStage.Fragment
+    toneMapBindGroupLayout =
+      device.createBindGroupLayout(
+        BindGroupLayoutDescriptor(
+          entries =
+            listOf(
+              BindGroupLayoutEntry(
+                binding = 0u,
+                visibility = fragOnly,
+                texture = TextureBindingLayout(),
+              ),
+              BindGroupLayoutEntry(
+                binding = 1u,
+                visibility = fragOnly,
+                sampler = SamplerBindingLayout(),
+              ),
+            ),
+          label = "Tone Map Bind Group Layout",
+        )
+      )
+
+    toneMapPipelineLayout =
+      device.createPipelineLayout(
+        PipelineLayoutDescriptor(
+          bindGroupLayouts = listOf(toneMapBindGroupLayout!!),
+          label = "Tone Map Pipeline Layout",
+        )
+      )
+
+    val code = "${Shaders.TONE_MAP_VERTEX_SHADER.code}\n\n${Shaders.TONE_MAP_FRAGMENT_SHADER.code}"
+    val shader =
+      device.createShaderModule(ShaderModuleDescriptor(code = code, label = "Tone Map Shader"))
+
+    toneMapPipeline =
       device.createRenderPipeline(
         RenderPipelineDescriptor(
           vertex =
             VertexState(
-              entryPoint = Shaders.PBR_VERTEX_SHADER.entryPoint,
-              module = shaderModule,
-              buffers =
-                listOf(
-                  VertexBufferLayout(
-                    arrayStride = layout.stride.toULong(),
-                    attributes = wgpuVertexAttributes,
-                  )
-                ),
+              entryPoint = Shaders.TONE_MAP_VERTEX_SHADER.entryPoint,
+              module = shader,
+              buffers = emptyList(),
             ),
           fragment =
             FragmentState(
-              entryPoint = Shaders.PBR_FRAGMENT_SHADER.entryPoint,
-              module = shaderModule,
+              entryPoint = Shaders.TONE_MAP_FRAGMENT_SHADER.entryPoint,
+              module = shader,
               targets = listOf(ColorTargetState(format = renderingContext.textureFormat)),
             ),
-          primitive = PrimitiveState(cullMode = GPUCullMode.Back),
-          depthStencil =
-            DepthStencilState(
-              format = depthFormat,
-              depthWriteEnabled = true,
-              depthCompare = GPUCompareFunction.Less,
-            ),
+          primitive = PrimitiveState(topology = GPUPrimitiveTopology.TriangleList),
           multisample = MultisampleState(count = 1u, mask = 0xFFFFFFFu),
-          layout = pbrPipelineLayout,
-          label = "PBR Pipeline",
+          layout = toneMapPipelineLayout,
+          label = "Tone Map Pipeline",
+        )
+      )
+  }
+
+  private fun updateToneMapBindGroup() {
+    toneMapBindGroup?.close()
+    val layout = toneMapBindGroupLayout ?: return
+    val hdrView = hdrTextureView ?: return
+    val sampler = defaultClampSampler ?: return
+    toneMapBindGroup =
+      device.createBindGroup(
+        BindGroupDescriptor(
+          layout = layout,
+          entries =
+            listOf(
+              BindGroupEntry(binding = 0u, resource = hdrView),
+              BindGroupEntry(binding = 1u, resource = sampler),
+            ),
+          label = "Tone Map Bind Group",
         )
       )
   }
@@ -1009,8 +1175,10 @@ class WgpuRenderer(
     if (material.occlusionTexture != null) flags = flags or 8
     if (material.emissiveTexture != null) flags = flags or 16
 
-    val bc = if (surfaceIsSrgb) material.baseColor.toLinear() else material.baseColor
-    val em = if (surfaceIsSrgb) material.emissive.toLinear() else material.emissive
+    // HDR and sRGB surfaces both require linear-space color values for correct PBR math
+    val needsLinear = hdrEnabled || surfaceIsSrgb
+    val bc = if (needsLinear) material.baseColor.toLinear() else material.baseColor
+    val em = if (needsLinear) material.emissive.toLinear() else material.emissive
 
     val data =
       floatArrayOf(

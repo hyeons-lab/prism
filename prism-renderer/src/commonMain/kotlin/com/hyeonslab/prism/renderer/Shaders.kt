@@ -414,4 +414,86 @@ object Shaders {
       stage = ShaderStage.FRAGMENT,
       entryPoint = "fs_main",
     )
+
+  // --- Tone Mapping Shaders ---
+
+  /**
+   * Fullscreen triangle vertex shader for the tone mapping pass.
+   *
+   * Uses the vertex_index trick (no vertex buffer needed): 3 vertices form a large triangle
+   * covering the entire viewport, mapping UV [0,1]×[0,1] to screen space.
+   */
+  val TONE_MAP_VERTEX_SHADER =
+    ShaderSource(
+      code =
+        """
+        struct TmOutput {
+            @builtin(position) pos : vec4f,
+            @location(0) uv : vec2f,
+        };
+
+        @vertex
+        fn tm_vs(@builtin(vertex_index) vi : u32) -> TmOutput {
+            var out : TmOutput;
+            // Fullscreen triangle covering NDC (-1,-1) to (1,1)
+            let x = f32((vi << 1u) & 2u) * 2.0 - 1.0;
+            let y = 1.0 - f32(vi & 2u) * 2.0;
+            out.pos = vec4f(x, y, 0.0, 1.0);
+            out.uv = vec2f((x + 1.0) * 0.5, (1.0 - y) * 0.5);
+            return out;
+        }
+        """
+          .trimIndent(),
+      stage = ShaderStage.VERTEX,
+      entryPoint = "tm_vs",
+    )
+
+  /**
+   * Tone mapping fragment shader using Khronos PBR Neutral tone mapping.
+   *
+   * Reads linear HDR color from the HDR render target and maps it to LDR [0, 1]. Outputs linear
+   * values suitable for sRGB swapchains (GPU applies gamma correction automatically).
+   *
+   * Reference: https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral
+   */
+  val TONE_MAP_FRAGMENT_SHADER =
+    ShaderSource(
+      code =
+        """
+        @group(0) @binding(0) var hdrTexture : texture_2d<f32>;
+        @group(0) @binding(1) var hdrSampler : sampler;
+
+        // Khronos PBR Neutral tone mapping operator
+        fn toneMapKhronosPbrNeutral(color : vec3f) -> vec3f {
+            let startCompression : f32 = 0.8 - 0.04;
+            let desaturation : f32 = 0.15;
+
+            let x = min(color.r, min(color.g, color.b));
+            let offset = select(0.04, x - 6.25 * x * x, x < 0.08);
+            var c = color - vec3f(offset);
+
+            let peak = max(c.r, max(c.g, c.b));
+            if (peak < startCompression) {
+                return c;
+            }
+
+            let d : f32 = 1.0 - startCompression;
+            let newPeak = 1.0 - d * d / (peak + d - startCompression);
+            c = c * (newPeak / peak);
+
+            let g = 1.0 - 1.0 / (desaturation * (peak - newPeak) + 1.0);
+            return mix(c, vec3f(newPeak), g);
+        }
+
+        @fragment
+        fn tm_fs(@location(0) uv : vec2f) -> @location(0) vec4f {
+            let hdr = textureSample(hdrTexture, hdrSampler, uv).rgb;
+            let ldr = toneMapKhronosPbrNeutral(hdr);
+            return vec4f(ldr, 1.0);
+        }
+        """
+          .trimIndent(),
+      stage = ShaderStage.FRAGMENT,
+      entryPoint = "tm_fs",
+    )
 }
