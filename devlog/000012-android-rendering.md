@@ -59,7 +59,9 @@
 
 2026-02-16T17:00-08:00 Second runtime crash on API 36: `RuntimeException: Failed to get ByteBuffer address`. Root cause: `Queue.native.android.kt` uses reflection (`getDeclaredMethod("address")`) to access hidden `ByteBuffer.address()` API, blocked on API 36. Fixed by replacing with `Pointer.nativeValue(Native.getDirectBufferPointer(this)).toULong()` (JNA public API). Committed to existing wgpu4k fork branch. Rebuilt and published.
 
-2026-02-16T17:30-08:00 settings.gradle.kts — Added `includeGroup("com.hyeons-lab")` to mavenLocal content filter so Gradle can resolve the forked wgpu4k-native artifacts.
+2026-02-17 prism-compose `compileAppleMainKotlinMetadata` failing with `-Werror` due to duplicate KLIBs — when both `android.kotlin.multiplatform.library` and `compose.multiplatform` plugins are applied, `androidx.*` and `org.jetbrains.compose.*` variants of the same libraries end up on the metadata classpath with conflicting `unique_name` values. Initial fix attempt using `tasks.withType<KotlinCompileCommon>` didn't match because the task is actually `KotlinNativeCompile_Decorated`. Used debug println to discover the task class. **Fixed:** `afterEvaluate { tasks.matching { it.name.endsWith("KotlinMetadata") }.configureEach { if (this is KotlinCompilationTask<*>) { ... } } }` to suppress `-Werror` and add `-nowarn` only on metadata compilation tasks.
+
+2026-02-17T17:30-08:00 settings.gradle.kts — Added `includeGroup("com.hyeons-lab")` to mavenLocal content filter so Gradle can resolve the forked wgpu4k-native artifacts.
 
 2026-02-16T18:00-08:00 APK installed and launched on Galaxy Fold (API 36). No crashes! Render loop running at 120fps. But display shows white screen — no cube, no blue background.
 
@@ -132,34 +134,54 @@ All three patches required for Android API 35+ (Android 15+). Published to Maven
 
 2026-02-17 Rebased onto origin/main — origin/main had new commit (0fdf3ee: AGENTS.md worktree/devlog sync). Resolved one conflict in AGENTS.md.
 
+2026-02-17 Second rebase onto origin/main — origin/main had new commit (bfa1a3a: Add claude GitHub actions). Clean rebase, no conflicts. All 15 commits replayed. Updated commit hashes in devlog.
+
 ## What Changed (continued 2)
 
-2026-02-17 prism-android-demo/ — **NEW MODULE**: Thin Android application module extracted from prism-demo. Contains PrismDemoActivity.kt and AndroidManifest.xml (moved from prism-demo/src/androidMain/). build.gradle.kts uses `android.application` + `kotlin.android` plugins, depends on :prism-demo, :prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit, coroutines-android.
+2026-02-17 prism-android-demo/ — **NEW MODULE**: Thin Android application module extracted from prism-demo-core. Contains PrismDemoActivity.kt and AndroidManifest.xml (moved from prism-demo/src/androidMain/). build.gradle.kts uses `android.application` + `kotlin.android` plugins, depends on :prism-demo-core, :prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit, coroutines-android.
 
-2026-02-17 prism-demo/build.gradle.kts — Replaced `android.application` plugin with `android.kotlin.multiplatform.library`. Replaced `androidTarget()` + top-level `android {}` block with `android {}` inside `kotlin {}` (library-style: namespace + compileSdk + minSdk only, no applicationId/versionCode/versionName). Removed prism-demo/src/androidMain/ directory (PrismDemoActivity.kt + AndroidManifest.xml moved to prism-android-demo).
+2026-02-17 prism-demo → prism-demo-core — **RENAMED MODULE**: Renamed directory, updated settings.gradle.kts, all project references in build files, CI workflow, xcodegen project.yml, README.md, AGENTS.md, prism-ios-demo/README.md.
 
-2026-02-17 settings.gradle.kts — Added `include(":prism-android-demo")`.
+2026-02-17 prism-demo-core/build.gradle.kts — Replaced `android.application` plugin with `android.kotlin.multiplatform.library`. Replaced `androidTarget()` + top-level `android {}` block with `android {}` inside `kotlin {}` (library-style: namespace + compileSdk + minSdk only, no applicationId/versionCode/versionName). Removed src/androidMain/ directory (PrismDemoActivity.kt + AndroidManifest.xml moved to prism-android-demo). Changed wasmJs outputFileName to `prism-demo-core.js`.
+
+2026-02-17 prism-demo-core/src/wasmJsMain/resources/index.html — Updated script src from `prism-demo.js` to `prism-demo-core.js`.
+
+2026-02-17 prism-compose/build.gradle.kts — Added `afterEvaluate` block to suppress `-Werror` on KotlinMetadata tasks that see duplicate KLIBs (androidx.* vs org.jetbrains.compose.*).
+
+2026-02-17 settings.gradle.kts — Replaced `include(":prism-demo")` with `include(":prism-demo-core")`, added `include(":prism-android-demo")`.
+
+2026-02-17 .github/workflows/ci.yml — Updated `:prism-demo:` task references to `:prism-demo-core:`.
+
+2026-02-17 prism-ios-demo/project.yml — Updated framework search paths from `prism-demo/build` to `prism-demo-core/build`.
+
+2026-02-17 AGENTS.md, README.md, prism-demo-core/README.md, prism-ios-demo/README.md — Updated all references, architecture diagrams, and dependency graphs to reflect prism-demo-core rename and prism-android-demo extraction.
 
 ## Decisions (continued 2)
 
-2026-02-17 Extracted Android app into separate module — combining `kotlin.multiplatform` + `android.application` in one module is deprecated in AGP 8.x and will break in AGP 9. Mirrors the iOS pattern where prism-ios-demo (Xcode app) is separate from prism-demo (KMP framework).
+2026-02-17 Extracted Android app into separate module — combining `kotlin.multiplatform` + `android.application` in one module is deprecated in AGP 8.x and will break in AGP 9. Mirrors the iOS pattern where prism-ios-demo (Xcode app) is separate from prism-demo-core (KMP framework).
+
+2026-02-17 Renamed prism-demo → prism-demo-core — clarifies that this is a shared KMP library module (not a runnable app). Matches the naming convention where `-core` indicates shared code consumed by platform-specific app modules (prism-android-demo, prism-ios-demo).
 
 2026-02-17 Removed Compose plugins from prism-android-demo — PrismDemoActivity is a plain Activity with SurfaceView, no Compose APIs. Adding Compose plugins without Compose Runtime on classpath causes compiler error. Can be added later if a Compose-based Android demo is needed.
 
-2026-02-17 Added explicit dependencies (prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit) to prism-android-demo — prism-demo declares these as `implementation` (not `api`), so they're not transitively visible. PrismDemoActivity directly uses createPrismSurface, Logger, and WGPUContext from these libraries.
+2026-02-17 Added explicit dependencies (prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit) to prism-android-demo — prism-demo-core declares these as `implementation` (not `api`), so they're not transitively visible. PrismDemoActivity directly uses createPrismSurface, Logger, and WGPUContext from these libraries.
+
+2026-02-17 Fixed prism-compose KotlinMetadata build failure — `compileAppleMainKotlinMetadata` is a `KotlinNativeCompile` task (not `KotlinCompileCommon`). Used `tasks.matching { it.name.endsWith("KotlinMetadata") }` with `KotlinCompilationTask<*>` interface to suppress `-Werror` and `-nowarn` only on metadata tasks. Pre-existing issue unrelated to our changes.
 
 ## Commits
 
-404e069 — chore: add devlog and plan for Android rendering (M8)
-d39c6ab — feat: implement Android rendering support (M8)
-1493b90 — docs: document Android API 36 runtime crash (upstream wgpu4k-native issue)
-040b33a — fix: resolve Android white screen with sRGB color correction and byte-order fix
-0c7e177 — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
-290bcff — docs: update devlog with sRGB, byte-order fixes and webgpu-ktypes fork
-b496769 — docs: update all docs for completed Android rendering (M8)
-f567837 — build: update CI to build all three wgpu fork dependencies
-c428573 — fix: exclude library entries from version extraction in CI
-faeccfb — build: update wgpu4k-native to Kotlin 2.3.0 / JDK 25, increase CI timeout
-9a3b0b5 — fix: address critical review findings
-9425478 — fix: cancel initJob in stopRendering to prevent lifecycle race
-9137acf — docs: add fork dependency rationale reference
+50f70b2 — chore: add devlog and plan for Android rendering (M8)
+12ac2ae — feat: implement Android rendering support (M8)
+2f70630 — docs: document Android API 36 runtime crash (upstream wgpu4k-native issue)
+92f9fb1 — fix: resolve Android white screen with sRGB color correction and byte-order fix
+4fe5f4d — fix: use non-deprecated ArrayBuffer.of() for GPU buffer writes
+bd7824b — docs: update devlog with sRGB, byte-order fixes and webgpu-ktypes fork
+dd50aab — docs: update all docs for completed Android rendering (M8)
+fd1d3e5 — build: update CI to build all three wgpu fork dependencies
+4ac2146 — fix: exclude library entries from version extraction in CI
+1a3fc92 — build: update wgpu4k-native to Kotlin 2.3.0 / JDK 25, increase CI timeout
+eb859f8 — fix: address critical review findings
+0f784da — fix: cancel initJob in stopRendering to prevent lifecycle race
+9ced820 — docs: add fork dependency rationale reference
+00df7e7 — docs: update devlog with fork-dependencies and rebase notes
+6e1645a — refactor: extract Android app into prism-android-demo, rename prism-demo to prism-demo-core
