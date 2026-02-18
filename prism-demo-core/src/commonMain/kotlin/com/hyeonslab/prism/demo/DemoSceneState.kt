@@ -2,7 +2,6 @@ package com.hyeonslab.prism.demo
 
 import androidx.compose.runtime.Stable
 import com.hyeonslab.prism.core.Store
-import com.hyeonslab.prism.renderer.Color
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,7 +11,9 @@ import kotlinx.coroutines.flow.update
 data class DemoUiState(
   val rotationSpeed: Float = 45f,
   val isPaused: Boolean = false,
-  val cubeColor: Color = Color(0.3f, 0.5f, 0.9f),
+  val metallic: Float = 0.5f,
+  val roughness: Float = 0.5f,
+  val envIntensity: Float = 1.0f,
   val fps: Float = 0f,
 )
 
@@ -22,7 +23,11 @@ sealed interface DemoIntent {
 
   data object TogglePause : DemoIntent
 
-  data class SetCubeColor(val color: Color) : DemoIntent
+  data class SetMetallic(val metallic: Float) : DemoIntent
+
+  data class SetRoughness(val roughness: Float) : DemoIntent
+
+  data class SetEnvIntensity(val intensity: Float) : DemoIntent
 
   data class UpdateFps(val fps: Float) : DemoIntent
 }
@@ -44,7 +49,9 @@ class DemoStore : Store<DemoUiState, DemoIntent> {
     when (event) {
       is DemoIntent.SetRotationSpeed -> state.copy(rotationSpeed = event.speed)
       is DemoIntent.TogglePause -> state.copy(isPaused = !state.isPaused)
-      is DemoIntent.SetCubeColor -> state.copy(cubeColor = event.color)
+      is DemoIntent.SetMetallic -> state.copy(metallic = event.metallic)
+      is DemoIntent.SetRoughness -> state.copy(roughness = event.roughness)
+      is DemoIntent.SetEnvIntensity -> state.copy(envIntensity = event.intensity)
       is DemoIntent.UpdateFps -> state.copy(fps = event.fps)
     }
 }
