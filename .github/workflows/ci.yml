@@ -119,7 +119,7 @@ jobs:
         run: |
           START=$SECONDS
           ./gradlew macosArm64Test iosSimulatorArm64Test \
-            :prism-demo:assemblePrismDemoDebugXCFramework \
+            :prism-demo-core:assemblePrismDemoDebugXCFramework \
             :prism-ios:assemblePrismDebugXCFramework \
             --configuration-cache \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?

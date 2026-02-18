@@ -47,6 +47,22 @@ kotlin {
   compilerOptions { allWarningsAsErrors.set(true) }
 }
 
+// Metadata compilation tasks see duplicate KLIBs (androidx.* vs org.jetbrains.compose.*) when
+// both the Android KMP library and Compose Multiplatform plugins are applied. Suppress -Werror
+// for these intermediate tasks only — actual platform compilations are unaffected.
+afterEvaluate {
+  tasks
+    .matching { it.name.endsWith("KotlinMetadata") }
+    .configureEach {
+      if (this is org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>) {
+        compilerOptions {
+          allWarningsAsErrors.set(false)
+          freeCompilerArgs.add("-nowarn")
+        }
+      }
+    }
+}
+
 mavenPublishing {
   publishToMavenCentral()
   signAllPublications()

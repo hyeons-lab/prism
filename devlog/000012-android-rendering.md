@@ -132,6 +132,22 @@ All three patches required for Android API 35+ (Android 15+). Published to Maven
 
 2026-02-17 Rebased onto origin/main — origin/main had new commit (0fdf3ee: AGENTS.md worktree/devlog sync). Resolved one conflict in AGENTS.md.
 
+## What Changed (continued 2)
+
+2026-02-17 prism-android-demo/ — **NEW MODULE**: Thin Android application module extracted from prism-demo. Contains PrismDemoActivity.kt and AndroidManifest.xml (moved from prism-demo/src/androidMain/). build.gradle.kts uses `android.application` + `kotlin.android` plugins, depends on :prism-demo, :prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit, coroutines-android.
+
+2026-02-17 prism-demo/build.gradle.kts — Replaced `android.application` plugin with `android.kotlin.multiplatform.library`. Replaced `androidTarget()` + top-level `android {}` block with `android {}` inside `kotlin {}` (library-style: namespace + compileSdk + minSdk only, no applicationId/versionCode/versionName). Removed prism-demo/src/androidMain/ directory (PrismDemoActivity.kt + AndroidManifest.xml moved to prism-android-demo).
+
+2026-02-17 settings.gradle.kts — Added `include(":prism-android-demo")`.
+
+## Decisions (continued 2)
+
+2026-02-17 Extracted Android app into separate module — combining `kotlin.multiplatform` + `android.application` in one module is deprecated in AGP 8.x and will break in AGP 9. Mirrors the iOS pattern where prism-ios-demo (Xcode app) is separate from prism-demo (KMP framework).
+
+2026-02-17 Removed Compose plugins from prism-android-demo — PrismDemoActivity is a plain Activity with SurfaceView, no Compose APIs. Adding Compose plugins without Compose Runtime on classpath causes compiler error. Can be added later if a Compose-based Android demo is needed.
+
+2026-02-17 Added explicit dependencies (prism-native-widgets, kermit, wgpu4k, wgpu4k-toolkit) to prism-android-demo — prism-demo declares these as `implementation` (not `api`), so they're not transitively visible. PrismDemoActivity directly uses createPrismSurface, Logger, and WGPUContext from these libraries.
+
 ## Commits
 
 404e069 — chore: add devlog and plan for Android rendering (M8)

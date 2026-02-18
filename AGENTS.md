@@ -37,16 +37,16 @@ Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatfor
 ./gradlew clean build
 
 # Run demo apps (JVM Desktop)
-./gradlew :prism-demo:jvmRun              # GLFW window (Metal/Vulkan)
-./gradlew :prism-demo:runCompose           # Compose Desktop with embedded 3D
+./gradlew :prism-demo-core:jvmRun              # GLFW window (Metal/Vulkan)
+./gradlew :prism-demo-core:runCompose           # Compose Desktop with embedded 3D
 
 # Build demo for specific platform
-./gradlew :prism-demo:jvmJar            # JVM executable JAR
-./gradlew :prism-demo:wasmJsBrowserDistribution  # WASM for web
+./gradlew :prism-demo-core:jvmJar            # JVM executable JAR
+./gradlew :prism-demo-core:wasmJsBrowserDistribution  # WASM for web
 ./gradlew assemblePrismDemoDebugXCFramework        # iOS XCFramework (debug)
 
 # Run macOS native demo (GLFW + AppKit controls)
-./gradlew :prism-demo:runDebugExecutableMacosArm64
+./gradlew :prism-demo-core:runDebugExecutableMacosArm64
 
 # Generate Xcode project (requires xcodegen: brew install xcodegen)
 cd prism-ios-demo && xcodegen generate
@@ -99,7 +99,9 @@ prism/
 ├── prism-compose       # Jetpack Compose Multiplatform integration
 ├── prism-flutter       # Flutter bridge (minimal, future work)
 ├── prism-ios           # iOS XCFramework aggregator (SPM distribution)
-└── prism-demo          # Demo application (rotating cube with lighting)
+├── prism-demo-core     # Demo shared code (KMP library, all platforms)
+├── prism-android-demo  # Android app (consumes prism-demo-core)
+└── prism-ios-demo      # iOS Swift app (consumes prism-demo-core XCFramework)
 ```
 
 ### Module Source Structure (KMP)
@@ -214,8 +216,12 @@ prism-renderer
        ├─► prism-compose (Compose integration)
        └─► prism-flutter (Flutter bridge)
 
-prism-demo
+prism-demo-core
   └─► all engine modules
+prism-android-demo
+  └─► prism-demo-core + prism-native-widgets
+prism-ios-demo (Swift)
+  └─► prism-demo-core (via XCFramework)
 ```
 
 ## Code Quality
@@ -404,7 +410,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ Compose Desktop integration with MVI architecture (M5 complete)
 - ✅ PrismPanel: AWT Canvas with native handle → wgpu surface (macOS Metal, Windows/Linux stubs)
 - ✅ Compose demo: Material3 UI controls driving 3D scene via EngineStore/DemoStore
-- ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo (8)
+- ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo-core (8)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
 - ✅ iOS native rendering via MTKView + wgpu4k iosContextRenderer (M7 complete)
@@ -506,7 +512,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 2. **expect/actual warnings:** Add `-Xexpect-actual-classes` to module build.gradle.kts (needed in prism-assets, prism-native-widgets, prism-ecs)
 3. **wgpu4k suspend functions:** wgpu4k uses `suspend` for some APIs; bridge with `runBlocking` or make engine loop coroutine-based
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
-5. **Android demo:** Uses `com.android.application` + `androidTarget()` (deprecated in AGP 9); library modules use `com.android.kotlin.multiplatform.library`
+5. **Android demo:** `prism-android-demo` is the Android app module; `prism-demo-core` is the KMP library (uses `com.android.kotlin.multiplatform.library`)
 6. **Android API 35+:** wgpu4k-native shim classes in `java.lang.foreign` package are shadowed by the boot classpath on Android 15+, causing `InstantiationError`. Works on API 28-34. Upstream wgpu4k-native issue.
 
 ## Development Logs (devlog/)

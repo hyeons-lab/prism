@@ -34,4 +34,5 @@ include(":prism-native-widgets")
 include(":prism-compose")
 // include(":prism-flutter") // Stub — excluded until Flutter integration begins
 include(":prism-ios")
-include(":prism-demo")
+include(":prism-demo-core")
+include(":prism-android-demo")

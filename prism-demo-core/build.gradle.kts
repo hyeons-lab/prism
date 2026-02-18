@@ -5,14 +5,18 @@ plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.compose.multiplatform)
-  alias(libs.plugins.android.application)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
 }
 
 kotlin {
   jvmToolchain(25)
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
   jvm { mainRun { mainClass.set("com.hyeonslab.prism.demo.GlfwMainKt") } }
-  androidTarget()
+  android {
+    namespace = "com.hyeonslab.prism.demo"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    minSdk = libs.versions.minSdk.get().toInt()
+  }
   macosArm64 { binaries { executable { entryPoint = "com.hyeonslab.prism.demo.main" } } }
 
   val xcf = XCFramework("PrismDemo")
@@ -26,7 +30,7 @@ kotlin {
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
   wasmJs {
-    browser { commonWebpackConfig { outputFileName = "prism-demo.js" } }
+    browser { commonWebpackConfig { outputFileName = "prism-demo-core.js" } }
     binaries.executable()
   }
 
@@ -67,18 +71,6 @@ kotlin {
   }
 
   compilerOptions { allWarningsAsErrors.set(true) }
-}
-
-android {
-  namespace = "com.hyeonslab.prism.demo"
-  compileSdk = libs.versions.compileSdk.get().toInt()
-  defaultConfig {
-    applicationId = "com.hyeonslab.prism.demo"
-    minSdk = libs.versions.minSdk.get().toInt()
-    targetSdk = libs.versions.targetSdk.get().toInt()
-    versionCode = 1
-    versionName = "0.1.0"
-  }
 }
 
 // Common JVM args for all demo tasks

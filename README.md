@@ -38,7 +38,9 @@ prism-renderer
   └─► prism-native-widgets   Platform-specific rendering surfaces
        └─► prism-compose     Compose Multiplatform integration
 
-prism-demo                   Demo app (rotating lit cube via ECS) — see [prism-demo/README.md](prism-demo/README.md)
+prism-demo-core              Shared demo code (KMP library) — see [prism-demo-core/README.md](prism-demo-core/README.md)
+prism-android-demo           Android app (consumes prism-demo-core)
+prism-ios-demo               iOS Swift app (consumes prism-demo-core XCFramework)
 ```
 
 ## Quick Start
@@ -70,7 +72,7 @@ cd prism
 ./gradlew build
 
 # Run the demo (rotating lit cube)
-./gradlew :prism-demo:jvmRun
+./gradlew :prism-demo-core:jvmRun
 ```
 
 ### iOS (Swift Package Manager)
@@ -149,7 +151,7 @@ Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. CI
 |---|---|---|
 | prism-math | 75 | Vec3, Mat4, Quaternion |
 | prism-renderer | 95 | Color, Mesh, VertexLayout, Camera, Shader |
-| prism-demo | 8 | DemoStore (MVI reducer) |
+| prism-demo-core | 8 | DemoStore (MVI reducer) |
 
 ## Contributing
 
