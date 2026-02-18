@@ -352,7 +352,7 @@ Single implementation using wgpu4k. Constructor takes `WGPUContext` (holds devic
 1. Configure surface (unless `surfacePreConfigured`): query supported alpha modes, prefer `Inherit`, fall back to `Opaque`
 2. Create depth texture (`Depth24Plus`, recreated on resize)
 3. Create scene uniform buffer (96 bytes): VP matrix, camera position, ambient, light count
-4. Create object uniform buffer (128 bytes): model matrix + padded normalMatrix (mat3x3, 48 bytes with std140 padding)
+4. Create object uniform buffer (112 bytes): model matrix (64 bytes) + padded normalMatrix (mat3x3, 48 bytes with std140 padding)
 5. Create material uniform buffer (48 bytes): baseColor, metallic, roughness, emissive, occlusion, texture flags
 6. Create light storage buffer (1024 bytes): up to 16 lights at 64 bytes each
 7. Create environment uniform buffer (16 bytes): env intensity, max mip level
@@ -364,13 +364,13 @@ Single implementation using wgpu4k. Constructor takes `WGPUContext` (holds devic
 | Resource | Lifetime | Size | Purpose |
 |----------|----------|------|---------|
 | Scene uniform buffer | Long-lived | 96 bytes | VP matrix, camera pos, light count, ambient |
-| Object uniform buffer | Long-lived | 128 bytes | Model matrix + padded normalMatrix mat3x3 |
+| Object uniform buffer | Long-lived | 112 bytes | Model matrix (64B) + padded normalMatrix mat3x3 (48B) |
 | Material uniform buffer | Long-lived | 48 bytes | PBR params: color, metallic, roughness, emissive |
 | Light storage buffer | Long-lived | 1024 bytes | Up to 16 lights at 64 bytes each |
 | Environment uniform buffer | Long-lived | 16 bytes | IBL intensity, max mip level |
 | HDR color texture | Recreated on resize | surface W×H (RGBA16Float) | HDR intermediate render target |
 | Depth texture | Recreated on resize | surface W×H | Depth testing |
-| IBL textures (3) | Per scene (long-lived) | Varies | BRDF LUT (256×256), irradiance cubemap (32px), prefiltered env (64px, 5 mips) |
+| IBL textures (3) | Per scene (long-lived) | Varies | BRDF LUT (256×256), irradiance cubemap (16px), prefiltered env (32px, 5 mips) |
 | Vertex/index buffers | Per mesh, long-lived | Varies | Geometry |
 | Command encoder | Per frame (ephemeral) | — | GPU command recording |
 | Render pass encoder | Per frame (ephemeral) | — | Draw call recording |
@@ -395,18 +395,16 @@ setCameraPosition(pos) + setCamera(camera) + setLights(lights)  [via RenderSyste
   └─ queue.writeBuffer(sceneUniformBuffer, vpMatrix + cameraPos + lightCount + ambient, 96 bytes)
   └─ queue.writeBuffer(lightStorageBuffer, lightArray, numLights × 64 bytes)
 
-setMaterial(material)  [per draw call]
+setMaterial(material)  [per draw call, before drawMesh]
   └─ queue.writeBuffer(pbrMaterialUniformBuffer, pbr params, 48 bytes)
-  └─ Material bind group (group 2) created with PBR textures or 1×1 defaults
+  └─ renderPass.setBindGroup(2u, defaultMaterialBindGroup) [group 2: PBR params + default textures]
 
 drawMesh(mesh, transform)  [per draw call]
-  └─ queue.writeBuffer(objectUniformBuffer, modelMatrix + paddedNormalMatrix, 128 bytes)
-  └─ renderPass.setBindGroup(0, sceneBindGroup)       [VP + lights, group 0]
-  └─ renderPass.setBindGroup(1, objectBindGroup)      [model + normalMatrix, group 1]
-  └─ renderPass.setBindGroup(2, materialBindGroup)    [PBR params + textures, group 2]
-  └─ renderPass.setBindGroup(3, environmentBindGroup) [IBL textures + env uniforms, group 3]
+  └─ queue.writeBuffer(objectUniformBuffer, modelMatrix + paddedNormalMatrix, 112 bytes)
+  └─ renderPass.setBindGroup(1u, objectBindGroup)     [group 1: model + normalMatrix]
   └─ renderPass.setVertexBuffer(0, mesh.vertexBuffer) [48 bytes/vertex: pos+normal+uv+tangent]
   └─ renderPass.drawIndexed(indexCount)
+  Note: groups 0 (scene) and 3 (env) are set once in beginRenderPass(), not per draw call.
 
 endRenderPass()
   └─ renderPass.end()
@@ -437,10 +435,14 @@ Embedded as string constants in `Shaders.kt`. Two shader pairs: `PBR_VERTEX_SHAD
 @group(1) @binding(0) var<uniform> object : ObjectUniforms; // 128 bytes: model + padded normalMatrix
 
 @group(2) @binding(0) var<uniform> material : MaterialUniforms; // 48 bytes: PBR params + texture flags
-@group(2) bindings 1–10: 5 PBR textures + 5 samplers (albedo, normal, metallicRoughness, occlusion, emissive)
+@group(2) @binding(1) var materialSampler : sampler;            // one shared sampler for all 5 PBR slots
+@group(2) @binding(2..6): baseColorTex, metallicRoughnessTex, normalTex, occlusionTex, emissiveTex
 
-@group(3) bindings 0–5: irradianceCube + sampler, prefilteredCube + sampler, brdfLUT + sampler
-@group(3) @binding(6) var<uniform> env : EnvironmentUniforms; // 16 bytes: envIntensity, maxMipLevel
+@group(3) @binding(0) var<uniform> env : EnvironmentUniforms;  // 16 bytes: envIntensity, maxMipLevel
+@group(3) @binding(1) var envSampler : sampler;                 // one shared clamp sampler
+@group(3) @binding(2) var irradianceMap : texture_cube<f32>;
+@group(3) @binding(3) var prefilteredEnv : texture_cube<f32>;
+@group(3) @binding(4) var brdfLut : texture_2d<f32>;
 ```
 
 **PBR vertex stage** (`vs_main`): Transforms position to clip space via `scene.viewProjection * object.model`. Transforms normal via `object.normalMatrix` (inverse-transpose mat3). Outputs world position, world normal, UV, and world tangent as varyings.
