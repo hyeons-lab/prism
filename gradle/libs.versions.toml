@@ -27,6 +27,7 @@ minSdk = "28"
 targetSdk = "36"
 
 [libraries]
+activity-compose = { module = "androidx.activity:activity-compose", version = "1.10.1" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMaterial3" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
