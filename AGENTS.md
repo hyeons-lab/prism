@@ -73,7 +73,7 @@ gh workflow run release.yml -f version=0.1.0
 
 **Platform-specific:**
 - **macOS/iOS:** Xcode 14+ with Command Line Tools
-- **Android:** Android SDK with NDK, API level 31+
+- **Android:** Android SDK with NDK, API level 28+
 - **Web:** Modern browser with WebGPU support (Chrome 113+, Firefox Nightly)
 
 Use JetBrains Runtime from Android Studio (if available):
@@ -256,7 +256,7 @@ prism-ios-demo (Swift)
 - **Testing:** kotlin.test + Kotest 6.0.7 assertions (shouldBe, shouldContain, plusOrMinus, etc.)
 
 ### SDK Versions (Android)
-- minSdk: 31 (Android 8.0+)
+- minSdk: 28 (Android 9.0 Pie)
 - compileSdk: 36
 - targetSdk: 36
 - AGP: 8.13.0

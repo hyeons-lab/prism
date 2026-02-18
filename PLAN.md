@@ -12,7 +12,7 @@
 | Linux Desktop | JVM | Vulkan (via wgpu) | JDK 21+ |
 | Web | WASM/JS | WebGPU | Browser with WebGPU support |
 | iOS | Kotlin/Native | Metal (via wgpu) | iOS 13.0+ |
-| Android | Kotlin/Android | Vulkan (via wgpu4k-toolkit-android) | API 31+ (Android 12+) |
+| Android | Kotlin/Android | Vulkan (via wgpu4k-toolkit-android) | API 28+ (Android 9.0 Pie) |
 | macOS Native | Kotlin/Native | Metal (via wgpu) | macOS 11.0+ |
 
 ### Tech Stack
@@ -159,7 +159,7 @@ device.queue.submit(listOf(encoder.finish().bind()))
 - **GLFW integration:** `io.ygdrasil:glfw-native:0.0.2` for desktop windowing
 - **Android support:**
   - Uses wgpu4k-toolkit-android AAR (Vulkan via JNI, no PanamaPort needed)
-  - Android API 31+ (Android 12+)
+  - Android API 28+ (Android 9.0 Pie)
   - Android Gradle Plugin 8.13.0+
   - compileSdk 36+
 - **Gradle properties needed:**

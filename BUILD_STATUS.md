@@ -184,6 +184,6 @@ cd prism-ios-demo && xcodegen generate
 ## Prerequisites
 
 - JDK 25 (for FFI in prism-demo) or JDK 21+ (for other modules)
-- Android SDK with API 36+ (for Android targets)
+- Android SDK with API 28+ (for Android targets)
 - wgpu4k 0.2.0-SNAPSHOT in Maven local (build from ~/development/wgpu4k)
 - webgpu-ktypes 0.0.9-SNAPSHOT in Maven local (build from ~/development/webgpu-ktypes)

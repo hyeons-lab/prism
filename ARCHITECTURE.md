@@ -84,7 +84,7 @@ The `prism-ios-demo` Xcode project is generated via xcodegen (`project.yml`).
 
 ### Android
 
-AGP 8.13.0, `compileSdk = 36`, `minSdk = 31`, `targetSdk = 36`. All library modules use `com.android.kotlin.multiplatform.library` with `kotlin { android {} }` DSL. Android rendering uses wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`) for Vulkan-backed rendering via `androidContextRenderer()`. Three upstream forks under `hyeons-lab` org (wgpu4k-native, wgpu4k, webgpu-ktypes) fix Android API 35+ compatibility issues (package relocation, ByteBuffer byte order, hidden API removal).
+AGP 8.13.0, `compileSdk = 36`, `minSdk = 28`, `targetSdk = 36`. All library modules use `com.android.kotlin.multiplatform.library` with `kotlin { android {} }` DSL. Android rendering uses wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`) for Vulkan-backed rendering via `androidContextRenderer()`. Three upstream forks under `hyeons-lab` org (wgpu4k-native, wgpu4k, webgpu-ktypes) fix Android API 35+ compatibility issues (package relocation, ByteBuffer byte order, hidden API removal).
 
 ---
 
