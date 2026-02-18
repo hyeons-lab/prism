@@ -131,6 +131,8 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
 
   private fun stopRendering() {
     running = false
+    initJob?.cancel()
+    initJob = null
     Choreographer.getInstance().removeFrameCallback(this)
     scene?.shutdown()
     scene = null
