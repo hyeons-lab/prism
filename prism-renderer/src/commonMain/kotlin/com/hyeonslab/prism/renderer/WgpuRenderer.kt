@@ -154,6 +154,14 @@ class WgpuRenderer(
   private var hdrTextureView: WGPUTextureView? = null
   private var pbrPipelineHdr: GPURenderPipeline? = null
 
+  // --- IBL textures (set by initializeIbl()) ---
+  private var iblBrdfLutTexture: WGPUTexture? = null
+  private var iblBrdfLutView: WGPUTextureView? = null
+  private var iblIrradianceTexture: WGPUTexture? = null
+  private var iblIrradianceView: WGPUTextureView? = null
+  private var iblPrefilteredTexture: WGPUTexture? = null
+  private var iblPrefilteredView: WGPUTextureView? = null
+
   // --- Tone mapping pipeline ---
   private var toneMapBindGroupLayout: GPUBindGroupLayout? = null
   private var toneMapPipelineLayout: GPUPipelineLayout? = null
@@ -205,6 +213,12 @@ class WgpuRenderer(
     toneMapBindGroup?.close()
     hdrTextureView?.close()
     hdrTexture?.close()
+    iblBrdfLutView?.close()
+    iblBrdfLutTexture?.close()
+    iblIrradianceView?.close()
+    iblIrradianceTexture?.close()
+    iblPrefilteredView?.close()
+    iblPrefilteredTexture?.close()
     sceneBindGroup?.close()
     objectBindGroup?.close()
     defaultMaterialBindGroup?.close()
@@ -454,6 +468,90 @@ class WgpuRenderer(
     createHdrTexture()
     updateToneMapBindGroup()
     currentCamera?.aspectRatio = width.toFloat() / height.toFloat()
+  }
+
+  // ===== IBL initialization =====
+
+  /**
+   * Generates IBL textures (BRDF LUT, irradiance cubemap, prefiltered env) and activates
+   * environment-based ambient lighting.
+   *
+   * Must be called AFTER [initialize]. Safe to call multiple times (previous IBL textures are
+   * released). Generates textures using [IblGenerator] on the CPU and uploads to the GPU.
+   *
+   * @param skySize Internal sky gradient resolution (CPU only, not a GPU texture).
+   * @param irradianceSize Diffuse irradiance cubemap face size.
+   * @param prefilteredSize Specular prefiltered env cubemap face size.
+   * @param prefilteredMipLevels Number of roughness mip levels in the prefiltered cubemap.
+   * @param brdfLutSize BRDF LUT texture resolution.
+   */
+  @Suppress("LongParameterList")
+  fun initializeIbl(
+    skySize: Int = 32,
+    irradianceSize: Int = 16,
+    prefilteredSize: Int = 32,
+    prefilteredMipLevels: Int = 5,
+    brdfLutSize: Int = 256,
+  ) {
+    // Release any previously generated IBL textures
+    iblBrdfLutView?.close()
+    iblBrdfLutTexture?.close()
+    iblIrradianceView?.close()
+    iblIrradianceTexture?.close()
+    iblPrefilteredView?.close()
+    iblPrefilteredTexture?.close()
+
+    val ibl =
+      IblGenerator.generate(
+        device = device,
+        skySize = skySize,
+        irradianceSize = irradianceSize,
+        prefilteredSize = prefilteredSize,
+        prefilteredMipLevels = prefilteredMipLevels,
+        brdfLutSize = brdfLutSize,
+      )
+
+    iblBrdfLutTexture = ibl.brdfLutTexture
+    iblBrdfLutView = ibl.brdfLutTexture.createView()
+
+    iblIrradianceTexture = ibl.irradianceTexture
+    iblIrradianceView =
+      ibl.irradianceTexture.createView(
+        TextureViewDescriptor(dimension = GPUTextureViewDimension.Cube, arrayLayerCount = 6u)
+      )
+
+    iblPrefilteredTexture = ibl.prefilteredTexture
+    iblPrefilteredView =
+      ibl.prefilteredTexture.createView(
+        TextureViewDescriptor(
+          dimension = GPUTextureViewDimension.Cube,
+          arrayLayerCount = 6u,
+          mipLevelCount = ibl.prefilteredMipLevels.toUInt(),
+        )
+      )
+
+    // Rebuild env bind group with real IBL textures
+    envBindGroup?.close()
+    envBindGroup =
+      device.createBindGroup(
+        BindGroupDescriptor(
+          layout = envBindGroupLayout!!,
+          entries =
+            listOf(
+              BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = envUniformBuffer!!)),
+              BindGroupEntry(binding = 1u, resource = defaultClampSampler!!),
+              BindGroupEntry(binding = 2u, resource = iblIrradianceView!!),
+              BindGroupEntry(binding = 3u, resource = iblPrefilteredView!!),
+              BindGroupEntry(binding = 4u, resource = iblBrdfLutView!!),
+            ),
+          label = "IBL Environment Bind Group",
+        )
+      )
+
+    // Enable IBL in env uniforms: envIntensity=1.0, maxMipLevel=mipLevels-1
+    val maxMip = (ibl.prefilteredMipLevels - 1).toFloat()
+    val envData = floatArrayOf(1f, maxMip, 0f, 0f)
+    device.queue.writeBuffer(envUniformBuffer!!, 0u, ArrayBuffer.of(envData))
   }
 
   // ===== Resource creation =====
