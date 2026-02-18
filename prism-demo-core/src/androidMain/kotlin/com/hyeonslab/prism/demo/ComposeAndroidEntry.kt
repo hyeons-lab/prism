@@ -28,6 +28,7 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.math.MathUtils
 import com.hyeonslab.prism.renderer.Material
+import com.hyeonslab.prism.widget.AndroidSurfaceInfo
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 
@@ -48,7 +49,7 @@ fun AndroidComposeDemoContent() {
 
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var surface by remember { mutableStateOf<PrismSurface?>(null) }
-  var surfaceInfo by remember { mutableStateOf<SurfaceInfo?>(null) }
+  var surfaceInfo by remember { mutableStateOf<AndroidSurfaceInfo?>(null) }
   var initError by remember { mutableStateOf<String?>(null) }
   // Synchronous flag to stop rendering immediately when the surface is destroyed.
   // Compose state updates are async (take effect on next recomposition), so the render loop's
@@ -93,7 +94,7 @@ fun AndroidComposeDemoContent() {
                     existingScene.renderer.resize(width, height)
                     existingScene.updateAspectRatio(width, height)
                   } else {
-                    surfaceInfo = SurfaceInfo(holder, width, height)
+                    surfaceInfo = AndroidSurfaceInfo(holder, width, height)
                   }
                 }
 
@@ -209,6 +210,3 @@ fun AndroidComposeDemoContent() {
     }
   }
 }
-
-/** Holder for Android surface parameters needed to create a PrismSurface. */
-private data class SurfaceInfo(val holder: SurfaceHolder, val width: Int, val height: Int)

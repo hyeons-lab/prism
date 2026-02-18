@@ -13,6 +13,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
+import com.hyeonslab.prism.widget.AndroidSurfaceInfo
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 
@@ -29,7 +30,7 @@ private val log = Logger.withTag("PrismView.Android")
 @Composable
 actual fun PrismView(store: EngineStore, modifier: Modifier) {
   // Surface lifecycle state: null until surfaceChanged fires with valid dimensions.
-  var surfaceInfo by remember { mutableStateOf<SurfaceInfo?>(null) }
+  var surfaceInfo by remember { mutableStateOf<AndroidSurfaceInfo?>(null) }
   var prismSurface by remember { mutableStateOf<PrismSurface?>(null) }
   // Synchronous flag to stop rendering immediately when the surface is destroyed.
   // Compose state updates are async (take effect on next recomposition), so we need this
@@ -53,7 +54,7 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
               height: Int,
             ) {
               log.i { "surfaceChanged: ${width}x${height}" }
-              surfaceInfo = SurfaceInfo(holder, width, height)
+              surfaceInfo = AndroidSurfaceInfo(holder, width, height)
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -125,6 +126,3 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
     }
   }
 }
-
-/** Holder for Android surface parameters needed to create a PrismSurface. */
-private data class SurfaceInfo(val holder: SurfaceHolder, val width: Int, val height: Int)
