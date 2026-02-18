@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'prism_engine.dart';
 
 class PrismRenderView extends StatelessWidget {

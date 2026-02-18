@@ -1,0 +1,60 @@
+group = "engine.prism.flutter"
+version = "0.1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.13.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+android {
+    namespace = "engine.prism.flutter"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 28
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}
+
+repositories {
+    mavenLocal {
+        content {
+            includeGroup("io.ygdrasil")
+            includeGroup("com.hyeons-lab")
+            includeGroupByRegex("engine\\.prism.*")
+        }
+    }
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    // Prism KMP modules (published to Maven local via ./gradlew publishToMavenLocal)
+    implementation("engine.prism:prism-flutter-android:0.1.0-SNAPSHOT")
+    implementation("engine.prism:prism-demo-core-android:0.1.0-SNAPSHOT")
+    implementation("engine.prism:prism-native-widgets-android:0.1.0-SNAPSHOT")
+    implementation("engine.prism:prism-renderer-android:0.1.0-SNAPSHOT")
+    implementation("engine.prism:prism-core-android:0.1.0-SNAPSHOT")
+
+    implementation("io.ygdrasil:wgpu4k-android:0.2.0-SNAPSHOT")
+    implementation("io.ygdrasil:wgpu4k-toolkit-android:0.2.0-SNAPSHOT")
+    implementation("co.touchlab:kermit-android:2.0.8")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+}
