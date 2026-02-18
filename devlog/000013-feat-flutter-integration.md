@@ -4,20 +4,36 @@
 **Intent:** Implement Flutter integration for Android, iOS, and Flutter Web — enabling the Prism rotating cube demo inside a Flutter app with Material UI controls.
 
 ## What Changed
+- 2026-02-18 `settings.gradle.kts` — Uncommented `prism-flutter` module
+- 2026-02-18 `prism-flutter/build.gradle.kts` — Added prism-quality, android target, wasmJs, jvmToolchain(25), prism-demo-core dep
+- 2026-02-18 `prism-flutter/src/commonMain/.../PrismBridge.kt` — Rewritten to hold DemoScene + DemoStore (MVI), native-driven render loop
+- 2026-02-18 `prism-flutter/src/commonMain/.../FlutterMethodHandler.kt` — Rewritten with setRotationSpeed, togglePause, setCubeColor, getState
+- 2026-02-18 `flutter_plugin/android/` — Created PrismFlutterPlugin.kt + PrismPlatformView.kt (SurfaceView + Choreographer)
+- 2026-02-18 `flutter_plugin/ios/` — Created PrismFlutterPlugin.swift + PrismPlatformView.swift (MTKView + configureDemo)
+- 2026-02-18 `flutter_plugin/lib/src/prism_engine.dart` — Rewritten with new API (setRotationSpeed, togglePause, setCubeColor, getState)
+- 2026-02-18 `flutter_plugin/lib/src/prism_render_view.dart` — Fixed unnecessary import lint
+- 2026-02-18 `flutter_plugin/example/` — Created example app with Material3 controls
 
 ## Decisions
+- 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
+- 2026-02-18 Android plugin consumes KMP artifacts from Maven local — `engine.prism:prism-flutter-android:0.1.0-SNAPSHOT`
+- 2026-02-18 iOS plugin consumes PrismDemo.xcframework via podspec — reuses existing configureDemo/IosDemoHandle pattern
+- 2026-02-18 Shared DemoStore for MVI state — same pattern as Compose integration
 
 ## Issues
 
 ## Commits
+- 5f3c415 — chore: add devlog and plan for Flutter integration (M11)
+- 91b4bd9 — feat: enable prism-flutter module with DemoScene/DemoStore bridge
+- 104c395 — feat: implement Android Flutter plugin with platform view
+- ec73dda — feat: implement iOS Flutter plugin with MTKView platform view
 
 ## Progress
-
-- [ ] Phase 0: Build system — uncomment prism-flutter, add Android/wasmJs targets
-- [ ] Phase 1: Wire PrismBridge to DemoScene + DemoStore
-- [ ] Phase 2: Android Flutter plugin (PrismFlutterPlugin.kt, PrismPlatformView.kt)
-- [ ] Phase 3: iOS Flutter plugin (PrismFlutterPlugin.swift, PrismPlatformView.swift)
+- [x] Phase 0: Build system — uncomment prism-flutter, add Android/wasmJs targets
+- [x] Phase 1: Wire PrismBridge to DemoScene + DemoStore
+- [x] Phase 2: Android Flutter plugin (PrismFlutterPlugin.kt, PrismPlatformView.kt)
+- [x] Phase 3: iOS Flutter plugin (PrismFlutterPlugin.swift, PrismPlatformView.swift)
+- [x] Phase 5: Dart plugin updates (PrismEngine, PrismRenderView) — done as part of Phase 2
+- [x] Phase 6: Flutter example app (full demo with UI controls) — done as part of Phase 2
 - [ ] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
-- [ ] Phase 5: Dart plugin updates (PrismEngine, PrismRenderView)
-- [ ] Phase 6: Flutter example app (full demo with UI controls)
 - [ ] Phase 7: Documentation & CI
