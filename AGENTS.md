@@ -423,6 +423,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ Android build targets added to all modules (migrated to `com.android.kotlin.multiplatform.library`)
 - ✅ Android wgpu4k rendering via Vulkan with SurfaceView + Choreographer render loop (M8 complete)
 - ✅ Android demo APK with rotating lit cube
+- ✅ Android Compose demo: SurfaceView + DemoStore MVI + Material3 controls (matching JVM/iOS Compose demos)
 
 **What's in progress:**
 
@@ -513,7 +514,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 3. **wgpu4k suspend functions:** wgpu4k uses `suspend` for some APIs; bridge with `runBlocking` or make engine loop coroutine-based
 4. **WASM build size:** Use `-Xwasm-enable-array-range-checks=false` for smaller builds
 5. **Android demo:** `prism-android-demo` is the Android app module; `prism-demo-core` is the KMP library (uses `com.android.kotlin.multiplatform.library`)
-6. **Android API 35+:** wgpu4k-native shim classes in `java.lang.foreign` package are shadowed by the boot classpath on Android 15+, causing `InstantiationError`. Works on API 28-34. Upstream wgpu4k-native issue.
+6. **Android API 35+:** Previously, wgpu4k-native shim classes in `java.lang.foreign` package were shadowed by the boot classpath on Android 15+, causing `InstantiationError`. This is resolved in the current hyeons-lab/wgpu4k-native fork — tested working on API 36 (Pixel 10 Pro Fold).
 
 ## Development Logs (devlog/)
 

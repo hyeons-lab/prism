@@ -21,8 +21,10 @@ Add Android Compose integration so the demo app can render a rotating lit cube i
 - 2026-02-17 Use withFrameNanos render loop (like JVM ComposeMain) — simpler than Choreographer for Compose context
 
 ## Issues
+- 2026-02-17 API 35+ InstantiationError — previously documented as a blocker, but verified working on API 36 (Pixel 10 Pro Fold). The hyeons-lab/wgpu4k-native fork resolved this.
 
 ## Commits
+- a01e9c9 — feat: implement Android Compose integration with Material3 controls
 
 ## Progress
 - [x] Create devlog and plan files
@@ -32,4 +34,4 @@ Add Android Compose integration so the demo app can render a rotating lit cube i
 - [x] Create ComposeAndroidEntry.kt in prism-demo-core androidMain
 - [x] Update prism-android-demo (build.gradle.kts, ComposeDemoActivity, manifest)
 - [x] Format, validate, build
-- [ ] Create draft PR
+- [x] Create draft PR — https://github.com/hyeons-lab/prism/pull/31
