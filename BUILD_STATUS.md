@@ -112,11 +112,15 @@
 - Double-close vulnerability fixed: mutable backing fields with null-on-close in detach()
 - **Status:** Complete — `./gradlew :prism-demo:runDebugExecutableMacosArm64` runs macOS native demo
 
-### M8: Android Support ⏳
-- [x] Android build targets added (prism-math, prism-core, prism-renderer, prism-native-widgets)
-- [x] Android actuals: Platform, PrismSurface (stubs)
-- [ ] wgpu4k rendering via PanamaPort
-- [ ] Android demo entry point (SurfaceView + Vulkan)
+### M8: Android Support ✅
+- [x] Android build targets added to all modules (migrated to `com.android.kotlin.multiplatform.library`)
+- [x] Android actuals: Platform, PrismSurface, FileReader, PrismView
+- [x] wgpu4k rendering via Vulkan (using wgpu4k-toolkit-android AAR, not PanamaPort)
+- [x] Android demo: PrismDemoActivity with SurfaceView + Choreographer render loop
+- [x] sRGB double-gamma fix: `srgbToLinear()` conversion for sRGB surface formats
+- [x] ByteBuffer byte-order fix: forked webgpu-ktypes with `.order(ByteOrder.nativeOrder())`
+- [x] Three upstream forks (wgpu4k-native, wgpu4k, webgpu-ktypes) for Android API 35+ compatibility
+- **Status:** Complete — rotating lit cube on Android (Galaxy Fold, API 36, Vulkan)
 
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
@@ -164,6 +168,12 @@ Run tests: `./gradlew jvmTest` (JVM) or `./gradlew macosArm64Test iosSimulatorAr
 # Run macOS native demo (GLFW + AppKit controls)
 ./gradlew :prism-demo:runDebugExecutableMacosArm64
 
+# Build Android APK
+./gradlew :prism-demo:assembleDebug
+
+# Install Android APK on connected device
+adb install -r prism-demo/build/outputs/apk/debug/prism-demo-debug.apk
+
 # Build iOS XCFramework (debug)
 ./gradlew assemblePrismDemoDebugXCFramework
 
@@ -174,4 +184,6 @@ cd prism-ios-demo && xcodegen generate
 ## Prerequisites
 
 - JDK 25 (for FFI in prism-demo) or JDK 21+ (for other modules)
+- Android SDK with API 28+ (for Android targets)
 - wgpu4k 0.2.0-SNAPSHOT in Maven local (build from ~/development/wgpu4k)
+- webgpu-ktypes 0.0.9-SNAPSHOT in Maven local (build from ~/development/webgpu-ktypes)

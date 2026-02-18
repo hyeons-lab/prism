@@ -14,11 +14,16 @@ ktfmt = "0.25.0"
 lifecycleCompose = "2.8.4"
 mavenPublish = "0.36.0"
 wgpu4k = "0.2.0-SNAPSHOT"
-wgpu4kCommit = "3fc6e3297fee6b558efc6dcb29aec1a6629b0e90"
+wgpu4kCommit = "0ee61438c5c1c0d48d38807f994677d03b8d3fba"
+wgpu4kRepo = "hyeons-lab/wgpu4k"
+wgpu4kNativeCommit = "1b1578a1a9c8c8447763125c6de03c9bcb18af38"
+wgpu4kNativeRepo = "hyeons-lab/wgpu4k-native"
+webgpuKtypesCommit = "213ff3d22213e58cc4f2f59e69b1c42e0816c4d1"
+webgpuKtypesRepo = "hyeons-lab/webgpu-ktypes"
 
 # SDK versions
 compileSdk = "36"
-minSdk = "31"
+minSdk = "28"
 targetSdk = "36"
 
 [libraries]
@@ -41,6 +46,7 @@ wgpu4k-toolkit = { module = "io.ygdrasil:wgpu4k-toolkit", version.ref = "wgpu4k"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }

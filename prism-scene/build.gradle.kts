@@ -1,11 +1,17 @@
 plugins {
   id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.maven.publish)
 }
 
 kotlin {
   jvm()
+  android {
+    namespace = "com.hyeonslab.prism.scene"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    minSdk = libs.versions.minSdk.get().toInt()
+  }
   iosArm64()
   iosSimulatorArm64()
   macosArm64()

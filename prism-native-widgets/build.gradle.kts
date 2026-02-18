@@ -1,14 +1,18 @@
 plugins {
   id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
-  alias(libs.plugins.android.library)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.maven.publish)
 }
 
 kotlin {
   jvmToolchain(25)
   jvm()
-  androidTarget()
+  android {
+    namespace = "com.hyeonslab.prism.widget"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    minSdk = libs.versions.minSdk.get().toInt()
+  }
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
@@ -34,6 +38,11 @@ kotlin {
       implementation(libs.wgpu4k.toolkit)
       implementation(libs.kotlinx.coroutines.core)
     }
+    androidMain.dependencies {
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.android)
+    }
     nativeMain.dependencies {
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
@@ -51,12 +60,6 @@ kotlin {
     allWarningsAsErrors.set(true)
     freeCompilerArgs.add("-Xexpect-actual-classes")
   }
-}
-
-android {
-  namespace = "com.hyeonslab.prism.widget"
-  compileSdk = libs.versions.compileSdk.get().toInt()
-  defaultConfig { minSdk = libs.versions.minSdk.get().toInt() }
 }
 
 mavenPublishing {

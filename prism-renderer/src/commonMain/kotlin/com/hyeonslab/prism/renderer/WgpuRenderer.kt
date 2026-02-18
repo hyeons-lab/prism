@@ -49,6 +49,7 @@ import io.ygdrasil.webgpu.VertexBufferLayout
 import io.ygdrasil.webgpu.VertexState
 import io.ygdrasil.webgpu.WGPUContext
 import io.ygdrasil.webgpu.beginRenderPass
+import kotlin.math.pow
 
 /**
  * WebGPU-based renderer implementation using wgpu4k.
@@ -92,22 +93,22 @@ class WgpuRenderer(
   private var height: Int = renderingContext.height.toInt()
 
   private val depthFormat = GPUTextureFormat.Depth24Plus
+  private val surfaceIsSrgb =
+    renderingContext.textureFormat == GPUTextureFormat.RGBA8UnormSrgb ||
+      renderingContext.textureFormat == GPUTextureFormat.BGRA8UnormSrgb
 
   override fun initialize(engine: Engine) {
     if (!surfacePreConfigured) {
-      // Configure the surface for presentation
+      // Configure the surface for presentation.
+      // RenderAttachment only — CopySrc omitted (not needed for presentation;
+      // can be re-added later for screenshots/readback if needed).
       val format = renderingContext.textureFormat
-      val alphaMode =
-        if (wgpuContext.surface.supportedAlphaMode.contains(CompositeAlphaMode.Inherit)) {
-          CompositeAlphaMode.Inherit
-        } else {
-          CompositeAlphaMode.Opaque
-        }
+      val alphaMode = CompositeAlphaMode.Auto
       wgpuContext.surface.configure(
         SurfaceConfiguration(
           device = device,
           format = format,
-          usage = GPUTextureUsage.RenderAttachment or GPUTextureUsage.CopySrc,
+          usage = GPUTextureUsage.RenderAttachment,
           alphaMode = alphaMode,
         )
       )
@@ -180,18 +181,18 @@ class WgpuRenderer(
     val surfaceTexture = renderingContext.getCurrentTexture()
     val surfaceView = with(ctx) { surfaceTexture.createView().bind() }
 
+    val cc = descriptor.clearColor
     val colorAttachment =
       RenderPassColorAttachment(
         view = surfaceView,
         loadOp = GPULoadOp.Clear,
         storeOp = GPUStoreOp.Store,
         clearValue =
-          WGPUColor(
-            descriptor.clearColor.r.toDouble(),
-            descriptor.clearColor.g.toDouble(),
-            descriptor.clearColor.b.toDouble(),
-            descriptor.clearColor.a.toDouble(),
-          ),
+          if (surfaceIsSrgb) {
+            WGPUColor(srgbToLinear(cc.r), srgbToLinear(cc.g), srgbToLinear(cc.b), cc.a.toDouble())
+          } else {
+            WGPUColor(cc.r.toDouble(), cc.g.toDouble(), cc.b.toDouble(), cc.a.toDouble())
+          },
       )
 
     val wgpuDescriptor =
@@ -257,7 +258,17 @@ class WgpuRenderer(
 
   override fun setMaterialColor(color: Color) {
     val mb = materialUniformBuffer ?: return
-    val colorData = floatArrayOf(color.r, color.g, color.b, color.a)
+    val colorData =
+      if (surfaceIsSrgb) {
+        floatArrayOf(
+          srgbToLinear(color.r).toFloat(),
+          srgbToLinear(color.g).toFloat(),
+          srgbToLinear(color.b).toFloat(),
+          color.a,
+        )
+      } else {
+        floatArrayOf(color.r, color.g, color.b, color.a)
+      }
     device.queue.writeBuffer(mb, 0u, ArrayBuffer.of(colorData))
   }
 
@@ -467,6 +478,12 @@ class WgpuRenderer(
       CullMode.FRONT -> GPUCullMode.Front
       CullMode.BACK -> GPUCullMode.Back
     }
+
+  /** Convert an sRGB-encoded channel value to linear light for use with sRGB surface formats. */
+  private fun srgbToLinear(value: Float): Double {
+    val v = value.toDouble()
+    return if (v <= 0.04045) v / 12.92 else ((v + 0.055) / 1.055).pow(2.4)
+  }
 
   private fun mapTextureFormat(format: TextureFormat): GPUTextureFormat =
     when (format) {

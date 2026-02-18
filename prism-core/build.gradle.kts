@@ -1,13 +1,17 @@
 plugins {
   id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
-  alias(libs.plugins.android.library)
+  alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.maven.publish)
 }
 
 kotlin {
   jvm()
-  androidTarget()
+  android {
+    namespace = "com.hyeonslab.prism.core"
+    compileSdk = libs.versions.compileSdk.get().toInt()
+    minSdk = libs.versions.minSdk.get().toInt()
+  }
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
@@ -34,12 +38,6 @@ kotlin {
     allWarningsAsErrors.set(true)
     freeCompilerArgs.add("-Xexpect-actual-classes")
   }
-}
-
-android {
-  namespace = "com.hyeonslab.prism.core"
-  compileSdk = libs.versions.compileSdk.get().toInt()
-  defaultConfig { minSdk = libs.versions.minSdk.get().toInt() }
 }
 
 mavenPublishing {

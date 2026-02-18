@@ -12,7 +12,7 @@
 | Linux Desktop | JVM | Vulkan (via wgpu) | JDK 21+ |
 | Web | WASM/JS | WebGPU | Browser with WebGPU support |
 | iOS | Kotlin/Native | Metal (via wgpu) | iOS 13.0+ |
-| Android | Kotlin/Android | Vulkan (via wgpu + PanamaPort) | API 26+ (Android 8.0+) |
+| Android | Kotlin/Android | Vulkan (via wgpu4k-toolkit-android) | API 28+ (Android 9.0 Pie) |
 | macOS Native | Kotlin/Native | Metal (via wgpu) | macOS 11.0+ |
 
 ### Tech Stack
@@ -20,9 +20,9 @@
 - **Build:** Gradle 9.1+ with Kotlin DSL
 - **GPU:** wgpu4k (WebGPU bindings for Kotlin) — `io.ygdrasil:wgpu4k`
 - **Shaders:** WGSL (WebGPU Shading Language)
-- **UI Framework:** Jetpack Compose Multiplatform 1.10.0
+- **UI Framework:** Jetpack Compose Multiplatform 1.10.1
 - **Windowing (JVM):** GLFW via wgpu4k's glfw-native
-- **Android FFI:** PanamaPort (Foreign Function & Memory API for Android 8.0+)
+- **Android FFI:** wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`)
 - **Async:** kotlinx-coroutines 1.10.2
 - **Serialization:** kotlinx-serialization 1.9.0
 - **Logging:** Kermit 2.0.8
@@ -158,10 +158,10 @@ device.queue.submit(listOf(encoder.finish().bind()))
 - **Maven repo:** Maven Central (for stable releases like 0.1.1)
 - **GLFW integration:** `io.ygdrasil:glfw-native:0.0.2` for desktop windowing
 - **Android support:**
-  - Requires PanamaPort: `com.github.vova7878:PanamaPort` for FFI
-  - Android API 26+ (Android 8.0+)
-  - Android Gradle Plugin 8.6.0+
-  - compileSdk 35+
+  - Uses wgpu4k-toolkit-android AAR (Vulkan via JNI, no PanamaPort needed)
+  - Android API 28+ (Android 9.0 Pie)
+  - Android Gradle Plugin 8.13.0+
+  - compileSdk 36+
 - **Gradle properties needed:**
   ```
   kotlin.mpp.enableCInteropCommonization=true
@@ -331,15 +331,15 @@ struct MaterialUniforms {
 **Android — Files to modify:**
 - `prism-renderer/src/androidMain/kotlin/engine/prism/renderer/RenderSurface.android.kt`
 - `prism-demo/src/androidMain/kotlin/MainActivity.kt`
-- Add PanamaPort dependency to support FFI on Android
+- Add wgpu4k-toolkit-android dependency
 
 **Android approach — SurfaceView + Vulkan:**
-1. Add PanamaPort to support Project Panama FFI on Android
-2. Create Android SurfaceView for rendering
-3. Create wgpu surface from ANativeWindow (via JNI/FFI bridge)
-4. Request adapter (Vulkan backend) → device → queue
-5. Package into `WGPUContext`
-6. Handle Android lifecycle (pause/resume)
+1. Use wgpu4k-toolkit-android AAR (`androidContextRenderer(surfaceHolder, width, height)`)
+2. Create Android SurfaceView with SurfaceHolder.Callback
+3. wgpu4k creates Vulkan surface from ANativeWindow internally
+4. Receives `AndroidContext` with `WGPUContext` (device, surface, renderingContext)
+5. Choreographer.FrameCallback for vsync-aligned render loop
+6. Handle Android lifecycle via SurfaceHolder.Callback (surfaceCreated/Destroyed)
 
 **For Compose integration** (later milestone):
 - `PrismView.jvm.kt` will embed a GLFW-backed rendering panel inside a Compose window
@@ -496,11 +496,11 @@ fun main() {
 ### Modified Files
 | File | Change |
 |------|--------|
-| `gradle/libs.versions.toml` | Add wgpu4k version + PanamaPort artifacts |
+| `gradle/libs.versions.toml` | Add wgpu4k version + wgpu4k-toolkit-android artifacts |
 | `settings.gradle.kts` | Maven Central repository |
 | `gradle/wrapper/gradle-wrapper.properties` | Upgrade to Gradle 9.1+ |
 | `gradle.properties` | Add KMP properties, JVM args |
-| `prism-renderer/build.gradle.kts` | Add wgpu4k + PanamaPort dependencies |
+| `prism-renderer/build.gradle.kts` | Add wgpu4k + wgpu4k-toolkit dependencies |
 | `prism-renderer/.../RenderSurface.jvm.kt` | GLFW/wgpu surface creation |
 | `prism-renderer/.../RenderSurface.wasmJs.kt` | WebGPU canvas surface creation |
 | `prism-renderer/.../RenderSurface.ios.kt` | Metal layer surface creation |
@@ -569,12 +569,12 @@ fun main() {
 - Android build targets added to full dependency chain (prism-math, prism-core, prism-renderer, prism-native-widgets)
 - **Validates:** suspend factory API consistency, native platform integration, Android target resolution
 
-### M8: Android Support
-- PanamaPort integration for FFI support
-- Rotating cube renders on Android device/emulator
-- SurfaceView integration with Vulkan backend
-- Touch input and lifecycle handling
-- **Validates:** Android compilation, PanamaPort FFI bridge, Vulkan backend
+### M8: Android Support ✅
+- wgpu4k-toolkit-android AAR (JNI + native `libwgpu4k.so`) for Vulkan rendering
+- Rotating cube renders on Android device (Galaxy Fold, API 36, Vulkan)
+- SurfaceView + Choreographer render loop with lifecycle handling
+- sRGB color correction and byte-order fixes for ARM64
+- **Validates:** Android compilation, wgpu4k Vulkan backend, cross-platform rendering parity
 
 ### M9: PBR Materials
 - Physically Based Rendering pipeline (metallic-roughness workflow)
@@ -613,12 +613,12 @@ fun main() {
 2. **Target platforms:** JVM Desktop (macOS/Windows/Linux), WASM, iOS, Android, macOS Native
 3. **Platform priority:** Start with JVM (macOS/GLFW), then WASM, then mobile (iOS/Android)
 4. **Gradle/JDK upgrade:** Approved — upgrading to Gradle 9.1+ and JDK 21+
-5. **Android FFI:** Using PanamaPort (github.com/vova7878/PanamaPort) to enable Project Panama on Android 8.0+
+5. **Android FFI:** Using wgpu4k-toolkit-android AAR with JNI + native `libwgpu4k.so` for Vulkan rendering
 
 ## 9. Open Questions
 1. **Compose + GLFW:** Can a GLFW-rendered surface be embedded inside a Compose Desktop window, or do we need two separate windowing approaches? Investigate `SwingPanel` approach later (M5).
 2. **Suspend functions:** wgpu4k uses `suspend fun` for `initialize()` and `render()`. Our `Subsystem.initialize()` and `update()` are not suspend. We may need a `runBlocking` bridge or restructure.
-3. **PanamaPort integration:** How seamlessly does PanamaPort work with wgpu4k's FFI layer? May need adapter layer to remap `java.lang.foreign` to `com.v7878.foreign`.
+3. **Android API 35+:** wgpu4k-native shim classes in `java.lang.foreign` package are shadowed by the boot classpath, causing `InstantiationError`. Works on API 28-34; requires forked wgpu4k-native with package relocation for API 35+.
 4. **Android Vulkan:** Does wgpu4k's Vulkan backend work on all Android devices, or only those with Vulkan support? Fallback strategy for older devices?
 
 ---

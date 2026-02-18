@@ -38,7 +38,9 @@ prism-renderer
   └─► prism-native-widgets   Platform-specific rendering surfaces
        └─► prism-compose     Compose Multiplatform integration
 
-prism-demo                   Demo app (rotating lit cube via ECS) — see [prism-demo/README.md](prism-demo/README.md)
+prism-demo-core              Shared demo code (KMP library) — see [prism-demo-core/README.md](prism-demo-core/README.md)
+prism-android-demo           Android app (consumes prism-demo-core)
+prism-ios-demo               iOS Swift app (consumes prism-demo-core XCFramework)
 ```
 
 ## Quick Start
@@ -70,7 +72,7 @@ cd prism
 ./gradlew build
 
 # Run the demo (rotating lit cube)
-./gradlew :prism-demo:jvmRun
+./gradlew :prism-demo-core:jvmRun
 ```
 
 ### iOS (Swift Package Manager)
@@ -118,7 +120,7 @@ import Prism
 | Web (WASM/JS) | WebGPU | Working |
 | iOS | Metal via wgpu4k + MTKView | Working |
 | macOS Native | Metal via wgpu4k + GLFW | Working |
-| Android | Vulkan (PanamaPort) | In Progress |
+| Android | Vulkan via wgpu4k | Working |
 | Flutter (iOS/Android) | Platform channels + native rendering | Planned |
 | Flutter Web | WebGPU via HtmlElementView | Planned |
 
@@ -134,7 +136,7 @@ import Prism
 | M6 | Web/WASM support | Done |
 | M7 | iOS native support | Done |
 | M7.5 | PrismSurface + macOS native demo | Done |
-| M8 | Android support | In Progress |
+| M8 | Android support | Done |
 | M9 | PBR materials | Planned |
 | M10 | glTF asset loading | Planned |
 | M11 | Flutter integration | Planned |
@@ -149,7 +151,7 @@ Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. CI
 |---|---|---|
 | prism-math | 75 | Vec3, Mat4, Quaternion |
 | prism-renderer | 95 | Color, Mesh, VertexLayout, Camera, Shader |
-| prism-demo | 8 | DemoStore (MVI reducer) |
+| prism-demo-core | 8 | DemoStore (MVI reducer) |
 
 ## Contributing
 

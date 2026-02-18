@@ -25,8 +25,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS:
           - "$(inherited)"
-          - "$(SRCROOT)/../prism-demo/build/XCFrameworks/debug"
+          - "$(SRCROOT)/../prism-demo-core/build/XCFrameworks/debug"
     dependencies:
-      - framework: "../prism-demo/build/XCFrameworks/debug/PrismDemo.xcframework"
+      - framework: "../prism-demo-core/build/XCFrameworks/debug/PrismDemo.xcframework"
       - sdk: MetalKit.framework
       - sdk: Metal.framework
