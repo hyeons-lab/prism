@@ -1,0 +1,246 @@
+name: Build wgpu4k Dependencies
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "gradle/libs.versions.toml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rust-targets: ""
+          - os: macos-15
+            rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read dependency versions
+        id: deps-version
+        shell: bash
+        run: |
+          extract() { grep "^$1" gradle/libs.versions.toml | grep -v '{' | sed 's/.*"\(.*\)".*/\1/'; }
+
+          WGPU4K_VERSION=$(extract 'wgpu4k ')
+          WGPU4K_COMMIT=$(extract 'wgpu4kCommit')
+          WGPU4K_REPO=$(extract 'wgpu4kRepo')
+          NATIVE_COMMIT=$(extract 'wgpu4kNativeCommit')
+          NATIVE_REPO=$(extract 'wgpu4kNativeRepo')
+          KTYPES_COMMIT=$(extract 'webgpuKtypesCommit')
+          KTYPES_REPO=$(extract 'webgpuKtypesRepo')
+
+          for var in WGPU4K_VERSION WGPU4K_COMMIT WGPU4K_REPO NATIVE_COMMIT NATIVE_REPO KTYPES_COMMIT KTYPES_REPO; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Failed to extract $var from libs.versions.toml"
+              exit 1
+            fi
+          done
+
+          CACHE_HASH="${KTYPES_COMMIT:0:8}-${NATIVE_COMMIT:0:8}-${WGPU4K_COMMIT:0:8}"
+
+          echo "wgpu4k_version=$WGPU4K_VERSION" >> "$GITHUB_OUTPUT"
+          echo "wgpu4k_commit=$WGPU4K_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "wgpu4k_repo=$WGPU4K_REPO" >> "$GITHUB_OUTPUT"
+          echo "native_commit=$NATIVE_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "native_repo=$NATIVE_REPO" >> "$GITHUB_OUTPUT"
+          echo "ktypes_commit=$KTYPES_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "ktypes_repo=$KTYPES_REPO" >> "$GITHUB_OUTPUT"
+          echo "cache_hash=$CACHE_HASH" >> "$GITHUB_OUTPUT"
+          echo "release_tag=wgpu4k-deps-v${CACHE_HASH}" >> "$GITHUB_OUTPUT"
+
+          echo "Cache hash: $CACHE_HASH"
+          echo "Release tag: wgpu4k-deps-v${CACHE_HASH}"
+
+      - name: Check if release asset already exists
+        id: check-asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.deps-version.outputs.release_tag }}
+        run: |
+          ASSET_NAME="wgpu4k-deps-${{ runner.os }}.tar.zst"
+          echo "Checking for asset $ASSET_NAME in release $RELEASE_TAG..."
+
+          if gh release view "$RELEASE_TAG" --json assets --jq ".assets[].name" 2>/dev/null | grep -q "^${ASSET_NAME}$"; then
+            echo "Asset already exists — skipping build"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Asset not found — will build"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 25
+        if: steps.check-asset.outputs.exists != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        if: steps.check-asset.outputs.exists != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Rust toolchain
+        if: steps.check-asset.outputs.exists != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Rust toolchain
+        if: steps.check-asset.outputs.exists != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: wgpu4k-rust
+
+      - name: Build webgpu-ktypes from source
+        if: steps.check-asset.outputs.exists != 'true'
+        shell: bash
+        env:
+          REPO: ${{ steps.deps-version.outputs.ktypes_repo }}
+          COMMIT: ${{ steps.deps-version.outputs.ktypes_commit }}
+        run: |
+          echo "::group::Clone webgpu-ktypes"
+          git init /tmp/webgpu-ktypes
+          cd /tmp/webgpu-ktypes
+          git remote add origin "https://github.com/${REPO}.git"
+          git fetch --depth 1 origin "$COMMIT"
+          git checkout FETCH_HEAD
+          echo "::endgroup::"
+
+          echo "::group::Build webgpu-ktypes"
+          START=$SECONDS
+          ./gradlew publishToMavenLocal --no-daemon
+          echo "webgpu-ktypes build: $((SECONDS - START))s"
+          echo "::endgroup::"
+
+      - name: Build wgpu4k-native from source
+        if: steps.check-asset.outputs.exists != 'true'
+        shell: bash
+        env:
+          REPO: ${{ steps.deps-version.outputs.native_repo }}
+          COMMIT: ${{ steps.deps-version.outputs.native_commit }}
+        run: |
+          echo "::group::Clone wgpu4k-native"
+          git init /tmp/wgpu4k-native
+          cd /tmp/wgpu4k-native
+          git remote add origin "https://github.com/${REPO}.git"
+          git fetch --depth 1 origin "$COMMIT"
+          git checkout FETCH_HEAD
+          echo "::endgroup::"
+
+          echo "::group::Build wgpu4k-native"
+          START=$SECONDS
+          ./gradlew publishToMavenLocal --no-daemon
+          echo "wgpu4k-native build: $((SECONDS - START))s"
+          echo "::endgroup::"
+
+      - name: Build wgpu4k from source
+        if: steps.check-asset.outputs.exists != 'true'
+        shell: bash
+        env:
+          REPO: ${{ steps.deps-version.outputs.wgpu4k_repo }}
+          COMMIT: ${{ steps.deps-version.outputs.wgpu4k_commit }}
+        run: |
+          echo "::group::Clone wgpu4k"
+          git init /tmp/wgpu4k
+          cd /tmp/wgpu4k
+          git remote add origin "https://github.com/${REPO}.git"
+          git fetch --depth 1 origin "$COMMIT"
+          git checkout FETCH_HEAD
+          echo "::endgroup::"
+
+          echo "::group::Build wgpu4k"
+          START=$SECONDS
+          ./gradlew publishToMavenLocal --no-daemon -x dokkaHtml -x dokkaGenerate -x dokkaGenerateHtml
+          echo "wgpu4k build: $((SECONDS - START))s"
+          echo "::endgroup::"
+
+      - name: Package Maven local artifacts
+        if: steps.check-asset.outputs.exists != 'true'
+        shell: bash
+        run: |
+          ASSET_NAME="wgpu4k-deps-${{ runner.os }}.tar.zst"
+          echo "Packaging $ASSET_NAME..."
+
+          # Collect all relevant Maven local dirs
+          DIRS=""
+          for GROUP_PATH in io/ygdrasil com/hyeons-lab; do
+            DIR=~/.m2/repository/$GROUP_PATH
+            if [ -d "$DIR" ]; then
+              DIRS="$DIRS -C ~/.m2/repository $GROUP_PATH"
+            fi
+          done
+
+          if [ -z "$DIRS" ]; then
+            echo "::error::No Maven local artifacts found"
+            exit 1
+          fi
+
+          # Create tarball with zstd compression
+          eval tar --zstd -cf "$ASSET_NAME" $DIRS
+
+          SIZE=$(du -sh "$ASSET_NAME" | cut -f1)
+          echo "Created $ASSET_NAME ($SIZE)"
+          echo "asset_name=$ASSET_NAME" >> "$GITHUB_ENV"
+
+      - name: Create or update GitHub Release
+        if: steps.check-asset.outputs.exists != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.deps-version.outputs.release_tag }}
+          CACHE_HASH: ${{ steps.deps-version.outputs.cache_hash }}
+        run: |
+          ASSET_NAME="wgpu4k-deps-${{ runner.os }}.tar.zst"
+
+          # Create the release if it doesn't exist yet
+          if ! gh release view "$RELEASE_TAG" &>/dev/null; then
+            gh release create "$RELEASE_TAG" \
+              --title "wgpu4k Dependencies ($CACHE_HASH)" \
+              --notes "Pre-built wgpu4k Maven local artifacts for CI.
+
+          Commit pins:
+          - webgpu-ktypes: \`${{ steps.deps-version.outputs.ktypes_commit }}\`
+          - wgpu4k-native: \`${{ steps.deps-version.outputs.native_commit }}\`
+          - wgpu4k: \`${{ steps.deps-version.outputs.wgpu4k_commit }}\`" \
+              --prerelease
+          fi
+
+          # Upload the asset (overwrite if somehow it exists)
+          gh release upload "$RELEASE_TAG" "$ASSET_NAME" --clobber
+
+          echo "### wgpu4k Dependencies Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Key | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release | \`$RELEASE_TAG\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Asset | \`$ASSET_NAME\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Size | $(du -sh "$ASSET_NAME" | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build summary (skipped)
+        if: steps.check-asset.outputs.exists == 'true'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.deps-version.outputs.release_tag }}
+        run: |
+          echo "### wgpu4k Dependencies Release" >> "$GITHUB_STEP_SUMMARY"
+          echo "Asset \`wgpu4k-deps-${{ runner.os }}.tar.zst\` already exists in release \`$RELEASE_TAG\` — build skipped." >> "$GITHUB_STEP_SUMMARY"

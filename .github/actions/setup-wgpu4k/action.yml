@@ -1,5 +1,5 @@
 name: Setup wgpu4k
-description: Build wgpu4k and its forked dependencies from source (or restore from cache) and publish to Maven Local
+description: Restore wgpu4k dependencies from cache, pre-built release, or build from source
 
 inputs:
   rust-targets:
@@ -67,14 +67,39 @@ runs:
           ~/.m2/repository/com/hyeons-lab
         key: wgpu-deps-${{ runner.os }}-${{ steps.deps-version.outputs.cache_hash }}
 
-    - name: Set up Rust toolchain
+    - name: Download pre-built artifacts from GitHub Release
+      id: release-download
       if: steps.cache-deps.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: wgpu4k-deps-v${{ steps.deps-version.outputs.cache_hash }}
+      run: |
+        ASSET_NAME="wgpu4k-deps-${RUNNER_OS}.tar.zst"
+        echo "Trying to download $ASSET_NAME from release $RELEASE_TAG..."
+
+        if gh release download "$RELEASE_TAG" --pattern "$ASSET_NAME" --dir /tmp --repo "$GITHUB_REPOSITORY" 2>/dev/null; then
+          echo "::group::Extract pre-built artifacts"
+          mkdir -p ~/.m2/repository
+          tar --zstd -xf "/tmp/$ASSET_NAME" -C ~/.m2/repository
+          rm -f "/tmp/$ASSET_NAME"
+          echo "::endgroup::"
+
+          echo "downloaded=true" >> "$GITHUB_OUTPUT"
+          echo "Pre-built artifacts restored from release $RELEASE_TAG"
+        else
+          echo "downloaded=false" >> "$GITHUB_OUTPUT"
+          echo "Release asset not available — will build from source"
+        fi
+
+    - name: Set up Rust toolchain
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ inputs.rust-targets }}
 
     - name: Cache Rust toolchain
-      if: steps.cache-deps.outputs.cache-hit != 'true'
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       uses: Swatinem/rust-cache@v2
       with:
         prefix-key: wgpu4k-rust
@@ -82,7 +107,7 @@ runs:
     # Build order: webgpu-ktypes first, then wgpu4k-native, then wgpu4k (depends on both)
 
     - name: Build webgpu-ktypes from source
-      if: steps.cache-deps.outputs.cache-hit != 'true'
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       shell: bash
       env:
         REPO: ${{ steps.deps-version.outputs.ktypes_repo }}
@@ -103,7 +128,7 @@ runs:
         echo "::endgroup::"
 
     - name: Build wgpu4k-native from source
-      if: steps.cache-deps.outputs.cache-hit != 'true'
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       shell: bash
       env:
         REPO: ${{ steps.deps-version.outputs.native_repo }}
@@ -124,7 +149,7 @@ runs:
         echo "::endgroup::"
 
     - name: Build wgpu4k from source
-      if: steps.cache-deps.outputs.cache-hit != 'true'
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       shell: bash
       env:
         REPO: ${{ steps.deps-version.outputs.wgpu4k_repo }}
@@ -145,7 +170,7 @@ runs:
         echo "::endgroup::"
 
     - name: Build summary
-      if: steps.cache-deps.outputs.cache-hit != 'true'
+      if: steps.cache-deps.outputs.cache-hit != 'true' && steps.release-download.outputs.downloaded != 'true'
       shell: bash
       run: |
         echo "### wgpu Dependencies Build" >> "$GITHUB_STEP_SUMMARY"
@@ -169,8 +194,17 @@ runs:
         NATIVE_COMMIT: ${{ steps.deps-version.outputs.native_commit }}
         KTYPES_COMMIT: ${{ steps.deps-version.outputs.ktypes_commit }}
         CACHE_HIT: ${{ steps.cache-deps.outputs.cache-hit }}
+        RELEASE_DOWNLOAD: ${{ steps.release-download.outputs.downloaded }}
         CACHE_HASH: ${{ steps.deps-version.outputs.cache_hash }}
       run: |
+        if [ "$CACHE_HIT" = "true" ]; then
+          SOURCE="actions/cache"
+        elif [ "$RELEASE_DOWNLOAD" = "true" ]; then
+          SOURCE="GitHub Release"
+        else
+          SOURCE="built from source"
+        fi
+
         echo "### wgpu Dependency Cache" >> "$GITHUB_STEP_SUMMARY"
         echo "| Key | Value |" >> "$GITHUB_STEP_SUMMARY"
         echo "|-----|-------|" >> "$GITHUB_STEP_SUMMARY"
@@ -178,4 +212,4 @@ runs:
         echo "| wgpu4k-native | \`${NATIVE_COMMIT:0:8}\` |" >> "$GITHUB_STEP_SUMMARY"
         echo "| webgpu-ktypes | \`${KTYPES_COMMIT:0:8}\` |" >> "$GITHUB_STEP_SUMMARY"
         echo "| Cache key | \`wgpu-deps-${RUNNER_OS}-${CACHE_HASH}\` |" >> "$GITHUB_STEP_SUMMARY"
-        echo "| Cache hit | ${CACHE_HIT} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Source | ${SOURCE} |" >> "$GITHUB_STEP_SUMMARY"
