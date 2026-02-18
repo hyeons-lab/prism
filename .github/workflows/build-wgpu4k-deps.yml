@@ -3,10 +3,9 @@ name: Build wgpu4k Dependencies
 on:
   workflow_dispatch:
   push:
-    branches: [main, chore/ci-prebuilt-wgpu4k] # TODO: remove branch before merge
+    branches: [main]
     paths:
       - "gradle/libs.versions.toml"
-      - ".github/workflows/build-wgpu4k-deps.yml" # TODO: remove path before merge
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
