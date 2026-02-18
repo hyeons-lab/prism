@@ -14,7 +14,7 @@ Prism provides a unified API for building 3D applications across desktop (JVM), 
 
 - **Math library** — Vec2/3/4, Mat3/4, Quaternion, Transform with operator overloads
 - **Entity-Component-System** — World, Entity, Component, System with query-based iteration
-- **Renderer** — wgpu4k-backed pipeline with WGSL shaders, depth testing, and lighting
+- **Renderer** — wgpu4k-backed PBR pipeline: Cook-Torrance BRDF, IBL, HDR tone mapping, and multi-bind-group layout
 - **Scene graph** — Node hierarchy with MeshNode, CameraNode, LightNode
 - **Engine core** — Subsystem architecture, game loop, frame timing
 - **Input system** — Cross-platform keyboard/mouse/touch abstractions
@@ -71,7 +71,7 @@ cd prism
 # Build all modules
 ./gradlew build
 
-# Run the demo (rotating lit cube)
+# Run the demo (PBR sphere grid)
 ./gradlew :prism-demo-core:jvmRun
 ```
 
@@ -137,7 +137,7 @@ import Prism
 | M7 | iOS native support | Done |
 | M7.5 | PrismSurface + macOS native demo | Done |
 | M8 | Android support | Done |
-| M9 | PBR materials | Planned |
+| M9 | PBR materials | Done |
 | M10 | glTF asset loading | Planned |
 | M11 | Flutter integration | Planned |
 
@@ -149,9 +149,9 @@ Tests use `kotlin.test` with [Kotest](https://kotest.io/) assertion matchers. CI
 
 | Module | Tests | Coverage |
 |---|---|---|
-| prism-math | 75 | Vec3, Mat4, Quaternion |
-| prism-renderer | 95 | Color, Mesh, VertexLayout, Camera, Shader |
-| prism-demo-core | 8 | DemoStore (MVI reducer) |
+| prism-math | 80 | Vec3, Mat4, Quaternion |
+| prism-renderer | 146 | Color, Mesh, VertexLayout, Camera, Shader, IblGenerator, LightData, Material |
+| prism-demo-core | 10 | DemoStore (MVI reducer) |
 
 ## Contributing
 

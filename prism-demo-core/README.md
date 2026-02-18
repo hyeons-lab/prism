@@ -1,6 +1,6 @@
 # prism-demo-core
 
-Shared KMP library containing the demo application logic for all platforms. Renders a rotating lit cube driven by the ECS, with interactive Compose UI controls on supported platforms.
+Shared KMP library containing the demo application logic for all platforms. Renders a PBR sphere grid (7×7, metallic/roughness gradient) driven by the ECS, with interactive Compose UI controls on supported platforms.
 
 ## Module relationship
 
@@ -51,9 +51,9 @@ The iOS demo is a Swift app (`prism-ios-demo/`) that showcases how to consume th
 | Tab | Rendering | UI Controls | Entry point |
 |---|---|---|---|
 | **Native** | MTKView + `DemoRenderDelegate` | None | `iosMain/.../IosDemoController.kt` |
-| **Compose** | MTKView embedded via `UIKitView` | Material3 sliders, pause, color picker | `iosMain/.../ComposeIosEntry.kt` |
+| **Compose** | MTKView embedded via `UIKitView` | Material3 sliders (env intensity, metallic, roughness), pause | `iosMain/.../ComposeIosEntry.kt` |
 
-Both tabs share a single `DemoStore` and `SharedDemoTime` so rotation angle, pause state, speed, and cube color are synchronized across tabs. Changing any setting on the Compose tab is immediately reflected on the Native tab.
+Both tabs share a single `DemoStore` and `SharedDemoTime` so rotation angle, pause state, and speed are synchronized across tabs. Changing any setting on the Compose tab is immediately reflected on the Native tab.
 
 **Build and run:**
 
@@ -109,13 +109,15 @@ adb install prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.
 
 | File | Purpose |
 |---|---|
-| `DemoScene.kt` | Factory (`createDemoScene()`) that bootstraps an ECS world with camera, cube, and `WgpuRenderer`. `tick()` advances rotation for non-interactive demos. |
-| `DemoSceneState.kt` | MVI store: `DemoUiState` (speed, pause, color, fps), `DemoIntent` (actions), `DemoStore` (pure reducer). |
-| `ComposeDemoControls.kt` | Material3 composable with rotation speed slider, pause/resume button, and color presets. Used by both JVM Compose and iOS Compose. |
+| `DemoScene.kt` | Factory (`createDemoScene()`) that bootstraps an ECS world with camera, PBR sphere grid, lights, IBL, and `WgpuRenderer`. `tick()` advances the ECS world each frame. |
+| `DemoSceneState.kt` | MVI store: `DemoUiState` (speed, pause, metallic, roughness, envIntensity, fps), `DemoIntent` (actions), `DemoStore` (pure reducer). |
+| `ComposeDemoControls.kt` | Material3 composable with rotation speed slider, pause/resume button, and PBR sliders (env intensity, metallic, roughness). Used by both JVM Compose and iOS Compose. |
 
 ## Interactive Controls (Compose tabs)
 
 - **Rotation speed** — Slider (0-360 deg/s, default 45)
-- **Pause / Resume** — Freezes cube rotation
-- **Cube color** — Circular preset swatches (blue, red, green, gold, purple, white)
+- **Pause / Resume** — Freezes the scene
+- **Env intensity** — Slider (0-2, default 1.0) — scales IBL contribution
+- **Metallic** — Slider (0-1, default 0.5) — overrides grid metallic value
+- **Roughness** — Slider (0-1, default 0.5) — overrides grid roughness value
 - **FPS** — Smoothed display updated each frame
