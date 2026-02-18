@@ -23,6 +23,9 @@
 - 2026-02-18 `flutter_plugin/lib/src/prism_render_view_mobile.dart` — Mobile AndroidView/UiKitView (extracted)
 - 2026-02-18 `flutter_plugin/lib/src/prism_render_view_web.dart` — Web HtmlElementView with canvas + WASM init
 - 2026-02-18 `flutter_plugin/pubspec.yaml` — Added web platform (pluginClass: none) + package:web dependency
+- 2026-02-18 `AGENTS.md` — Updated Platform Implementations, Current Project Status, module descriptions for Flutter M11
+- 2026-02-18 `BUILD_STATUS.md` — Marked M11 as complete with implementation details
+- 2026-02-18 `ARCHITECTURE.md` — Updated prism-flutter module description, added Flutter demo entry points, removed Flutter from planned improvements
 
 ## Decisions
 - 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
@@ -51,4 +54,4 @@
 - [x] Phase 5: Dart plugin updates (PrismEngine, PrismRenderView) — done as part of Phase 2
 - [x] Phase 6: Flutter example app (full demo with UI controls) — done as part of Phase 2
 - [x] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
-- [ ] Phase 7: Documentation & CI
+- [x] Phase 7: Documentation & CI

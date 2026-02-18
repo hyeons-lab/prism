@@ -105,7 +105,7 @@ prism-math                          (zero dependencies)
 prism-renderer
   └─► prism-native-widgets          (platform surfaces: GLFW, MTKView, Canvas)
        ├─► prism-compose            (Compose Multiplatform integration)
-       └─► prism-flutter            (Flutter bridge placeholder)
+       └─► prism-flutter            (Flutter bridge: Android/iOS MethodChannel + Web WASM)
 
 prism-ios                           (XCFramework aggregator, re-exports all modules)
 
@@ -126,7 +126,7 @@ prism-demo                          (depends on all engine modules)
 | `prism-audio` | Audio engine interface (stub) | Future work |
 | `prism-native-widgets` | Platform-specific GPU surface creation (GLFW, MTKView, Canvas, AWT) | Surface layer |
 | `prism-compose` | Compose Multiplatform integration with MVI state management | UI framework bridge |
-| `prism-flutter` | Flutter platform channel bridge (placeholder) | Future work |
+| `prism-flutter` | Flutter bridge: PrismBridge + DemoStore MVI (Android/iOS), @JsExport WASM entry (web) | M11 |
 | `prism-ios` | XCFramework aggregator for iOS/SPM distribution | Packaging |
 | `prism-demo` | Demo app with rotating lit cube across all platforms | Reference impl |
 
@@ -568,6 +568,9 @@ All converge on `DemoScene`:
 | iOS Compose | `ComposeIosEntry.kt` | `UIKitView` + `ComposeRenderDelegate` |
 | Android | `PrismDemoActivity.kt` | `Choreographer.FrameCallback` (vsync-aligned) |
 | macOS Native | `MacosDemoMain.kt` | `while(running)` + `glfwPollEvents()` + AppKit `NSPanel` controls |
+| Flutter Android | `PrismPlatformView.kt` | `SurfaceView` + `Choreographer.FrameCallback` via MethodChannel |
+| Flutter iOS | `PrismPlatformView.swift` | `MTKView` + `configureDemo` via MethodChannel |
+| Flutter Web | `FlutterWasmEntry.kt` | `@JsExport` + recursive `requestAnimationFrame` via Dart JS interop |
 
 ### ECS Rendering Pipeline (End-to-End)
 
@@ -666,5 +669,4 @@ All converge on `DemoScene`:
 **Platform:**
 - Frame rate limiting in GameLoop
 - Transform hierarchy in ECS (TransformSystem)
-- Flutter platform channel integration
 - Compute shader support
