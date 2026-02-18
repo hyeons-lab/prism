@@ -83,6 +83,13 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
 
     log.i { "Creating PrismSurface: ${info.width}x${info.height}" }
     val surface = createPrismSurface(info.holder, info.width, info.height)
+    // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
+    // If so, the surface is no longer wanted — detach and bail out.
+    if (surfaceInfo == null) {
+      log.w { "Surface destroyed during init — discarding new PrismSurface" }
+      surface.detach()
+      return@LaunchedEffect
+    }
     prismSurface = surface
     store.dispatch(EngineStateEvent.SurfaceResized(info.width, info.height))
     renderingActive = true

@@ -30,8 +30,4 @@ dependencies {
   implementation(libs.wgpu4k)
   implementation(libs.wgpu4k.toolkit)
   implementation(libs.activity.compose)
-  implementation(libs.compose.material3)
-  implementation(libs.compose.ui)
-  implementation(libs.compose.foundation)
-  implementation(libs.lifecycle.runtime.compose)
 }

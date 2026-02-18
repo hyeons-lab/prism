@@ -121,6 +121,13 @@ fun AndroidComposeDemoContent() {
         log.i { "Initializing wgpu for Compose Android demo: ${info.width}x${info.height}" }
         try {
           val s = createPrismSurface(info.holder, info.width, info.height)
+          // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
+          // If so, the surface is no longer wanted — detach and bail out.
+          if (surfaceInfo == null) {
+            log.w { "Surface destroyed during init — discarding new PrismSurface" }
+            s.detach()
+            return@LaunchedEffect
+          }
           surface = s
           val wgpuCtx = checkNotNull(s.wgpuContext) { "wgpu context not available" }
           val sc =
