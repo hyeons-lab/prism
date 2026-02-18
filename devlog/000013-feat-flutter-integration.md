@@ -13,20 +13,35 @@
 - 2026-02-18 `flutter_plugin/lib/src/prism_engine.dart` — Rewritten with new API (setRotationSpeed, togglePause, setCubeColor, getState)
 - 2026-02-18 `flutter_plugin/lib/src/prism_render_view.dart` — Fixed unnecessary import lint
 - 2026-02-18 `flutter_plugin/example/` — Created example app with Material3 controls
+- 2026-02-18 `prism-flutter/build.gradle.kts` — Added `binaries.executable()`, `outputModuleName.set("prism-flutter")` for wasmJs
+- 2026-02-18 `prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt` — Kotlin/WASM entry point with @JsExport control functions + requestAnimationFrame render loop
+- 2026-02-18 `flutter_plugin/lib/src/prism_web_plugin.dart` — JS interop bindings (@JS) + ES module loader for Kotlin/WASM bundle
+- 2026-02-18 `flutter_plugin/lib/src/prism_engine.dart` — Rewritten as conditional export (channel vs web)
+- 2026-02-18 `flutter_plugin/lib/src/prism_engine_channel.dart` — Mobile MethodChannel implementation (extracted)
+- 2026-02-18 `flutter_plugin/lib/src/prism_engine_web.dart` — Web implementation delegating to PrismWebEngine
+- 2026-02-18 `flutter_plugin/lib/src/prism_render_view.dart` — Rewritten as conditional export (mobile vs web)
+- 2026-02-18 `flutter_plugin/lib/src/prism_render_view_mobile.dart` — Mobile AndroidView/UiKitView (extracted)
+- 2026-02-18 `flutter_plugin/lib/src/prism_render_view_web.dart` — Web HtmlElementView with canvas + WASM init
+- 2026-02-18 `flutter_plugin/pubspec.yaml` — Added web platform (pluginClass: none) + package:web dependency
 
 ## Decisions
 - 2026-02-18 Native-driven render loop — Choreographer on Android, MTKView delegate on iOS. Flutter only sends control intents via method channel.
 - 2026-02-18 Android plugin consumes KMP artifacts from Maven local — `engine.prism:prism-flutter-android:0.1.0-SNAPSHOT`
 - 2026-02-18 iOS plugin consumes PrismDemo.xcframework via podspec — reuses existing configureDemo/IosDemoHandle pattern
 - 2026-02-18 Shared DemoStore for MVI state — same pattern as Compose integration
+- 2026-02-18 Flutter Web uses conditional imports (`dart.library.js_interop`) to split PrismEngine and PrismRenderView into mobile (MethodChannel) and web (JS interop) variants
+- 2026-02-18 Kotlin/WASM `@JsExport` functions exposed globally via inline ES module loader script — Dart `@JS()` annotations reference `window.*` globals
+- 2026-02-18 Web render loop driven by `requestAnimationFrame` inside Kotlin/WASM — matches mobile pattern (native-driven, not Dart-driven)
 
 ## Issues
+- 2026-02-18 Kotlin 2.3.0 deprecated `moduleName` in wasmJs target — replaced with `outputModuleName.set("prism-flutter")` (Provider API)
 
 ## Commits
 - 5f3c415 — chore: add devlog and plan for Flutter integration (M11)
 - 91b4bd9 — feat: enable prism-flutter module with DemoScene/DemoStore bridge
 - 104c395 — feat: implement Android Flutter plugin with platform view
 - ec73dda — feat: implement iOS Flutter plugin with MTKView platform view
+- 9cbaed9 — feat: implement Flutter Web support with Kotlin/WASM and JS interop
 
 ## Progress
 - [x] Phase 0: Build system — uncomment prism-flutter, add Android/wasmJs targets
@@ -35,5 +50,5 @@
 - [x] Phase 3: iOS Flutter plugin (PrismFlutterPlugin.swift, PrismPlatformView.swift)
 - [x] Phase 5: Dart plugin updates (PrismEngine, PrismRenderView) — done as part of Phase 2
 - [x] Phase 6: Flutter example app (full demo with UI controls) — done as part of Phase 2
-- [ ] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
+- [x] Phase 4: Flutter Web (HtmlElementView + WASM bundle)
 - [ ] Phase 7: Documentation & CI
