@@ -50,11 +50,16 @@ fun AndroidComposeDemoContent() {
   var surface by remember { mutableStateOf<PrismSurface?>(null) }
   var surfaceInfo by remember { mutableStateOf<SurfaceInfo?>(null) }
   var initError by remember { mutableStateOf<String?>(null) }
+  // Synchronous flag to stop rendering immediately when the surface is destroyed.
+  // Compose state updates are async (take effect on next recomposition), so the render loop's
+  // captured `sc` reference would keep rendering into a destroyed surface without this.
+  var renderingActive by remember { mutableStateOf(false) }
 
   // Clean up wgpu resources when the composable leaves the composition.
   DisposableEffect(Unit) {
     onDispose {
       log.i { "Disposing Compose Android demo" }
+      renderingActive = false
       scene?.shutdown()
       scene = null
       surface?.detach()
@@ -94,6 +99,7 @@ fun AndroidComposeDemoContent() {
 
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                   log.i { "surfaceDestroyed" }
+                  renderingActive = false
                   scene?.shutdown()
                   scene = null
                   surface?.detach()
@@ -124,6 +130,7 @@ fun AndroidComposeDemoContent() {
               initialColor = store.state.value.cubeColor,
             )
           scene = sc
+          renderingActive = true
           log.i { "Compose Android demo initialized (${info.width}x${info.height})" }
         } catch (e: Exception) {
           log.e(e) { "Failed to initialize wgpu: ${e.message}" }
@@ -142,6 +149,7 @@ fun AndroidComposeDemoContent() {
 
         while (true) {
           withFrameNanos {
+            if (!renderingActive) return@withFrameNanos
             val nowNs = System.nanoTime()
             val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
             val totalSec = (nowNs - startTimeNs) / 1_000_000_000f

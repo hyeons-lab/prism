@@ -31,7 +31,10 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
   // Surface lifecycle state: null until surfaceChanged fires with valid dimensions.
   var surfaceInfo by remember { mutableStateOf<SurfaceInfo?>(null) }
   var prismSurface by remember { mutableStateOf<PrismSurface?>(null) }
-  var isReady by remember { mutableStateOf(false) }
+  // Synchronous flag to stop rendering immediately when the surface is destroyed.
+  // Compose state updates are async (take effect on next recomposition), so we need this
+  // to prevent rendering into a destroyed surface in the current frame.
+  var renderingActive by remember { mutableStateOf(false) }
 
   AndroidView(
     modifier = modifier,
@@ -55,7 +58,7 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
               log.i { "surfaceDestroyed" }
-              isReady = false
+              renderingActive = false
               surfaceInfo = null
             }
           }
@@ -64,40 +67,50 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
     },
   )
 
-  // Initialize wgpu surface when the SurfaceHolder becomes available.
+  // Initialize or re-initialize wgpu surface when the SurfaceHolder changes.
   LaunchedEffect(surfaceInfo) {
     val info = surfaceInfo ?: return@LaunchedEffect
+
+    // Detach the old surface before creating a new one to avoid GPU resource leaks
+    // (e.g., on fold/unfold which triggers surfaceChanged with a new holder).
+    prismSurface?.let { old ->
+      log.i { "Detaching old PrismSurface before re-creation" }
+      renderingActive = false
+      store.engine.gameLoop.stop()
+      old.detach()
+    }
+
     log.i { "Creating PrismSurface: ${info.width}x${info.height}" }
     val surface = createPrismSurface(info.holder, info.width, info.height)
     prismSurface = surface
     store.dispatch(EngineStateEvent.SurfaceResized(info.width, info.height))
-    isReady = true
+    renderingActive = true
     log.i { "PrismSurface ready" }
   }
 
   // Render loop — synchronized with display refresh rate via Compose's frame scheduling.
-  if (isReady) {
-    LaunchedEffect(prismSurface, isReady) {
-      val surface = prismSurface ?: return@LaunchedEffect
-      if (surface.wgpuContext == null) return@LaunchedEffect
-      log.i { "Starting render loop" }
+  // Re-launched whenever prismSurface changes (new surface after fold/unfold).
+  LaunchedEffect(prismSurface) {
+    val surface = prismSurface ?: return@LaunchedEffect
+    if (surface.wgpuContext == null) return@LaunchedEffect
+    if (!renderingActive) return@LaunchedEffect
+    log.i { "Starting render loop" }
 
-      val engine = store.engine
-      engine.gameLoop.startExternal()
+    val engine = store.engine
+    engine.gameLoop.startExternal()
 
-      while (true) {
-        withFrameNanos {
-          if (!isReady) return@withFrameNanos
+    while (true) {
+      withFrameNanos {
+        if (!renderingActive) return@withFrameNanos
 
-          engine.gameLoop.tick()
+        engine.gameLoop.tick()
 
-          val time = engine.time
-          val currentFps = store.state.value.fps
-          val smoothedFps =
-            if (time.deltaTime > 0f) currentFps * 0.9f + (1f / time.deltaTime) * 0.1f
-            else currentFps
-          store.dispatch(EngineStateEvent.FrameTick(time, smoothedFps))
-        }
+        val time = engine.time
+        val currentFps = store.state.value.fps
+        val smoothedFps =
+          if (time.deltaTime > 0f) currentFps * 0.9f + (1f / time.deltaTime) * 0.1f
+          else currentFps
+        store.dispatch(EngineStateEvent.FrameTick(time, smoothedFps))
       }
     }
   }
@@ -105,8 +118,8 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
   DisposableEffect(store) {
     onDispose {
       log.i { "PrismView disposing" }
+      renderingActive = false
       store.engine.gameLoop.stop()
-      isReady = false
       prismSurface?.detach()
       prismSurface = null
     }
