@@ -145,6 +145,12 @@ private fun createAndShowUi() {
 
                 // Run ECS update (triggers RenderSystem)
                 baseOnRender?.invoke(time)
+
+                // Update DemoStore FPS for the controls UI.
+                if (time.deltaTime > 0f) {
+                  val smoothedFps = currentState.fps * 0.9f + (1f / time.deltaTime) * 0.1f
+                  demoStore.dispatch(DemoIntent.UpdateFps(smoothedFps))
+                }
               }
             } catch (e: Exception) {
               log.e(e) { "Failed to initialize demo scene: ${e.message}" }

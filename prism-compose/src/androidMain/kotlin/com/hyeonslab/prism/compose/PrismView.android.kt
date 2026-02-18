@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -17,6 +18,9 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 import io.ygdrasil.webgpu.WGPUContext
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 
 private val log = Logger.withTag("PrismView.Android")
 
@@ -70,12 +74,14 @@ actual fun PrismView(
                 log.w { "Ignoring surfaceChanged with non-positive size" }
                 return
               }
-              if (holder === currentHolder && prismSurface != null) {
-                // Same holder, just resized — no need to recreate the wgpu surface.
-                store.dispatch(EngineStateEvent.SurfaceResized(width, height))
-                currentOnSurfaceResized?.invoke(width, height)
+              if (holder === currentHolder) {
+                // Same holder — resize if surface exists, otherwise creation is in progress.
+                if (prismSurface != null) {
+                  store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+                  currentOnSurfaceResized?.invoke(width, height)
+                }
               } else {
-                // New holder — trigger wgpu surface (re)creation via LaunchedEffect.
+                // New holder — trigger wgpu surface (re)creation via snapshotFlow collector.
                 currentHolder = holder
               }
             }
@@ -97,45 +103,52 @@ actual fun PrismView(
     },
   )
 
-  // Initialize or re-initialize wgpu surface when the SurfaceHolder changes.
-  LaunchedEffect(currentHolder) {
-    val holder = currentHolder ?: return@LaunchedEffect
+  // Initialize or re-initialize the wgpu surface when the SurfaceHolder changes.
+  // Uses snapshotFlow + collectLatest instead of LaunchedEffect(currentHolder) to
+  // guarantee deduplication (distinctUntilChanged) and automatic cancellation of
+  // in-progress surface creation when a genuinely new holder arrives.
+  LaunchedEffect(Unit) {
+    snapshotFlow { currentHolder }
+      .distinctUntilChanged()
+      .filterNotNull()
+      .collectLatest { holder ->
+        // Detach the old surface before creating a new one to avoid GPU resource leaks
+        // (e.g., on fold/unfold which triggers surfaceChanged with a new holder).
+        prismSurface?.let { old ->
+          log.i { "Detaching old PrismSurface before re-creation" }
+          renderingActive = false
+          store.engine.gameLoop.stop()
+          old.detach()
+          prismSurface = null
+        }
 
-    // Detach the old surface before creating a new one to avoid GPU resource leaks
-    // (e.g., on fold/unfold which triggers surfaceChanged with a new holder).
-    prismSurface?.let { old ->
-      log.i { "Detaching old PrismSurface before re-creation" }
-      renderingActive = false
-      store.engine.gameLoop.stop()
-      old.detach()
-    }
+        // Use the SurfaceHolder's current surface frame dimensions.
+        val rect = holder.surfaceFrame
+        val width = rect.width()
+        val height = rect.height()
+        log.i { "Creating PrismSurface: ${width}x${height}" }
 
-    // Use the SurfaceHolder's current surface frame dimensions.
-    val rect = holder.surfaceFrame
-    val width = rect.width()
-    val height = rect.height()
-    log.i { "Creating PrismSurface: ${width}x${height}" }
-
-    try {
-      val surface = createPrismSurface(holder, width, height)
-      // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
-      // If so, the surface is no longer wanted — detach and bail out.
-      if (currentHolder == null) {
-        log.w { "Surface destroyed during init \u2014 discarding new PrismSurface" }
-        surface.detach()
-        return@LaunchedEffect
+        try {
+          val surface = createPrismSurface(holder, width, height)
+          // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
+          // If so, the surface is no longer wanted — detach and bail out.
+          if (currentHolder == null) {
+            log.w { "Surface destroyed during init \u2014 discarding new PrismSurface" }
+            surface.detach()
+            return@collectLatest
+          }
+          val ctx = surface.wgpuContext
+          if (ctx != null) {
+            currentOnSurfaceReady?.invoke(ctx, width, height)
+          }
+          prismSurface = surface
+          store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+          renderingActive = true
+          log.i { "PrismSurface ready" }
+        } catch (e: Exception) {
+          log.e(e) { "Failed to create PrismSurface: ${width}x${height}" }
+        }
       }
-      val ctx = surface.wgpuContext
-      if (ctx != null) {
-        currentOnSurfaceReady?.invoke(ctx, width, height)
-      }
-      prismSurface = surface
-      store.dispatch(EngineStateEvent.SurfaceResized(width, height))
-      renderingActive = true
-      log.i { "PrismSurface ready" }
-    } catch (e: Exception) {
-      log.e(e) { "Failed to create PrismSurface: ${width}x${height}" }
-    }
   }
 
   // Render loop — synchronized with display refresh rate via Compose's frame scheduling.
