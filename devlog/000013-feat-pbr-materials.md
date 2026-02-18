@@ -35,6 +35,14 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - `Math.pow` not KMP-compatible: replaced with `kotlin.math.pow` extension throughout IblGenerator
 - `shouldBeNull()` unavailable without explicit kotest import: used `shouldBe null` pattern instead
 - wgpu4k `TextureDescriptor.mipLevelCount`, `TexelCopyTextureInfo.mipLevel`, `TextureViewDescriptor.mipLevelCount` confirmed present via source jar inspection (all `UInt`-typed with sensible defaults)
+- Critical review found 7 issues after M9 completion — all fixed in follow-up commit:
+  1. Irradiance scale `π/N` → `2π/N` (factor-of-2 physics error)
+  2. Missing `1/π` in Lambertian diffuse IBL term in fragment shader
+  3. IBL textures upgraded from RGBA8Unorm to RGBA16Float (irradiance + prefiltered) and RG16Float (BRDF LUT) — adds float16 encoding helpers
+  4. Non-sRGB swapchain got no gamma encoding in tone map pass — added `ToneMapParams.applySrgb` uniform
+  5. Tangent transformed by model matrix instead of normalMatrix — breaks TBN under non-uniform scale
+  6. `LightData.innerAngle` field added to expose spot light inner cone; replaces hardcoded 80% in WGSL
+  7. Redundant `setCameraPosition` call after `setCamera` in RenderSystem removed
 
 ## Commits
 - 16213a2 docs: add devlog and plan for PBR materials (M9)
@@ -43,6 +51,8 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - c88e1e4 feat: add CPU-side IBL generation (Step 6)
 - 9699a87 feat: add PBR sphere grid demo + PBR UI controls (Step 7)
 - 7f0db1b docs: mark M9 PBR materials complete, update BUILD_STATUS + AGENTS
+- 74c24b0 docs: update docs for M9 PBR materials completion
+- 5e69d09 docs: fix ARCHITECTURE.md inaccuracies found in critical review
 
 ## Progress
 - [x] Step 1: Data model expansion + math helpers

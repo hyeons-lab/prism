@@ -40,7 +40,6 @@ class RenderSystem(private val renderer: Renderer) : System {
     if (cameras.isNotEmpty()) {
       val cam = cameras.first().second.camera
       renderer.setCamera(cam)
-      renderer.setCameraPosition(cam.position)
     }
 
     // Collect lights from LightComponent entities
@@ -62,6 +61,7 @@ class RenderSystem(private val renderer: Renderer) : System {
           intensity = lightComp.intensity,
           range = lightComp.range,
           spotAngle = lightComp.spotAngle,
+          innerAngle = lightComp.innerAngle,
         )
       }
     renderer.setLights(lightDataList)

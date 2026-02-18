@@ -139,6 +139,7 @@ object IblGenerator {
 
   @Suppress("LongMethod")
   private fun uploadBrdfLut(device: GPUDevice, size: Int, numSamples: Int): WGPUTexture {
+    // RG16Float: 2 channels × 2 bytes each = 4 bytes/texel. R=scale, G=bias.
     val pixels = ByteArray(size * size * 4)
     for (y in 0 until size) {
       val roughness = (y.toFloat() + 0.5f) / size
@@ -146,17 +147,15 @@ object IblGenerator {
         val ndotV = (x.toFloat() + 0.5f) / size
         val (scale, bias) = integrateBrdf(ndotV, roughness, numSamples)
         val idx = (y * size + x) * 4
-        pixels[idx] = (scale.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 1] = (bias.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 2] = 0
-        pixels[idx + 3] = (-1).toByte() // 255 as signed
+        writeFloat16(pixels, idx, scale.coerceIn(0f, 1f))
+        writeFloat16(pixels, idx + 2, bias.coerceIn(0f, 1f))
       }
     }
     val texture =
       device.createTexture(
         WGPUTextureDescriptor(
           size = Extent3D(size.toUInt(), size.toUInt()),
-          format = GPUTextureFormat.RGBA8Unorm,
+          format = GPUTextureFormat.RG16Float,
           usage = GPUTextureUsage.TextureBinding or GPUTextureUsage.CopyDst,
           label = "BRDF LUT",
         )
@@ -176,11 +175,12 @@ object IblGenerator {
     label: String,
     facePixels: Array<ByteArray>,
   ): WGPUTexture {
+    // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel.
     val texture =
       device.createTexture(
         WGPUTextureDescriptor(
           size = Extent3D(size.toUInt(), size.toUInt(), 6u),
-          format = GPUTextureFormat.RGBA8Unorm,
+          format = GPUTextureFormat.RGBA16Float,
           usage = GPUTextureUsage.TextureBinding or GPUTextureUsage.CopyDst,
           label = label,
         )
@@ -189,7 +189,7 @@ object IblGenerator {
       device.queue.writeTexture(
         TexelCopyTextureInfo(texture = texture, origin = Origin3D(z = face.toUInt())),
         ArrayBuffer.of(facePixels[face]),
-        TexelCopyBufferLayout(bytesPerRow = (size * 4).toUInt()),
+        TexelCopyBufferLayout(bytesPerRow = (size * 8).toUInt()),
         Extent3D(size.toUInt(), size.toUInt()),
       )
     }
@@ -208,7 +208,7 @@ object IblGenerator {
       device.createTexture(
         WGPUTextureDescriptor(
           size = Extent3D(size.toUInt(), size.toUInt(), 6u),
-          format = GPUTextureFormat.RGBA8Unorm,
+          format = GPUTextureFormat.RGBA16Float,
           usage = GPUTextureUsage.TextureBinding or GPUTextureUsage.CopyDst,
           mipLevelCount = mipLevels.toUInt(),
           label = "Prefiltered Env",
@@ -226,7 +226,8 @@ object IblGenerator {
             origin = Origin3D(z = face.toUInt()),
           ),
           ArrayBuffer.of(pixels),
-          TexelCopyBufferLayout(bytesPerRow = (mipSize * 4).toUInt()),
+          // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel
+          TexelCopyBufferLayout(bytesPerRow = (mipSize * 8).toUInt()),
           Extent3D(mipSize.toUInt(), mipSize.toUInt()),
         )
       }
@@ -262,7 +263,8 @@ object IblGenerator {
     skySize: Int,
   ): ByteArray {
     val numSamples = 64
-    val pixels = ByteArray(size * size * 4)
+    // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel.
+    val pixels = ByteArray(size * size * 8)
     for (y in 0 until size) {
       for (x in 0 until size) {
         val u = (x.toFloat() + 0.5f) / size * 2f - 1f
@@ -292,12 +294,12 @@ object IblGenerator {
           ig += c[1] * cosTheta
           ib += c[2] * cosTheta
         }
-        val scale = PI.toFloat() / numSamples
-        val idx = (y * size + x) * 4
-        pixels[idx] = ((ir * scale).coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 1] = ((ig * scale).coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 2] = ((ib * scale).coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 3] = (-1).toByte()
+        val scale = 2f * PI.toFloat() / numSamples
+        val idx = (y * size + x) * 8
+        writeFloat16(pixels, idx, ir * scale)
+        writeFloat16(pixels, idx + 2, ig * scale)
+        writeFloat16(pixels, idx + 4, ib * scale)
+        writeFloat16(pixels, idx + 6, 1f)
       }
     }
     return pixels
@@ -314,7 +316,8 @@ object IblGenerator {
     skySize: Int,
   ): ByteArray {
     val numSamples = 64
-    val pixels = ByteArray(size * size * 4)
+    // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel.
+    val pixels = ByteArray(size * size * 8)
     for (y in 0 until size) {
       for (x in 0 until size) {
         val u = (x.toFloat() + 0.5f) / size * 2f - 1f
@@ -356,11 +359,11 @@ object IblGenerator {
           pg /= totalWeight
           pb /= totalWeight
         }
-        val idx = (y * size + x) * 4
-        pixels[idx] = (pr.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 1] = (pg.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 2] = (pb.coerceIn(0f, 1f) * 255f + 0.5f).toInt().toByte()
-        pixels[idx + 3] = (-1).toByte()
+        val idx = (y * size + x) * 8
+        writeFloat16(pixels, idx, pr)
+        writeFloat16(pixels, idx + 2, pg)
+        writeFloat16(pixels, idx + 4, pb)
+        writeFloat16(pixels, idx + 6, 1f)
       }
     }
     return pixels
@@ -475,4 +478,38 @@ object IblGenerator {
     geometrySchlickGGX(ndotV, roughness) * geometrySchlickGGX(ndotL, roughness)
 
   private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
+
+  // ===== Private: Float16 encoding =====
+
+  /**
+   * Converts a 32-bit float to its IEEE 754 half-precision (float16) bit pattern.
+   *
+   * Handles normal values, zero, subnormals (mapped to zero), and overflow (mapped to Inf). Safe
+   * for values in [0, 1] and the small positive HDR range used by IBL textures.
+   */
+  private fun float32ToFloat16Bits(f: Float): Int {
+    val bits = f.toBits()
+    val sign = (bits ushr 31) and 0x1
+    val exp32 = (bits ushr 23) and 0xFF
+    val mantissa32 = bits and 0x7FFFFF
+    return when {
+      exp32 == 0xFF -> (sign shl 15) or 0x7C00 or (if (mantissa32 != 0) 0x200 else 0) // Inf / NaN
+      exp32 == 0 -> (sign shl 15) // zero / subnormal → zero
+      else -> {
+        val exp16 = exp32 - 127 + 15
+        when {
+          exp16 >= 31 -> (sign shl 15) or 0x7C00 // overflow → Inf
+          exp16 <= 0 -> (sign shl 15) // underflow → zero
+          else -> (sign shl 15) or (exp16 shl 10) or (mantissa32 ushr 13)
+        }
+      }
+    }
+  }
+
+  /** Writes [f] as a little-endian float16 into [output] at byte [offset]. */
+  private fun writeFloat16(output: ByteArray, offset: Int, f: Float) {
+    val bits = float32ToFloat16Bits(f)
+    output[offset] = (bits and 0xFF).toByte()
+    output[offset + 1] = ((bits ushr 8) and 0xFF).toByte()
+  }
 }

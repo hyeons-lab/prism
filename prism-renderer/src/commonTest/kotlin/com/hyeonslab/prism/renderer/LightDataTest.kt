@@ -44,9 +44,9 @@ class LightDataTest {
     arr[10] shouldBe 0.4f
     arr[11] shouldBe 50f
 
-    // spotAngle + padding
+    // spotAngle, innerAngle (default -1), padding
     arr[12] shouldBe 30f
-    arr[13] shouldBe 0f
+    arr[13] shouldBe -1f
     arr[14] shouldBe 0f
     arr[15] shouldBe 0f
   }
@@ -81,5 +81,14 @@ class LightDataTest {
     light.intensity shouldBe 1f
     light.range shouldBe 10f
     light.spotAngle shouldBe 45f
+    light.innerAngle shouldBe -1f
+  }
+
+  @Test
+  fun innerAnglePackedCorrectly() {
+    val light = LightData(spotAngle = 30f, innerAngle = 20f)
+    val arr = light.toFloatArray()
+    arr[12] shouldBe 30f
+    arr[13] shouldBe 20f
   }
 }

@@ -15,11 +15,14 @@ enum class LightType(val value: Int) {
  *
  * Layout (std430):
  * ```
- * vec3f position   + f32 type       (16 bytes)
- * vec3f direction  + f32 intensity  (16 bytes)
- * vec3f color      + f32 range      (16 bytes)
- * f32 spotAngle    + vec3f _pad     (16 bytes)
+ * vec3f position   + f32 type        (16 bytes)
+ * vec3f direction  + f32 intensity   (16 bytes)
+ * vec3f color      + f32 range       (16 bytes)
+ * f32 spotAngle    + f32 innerAngle  + vec2f _pad  (16 bytes)
  * ```
+ *
+ * [innerAngle] is the half-angle (degrees) of the inner spot cone. Use -1 (the default) to fall
+ * back to 80% of [spotAngle] automatically.
  */
 data class LightData(
   val type: LightType = LightType.DIRECTIONAL,
@@ -29,6 +32,7 @@ data class LightData(
   val intensity: Float = 1f,
   val range: Float = 10f,
   val spotAngle: Float = 45f,
+  val innerAngle: Float = -1f,
 ) {
 
   /** Pack into a 16-float array matching the GPU struct layout (64 bytes). */
@@ -49,9 +53,9 @@ data class LightData(
       color.g,
       color.b,
       range,
-      // vec4: spotAngle, pad, pad, pad
+      // vec4: spotAngle, innerAngle, pad, pad
       spotAngle,
-      0f,
+      innerAngle,
       0f,
       0f,
     )

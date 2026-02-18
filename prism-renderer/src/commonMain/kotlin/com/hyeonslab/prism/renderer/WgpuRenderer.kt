@@ -167,6 +167,7 @@ class WgpuRenderer(
   private var toneMapPipelineLayout: GPUPipelineLayout? = null
   private var toneMapPipeline: GPURenderPipeline? = null
   private var toneMapBindGroup: GPUBindGroup? = null
+  private var toneMapParamsBuffer: WGPUBuffer? = null
 
   // --- Per-frame state ---
   /** Surface view saved during beginRenderPass for use in HDR tone map pass in endFrame. */
@@ -211,6 +212,7 @@ class WgpuRenderer(
     pbrPipelineHdr = null
     toneMapPipeline = null
     toneMapBindGroup?.close()
+    toneMapParamsBuffer?.close()
     hdrTextureView?.close()
     hdrTexture?.close()
     iblBrdfLutView?.close()
@@ -1137,6 +1139,23 @@ class WgpuRenderer(
   }
 
   private fun createToneMapPipeline() {
+    // Create the params buffer: applySrgb u32 (+ 12 bytes pad to 16-byte alignment).
+    // applySrgb=1 → shader applies γ≈2.2 encoding (needed when swapchain is NOT sRGB).
+    val applySrgb = if (surfaceIsSrgb) 0 else 1
+    toneMapParamsBuffer =
+      device.createBuffer(
+        BufferDescriptor(
+          size = 16u, // u32 + 12 bytes alignment padding
+          usage = GPUBufferUsage.Uniform or GPUBufferUsage.CopyDst,
+          label = "Tone Map Params",
+        )
+      )
+    device.queue.writeBuffer(
+      toneMapParamsBuffer!!,
+      0u,
+      ArrayBuffer.of(floatArrayOf(Float.fromBits(applySrgb), 0f, 0f, 0f)),
+    )
+
     val fragOnly = GPUShaderStage.Fragment
     toneMapBindGroupLayout =
       device.createBindGroupLayout(
@@ -1152,6 +1171,11 @@ class WgpuRenderer(
                 binding = 1u,
                 visibility = fragOnly,
                 sampler = SamplerBindingLayout(),
+              ),
+              BindGroupLayoutEntry(
+                binding = 2u,
+                visibility = fragOnly,
+                buffer = BufferBindingLayout(type = GPUBufferBindingType.Uniform),
               ),
             ),
           label = "Tone Map Bind Group Layout",
@@ -1198,6 +1222,7 @@ class WgpuRenderer(
     val layout = toneMapBindGroupLayout ?: return
     val hdrView = hdrTextureView ?: return
     val sampler = defaultClampSampler ?: return
+    val paramsBuffer = toneMapParamsBuffer ?: return
     toneMapBindGroup =
       device.createBindGroup(
         BindGroupDescriptor(
@@ -1206,6 +1231,7 @@ class WgpuRenderer(
             listOf(
               BindGroupEntry(binding = 0u, resource = hdrView),
               BindGroupEntry(binding = 1u, resource = sampler),
+              BindGroupEntry(binding = 2u, resource = BufferBinding(buffer = paramsBuffer)),
             ),
           label = "Tone Map Bind Group",
         )

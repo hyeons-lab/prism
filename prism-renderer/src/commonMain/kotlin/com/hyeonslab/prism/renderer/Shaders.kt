@@ -73,7 +73,7 @@ object Shaders {
             color : vec3f,
             range : f32,
             spotAngle : f32,
-            _pad1 : f32,
+            innerAngle : f32,
             _pad2 : f32,
             _pad3 : f32,
         };
@@ -165,8 +165,9 @@ object Shaders {
             out.worldPosition = worldPos.xyz;
             out.worldNormal = objectData.normalMatrix * in.normal;
             out.uv = in.uv;
-            out.worldTangent =
-                (objectData.model * vec4f(in.tangent.xyz, 0.0)).xyz;
+            // Tangents are co-vectors like normals: use normalMatrix so non-uniform
+            // scale doesn't break TBN orthogonality.
+            out.worldTangent = objectData.normalMatrix * in.tangent.xyz;
             out.bitangentSign = in.tangent.w;
             return out;
         }
@@ -322,9 +323,15 @@ object Shaders {
                         let spotCos = dot(
                             L, normalize(-light.direction)
                         );
-                        let angRad = light.spotAngle * PI / 180.0;
-                        let outerCos = cos(angRad);
-                        let innerCos = cos(angRad * 0.8);
+                        let outerAngRad = light.spotAngle * PI / 180.0;
+                        let outerCos = cos(outerAngRad);
+                        // innerAngle < 0 → fall back to 80% of outer (legacy default)
+                        let innerAngRad = select(
+                            outerAngRad * 0.8,
+                            light.innerAngle * PI / 180.0,
+                            light.innerAngle >= 0.0
+                        );
+                        let innerCos = cos(innerAngRad);
                         attenuation *= clamp(
                             (spotCos - outerCos)
                             / (innerCos - outerCos),
@@ -367,7 +374,7 @@ object Shaders {
                 let irr = textureSample(
                     irradianceMap, envSampler, N
                 ).rgb;
-                let diffuseIBL = irr * albedo;
+                let diffuseIBL = (irr / PI) * albedo;
 
                 let R = reflect(-V, N);
                 let mip = roughness * env.maxMipLevel;
@@ -451,8 +458,12 @@ object Shaders {
   /**
    * Tone mapping fragment shader using Khronos PBR Neutral tone mapping.
    *
-   * Reads linear HDR color from the HDR render target and maps it to LDR [0, 1]. Outputs linear
-   * values suitable for sRGB swapchains (GPU applies gamma correction automatically).
+   * Reads linear HDR color from the HDR render target and maps it to LDR [0, 1].
+   *
+   * When [ToneMapParams.applySrgb] is non-zero the shader applies a γ≈2.2 sRGB transfer function
+   * before output. This is required on platforms where the swapchain format is a linear (non-sRGB)
+   * format (e.g. `rgba8unorm` on WASM). On sRGB swapchains the GPU applies the transfer function
+   * automatically and [applySrgb] must be 0 to avoid double-encoding.
    *
    * Reference: https://github.com/KhronosGroup/ToneMapping/tree/main/PBR_Neutral
    */
@@ -460,8 +471,13 @@ object Shaders {
     ShaderSource(
       code =
         """
+        struct ToneMapParams {
+            applySrgb : u32,
+        };
+
         @group(0) @binding(0) var hdrTexture : texture_2d<f32>;
         @group(0) @binding(1) var hdrSampler : sampler;
+        @group(0) @binding(2) var<uniform> tmParams : ToneMapParams;
 
         // Khronos PBR Neutral tone mapping operator
         fn toneMapKhronosPbrNeutral(color : vec3f) -> vec3f {
@@ -488,7 +504,11 @@ object Shaders {
         @fragment
         fn tm_fs(@location(0) uv : vec2f) -> @location(0) vec4f {
             let hdr = textureSample(hdrTexture, hdrSampler, uv).rgb;
-            let ldr = toneMapKhronosPbrNeutral(hdr);
+            var ldr = toneMapKhronosPbrNeutral(hdr);
+            if (tmParams.applySrgb != 0u) {
+                // Linear → sRGB gamma encoding (γ ≈ 2.2) for non-sRGB swapchains
+                ldr = pow(max(ldr, vec3f(0.0)), vec3f(1.0 / 2.2));
+            }
             return vec4f(ldr, 1.0);
         }
         """
