@@ -330,38 +330,79 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 
 ### Worktrees (Required)
 
-Every new body of work **must** use a git worktree. This keeps parallel work isolated and avoids branch-switching disruptions:
-
-> **Important:** Create the worktree and branch _before_ entering plan mode or starting any exploration. This ensures the main checkout stays clean and files don't change while you're reading them.
-
-```bash
-# Create a worktree for your branch (inside worktrees/ directory)
-git worktree add worktrees/<branch-name> -b <branch-name>
-
-# Work in the worktree directory
-cd worktrees/<branch-name>
-
-# After merging, clean up
-git worktree remove worktrees/<branch-name>
-```
+- Never commit directly to `main`. All changes go through pull requests.
+- Every feature **must** use a git worktree — no direct branch switching in the main checkout.
+- The main checkout stays on `main` and is used only for worktree creation and housekeeping.
+- Always fetch before creating a worktree to ensure you branch from the latest `main`:
+  ```bash
+  # From the main checkout (on main branch)
+  git fetch origin
+  git worktree add worktrees/<branch-name> -b <type>/<branch-name> origin/main
+  cd worktrees/<branch-name>
+  git branch --unset-upstream
+  ```
+  The `--unset-upstream` step is required because Git automatically tracks `origin/main` when branching from a remote ref — a push without it would go to main. The correct upstream will be set automatically on the first `git push -u origin <type>/<branch-name>`.
+- All work (reading, planning, coding) happens inside the worktree.
+- After PR merges, clean up the worktree, delete the local branch, and pull main:
+  ```bash
+  # From the main checkout
+  git worktree remove worktrees/<branch-name>
+  git branch -d <type>/<branch-name>
+  git pull origin main
+  ```
 
 The `worktrees/` directory is gitignored. All worktrees live there to keep the project root clean.
 
-### Write a Plan Before Starting
+### Plan-First Workflow
 
-Before writing code, create a plan file in `devlog/plans/`:
+Before writing code, create both a branch devlog and a plan file (inside the worktree):
 
-- **File name:** `devlog/plans/NNNNNN-NN-<description>.md`
-  - First `NNNNNN` matches the branch devlog prefix (check highest in `devlog/` and increment)
-  - `NN` is a two-digit plan sequence (01, 02, ...)
-- **Structure:** `## Thinking` (exploratory reasoning) then `## Plan` (actionable steps)
-- See `devlog/CONVENTIONS.md` for full details
+1. **Create worktree** (see above)
+2. **Set up devlog directory** (see [Devlog in New Projects](#devlog-in-new-projects) below)
+3. **Create branch devlog**: `devlog/NNNNNN-<branch-name>.md`
+   - Check highest `NNNNNN` in existing `devlog/NNNNNN-*.md` files (exclude `plans/`), increment
+   - `<branch-name>`: Git branch name with `/` replaced by `-`
+4. **Create plan file**: `devlog/plans/NNNNNN-NN-<description>.md`
+   - Structure: `## Context` (high-level rationale) then `## Plan` (actionable steps)
+   - Plans are append-only; note deviations in the devlog
+5. **Commit and push** the devlog and plan files, then **draft PR** via `gh pr create --draft`
+6. **Write code**, format, validate, commit, push
+7. **Update PR description** to match final commit body
 
 ### Plan Versioning
 
 Plans are **append-only**. If the plan changes during execution:
 - Note deviations in the branch devlog file
 - For major pivots, create a new plan file with an incremented sequence number (e.g., `000010-02-...`)
+
+### Devlog in New Projects
+
+Always create devlogs, even in projects that don't have a `devlog/` directory yet. When starting a new feature in a project without an existing `devlog/` directory:
+
+1. **Ask the user**: "This project doesn't track devlogs yet. Would you like to add `devlog/` to the repository, or keep it local-only?"
+2. **If tracked**: Create `devlog/` and `devlog/plans/`, commit them normally.
+3. **If local-only**: Create `devlog/` and `devlog/plans/`, then add `devlog/` to `.gitignore`. Devlog files stay local and are never committed unless the user later asks to start tracking them.
+
+Skip the question if the project already has a committed `devlog/` directory.
+
+### Devlog Conventions
+
+One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively as you work.
+
+**Sections** (omit if empty):
+- **Agent:** `Name (model-id) @ repository:<repo> branch:<branch>`
+- **Intent:** User's goal
+- **What Changed:** `date path — what and why`
+- **Decisions:** `date Decision — reasoning`
+- **Issues:** Problems, failed attempts, resolutions
+- **Commits:** `hash — message`
+- **Progress:** Checklist of tasks
+
+**Rules:**
+- One flat file per branch — append to existing sections, don't split into sessions
+- Track "why" not just "what"
+- Append-only across conversations
+- Never log secrets
 
 ### Progress Tracking
 
@@ -416,12 +457,16 @@ See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 All feature work MUST use git worktrees. Do not switch branches in the main checkout.
 
 **Starting a new feature:**
-1. From the main checkout (`~/development/prism`), create a worktree:
+1. From the main checkout (`~/development/prism`), fetch and create a worktree:
    ```bash
-   git worktree add worktrees/<branch-name> -b <branch-name>
+   git fetch origin
+   git worktree add worktrees/<branch-name> -b <type>/<branch-name> origin/main
+   cd worktrees/<branch-name>
+   git branch --unset-upstream
    ```
    Branch names should describe the work (e.g. `feat/pbr-materials`, `fix/wasm-depth-buffer`).
-2. `cd worktrees/<branch-name>` and do all work there.
+   The `--unset-upstream` step is required because Git automatically tracks `origin/main` when branching from a remote ref. The correct upstream will be set on first `git push -u origin <type>/<branch-name>`.
+2. Do all work inside the worktree directory.
 3. Create a draft PR immediately:
    ```bash
    gh pr create --draft --title "WIP: <description>" --body ""
@@ -437,10 +482,12 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
   ```bash
   cd ~/development/prism
   git worktree remove worktrees/<branch-name>
-  git branch -d <branch-name>
+  git branch -d <type>/<branch-name>
+  git pull origin main
   ```
 
 **Rules:**
+- Never commit directly to `main`. All changes go through pull requests.
 - Never delete a worktree whose PR is still open.
 - Keep the main checkout on `main` — use it only for creating worktrees and housekeeping.
 - Always create the worktree first, before planning or exploring. Do all work — including reading code and writing plans — inside the worktree.
