@@ -1,6 +1,7 @@
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.android)
+  alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -16,13 +17,17 @@ android {
   }
 
   kotlin { jvmToolchain(25) }
+
+  buildFeatures { compose = true }
 }
 
 dependencies {
   implementation(project(":prism-demo-core"))
   implementation(project(":prism-native-widgets"))
+  implementation(project(":prism-compose"))
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kermit)
   implementation(libs.wgpu4k)
   implementation(libs.wgpu4k.toolkit)
+  implementation(libs.activity.compose)
 }

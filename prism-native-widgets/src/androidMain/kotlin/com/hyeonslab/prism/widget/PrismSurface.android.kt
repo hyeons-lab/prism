@@ -46,6 +46,12 @@ actual class PrismSurface(androidContext: AndroidContext? = null) {
 }
 
 /**
+ * Holds the Android [SurfaceHolder] and dimensions from a [SurfaceHolder.Callback.surfaceChanged]
+ * event. Used as Compose state to trigger wgpu surface creation via [createPrismSurface].
+ */
+data class AndroidSurfaceInfo(val holder: SurfaceHolder, val width: Int, val height: Int)
+
+/**
  * Creates a [PrismSurface] backed by an Android [SurfaceHolder] with a ready-to-use wgpu context.
  *
  * Internally calls wgpu4k's [androidContextRenderer] which creates a Vulkan-backed wgpu surface

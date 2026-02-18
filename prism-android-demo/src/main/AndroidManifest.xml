@@ -15,6 +15,21 @@
             </intent-filter>
         </activity>
 
+        <!-- Uses DeviceDefault.NoActionBar (not NoTitleBar.Fullscreen) because enableEdgeToEdge()
+             handles system bar transparency at runtime. The legacy fullscreen theme would conflict
+             by hiding the status bar before enableEdgeToEdge() can configure it. -->
+        <activity
+            android:name=".ComposeDemoActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="true"
+            android:label="Prism Compose Demo"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 </manifest>
