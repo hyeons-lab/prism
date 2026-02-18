@@ -88,6 +88,10 @@ fun AndroidComposeDemoContent() {
                   height: Int,
                 ) {
                   log.i { "surfaceChanged: ${width}x${height}" }
+                  if (width <= 0 || height <= 0) {
+                    log.w { "Ignoring surfaceChanged with non-positive size" }
+                    return
+                  }
                   // If scene already exists, just resize
                   val existingScene = scene
                   if (existingScene != null) {

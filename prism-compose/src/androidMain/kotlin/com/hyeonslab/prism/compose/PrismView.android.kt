@@ -13,7 +13,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.widget.AndroidSurfaceInfo
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 
@@ -29,8 +28,9 @@ private val log = Logger.withTag("PrismView.Android")
  */
 @Composable
 actual fun PrismView(store: EngineStore, modifier: Modifier) {
-  // Surface lifecycle state: null until surfaceChanged fires with valid dimensions.
-  var surfaceInfo by remember { mutableStateOf<AndroidSurfaceInfo?>(null) }
+  // Track the current SurfaceHolder identity separately from dimensions so that a resize
+  // on the same holder dispatches SurfaceResized without recreating the wgpu surface.
+  var currentHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
   var prismSurface by remember { mutableStateOf<PrismSurface?>(null) }
   // Synchronous flag to stop rendering immediately when the surface is destroyed.
   // Compose state updates are async (take effect on next recomposition), so we need this
@@ -54,13 +54,29 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
               height: Int,
             ) {
               log.i { "surfaceChanged: ${width}x${height}" }
-              surfaceInfo = AndroidSurfaceInfo(holder, width, height)
+              if (width <= 0 || height <= 0) {
+                log.w { "Ignoring surfaceChanged with non-positive size" }
+                return
+              }
+              if (holder === currentHolder && prismSurface != null) {
+                // Same holder, just resized — no need to recreate the wgpu surface.
+                store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+              } else {
+                // New holder — trigger wgpu surface (re)creation via LaunchedEffect.
+                currentHolder = holder
+              }
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
               log.i { "surfaceDestroyed" }
               renderingActive = false
-              surfaceInfo = null
+              store.engine.gameLoop.stop()
+              prismSurface?.let { surface ->
+                log.i { "Detaching PrismSurface on surfaceDestroyed" }
+                surface.detach()
+              }
+              prismSurface = null
+              currentHolder = null
             }
           }
         )
@@ -69,8 +85,8 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
   )
 
   // Initialize or re-initialize wgpu surface when the SurfaceHolder changes.
-  LaunchedEffect(surfaceInfo) {
-    val info = surfaceInfo ?: return@LaunchedEffect
+  LaunchedEffect(currentHolder) {
+    val holder = currentHolder ?: return@LaunchedEffect
 
     // Detach the old surface before creating a new one to avoid GPU resource leaks
     // (e.g., on fold/unfold which triggers surfaceChanged with a new holder).
@@ -81,19 +97,28 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       old.detach()
     }
 
-    log.i { "Creating PrismSurface: ${info.width}x${info.height}" }
-    val surface = createPrismSurface(info.holder, info.width, info.height)
-    // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
-    // If so, the surface is no longer wanted — detach and bail out.
-    if (surfaceInfo == null) {
-      log.w { "Surface destroyed during init — discarding new PrismSurface" }
-      surface.detach()
-      return@LaunchedEffect
+    // Use the SurfaceHolder's current surface frame dimensions.
+    val rect = holder.surfaceFrame
+    val width = rect.width()
+    val height = rect.height()
+    log.i { "Creating PrismSurface: ${width}x${height}" }
+
+    try {
+      val surface = createPrismSurface(holder, width, height)
+      // Guard: surfaceDestroyed may have fired while createPrismSurface was suspended.
+      // If so, the surface is no longer wanted — detach and bail out.
+      if (currentHolder == null) {
+        log.w { "Surface destroyed during init — discarding new PrismSurface" }
+        surface.detach()
+        return@LaunchedEffect
+      }
+      prismSurface = surface
+      store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+      renderingActive = true
+      log.i { "PrismSurface ready" }
+    } catch (e: Exception) {
+      log.e(e) { "Failed to create PrismSurface: ${width}x${height}" }
     }
-    prismSurface = surface
-    store.dispatch(EngineStateEvent.SurfaceResized(info.width, info.height))
-    renderingActive = true
-    log.i { "PrismSurface ready" }
   }
 
   // Render loop — synchronized with display refresh rate via Compose's frame scheduling.
@@ -130,6 +155,7 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       store.engine.gameLoop.stop()
       prismSurface?.detach()
       prismSurface = null
+      currentHolder = null
     }
   }
 }
