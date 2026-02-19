@@ -19,6 +19,9 @@ import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.Mesh
 import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val log = Logger.withTag("DemoScene")
 
@@ -33,6 +36,10 @@ class DemoScene(
   val renderer: WgpuRenderer,
   val cameraEntity: Entity,
 ) {
+  private var orbitAzimuth = 0f
+  private var orbitElevation = 0f
+  private val orbitRadius = 12f
+
   /**
    * Advances the scene by one frame: runs the ECS world update. The PBR sphere grid is a static
    * showcase — no per-frame rotation is applied to individual spheres.
@@ -57,6 +64,26 @@ class DemoScene(
     if (width <= 0 || height <= 0) return
     val cameraComponent = world.getComponent<CameraComponent>(cameraEntity) ?: return
     cameraComponent.camera.aspectRatio = width.toFloat() / height.toFloat()
+  }
+
+  /**
+   * Rotates the orbit camera by the given deltas (in radians). Horizontal drag maps to azimuth
+   * (rotation around Y), vertical drag maps to elevation (tilt up/down). Elevation is clamped to
+   * avoid gimbal lock at the poles.
+   */
+  fun orbitBy(deltaAzimuth: Float, deltaElevation: Float) {
+    orbitAzimuth += deltaAzimuth
+    orbitElevation =
+      (orbitElevation + deltaElevation).coerceIn(
+        -PI.toFloat() / 2f + 0.05f,
+        PI.toFloat() / 2f - 0.05f,
+      )
+    val ca = cos(orbitElevation)
+    val x = orbitRadius * ca * sin(orbitAzimuth)
+    val y = orbitRadius * sin(orbitElevation)
+    val z = orbitRadius * ca * cos(orbitAzimuth)
+    val cameraComponent = world.getComponent<CameraComponent>(cameraEntity) ?: return
+    cameraComponent.camera.position = Vec3(x, y, z)
   }
 
   fun shutdown() {

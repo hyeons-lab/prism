@@ -31,6 +31,31 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
 
 @JsFun("() => performance.now()") private external fun performanceNow(): Double
 
+/**
+ * Attaches pointer-drag listeners to [canvas] for orbit camera control. Calls [onDelta] with
+ * (deltaX, deltaY) in CSS pixels on each pointermove while a pointer button is held.
+ */
+@JsFun(
+  """(canvas, onDelta) => {
+  let active = false, lastX = 0, lastY = 0;
+  canvas.addEventListener('pointerdown', e => {
+    active = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId); e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('pointermove', e => {
+    if (!active) return;
+    onDelta(e.clientX - lastX, e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY; e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('pointerup',     () => { active = false; });
+  canvas.addEventListener('pointercancel', () => { active = false; });
+}"""
+)
+private external fun addOrbitPointerListeners(
+  canvas: HTMLCanvasElement,
+  onDelta: (Double, Double) -> Unit,
+): JsAny
+
 @JsFun("(msg) => console.error('Prism Flutter Web: ' + msg)")
 private external fun logError(message: String)
 
@@ -93,6 +118,12 @@ fun prismInit(canvasId: String) {
 
     val demoScene = createDemoScene(wgpuContext, width = width, height = height)
     instance.scene = demoScene
+
+    // Orbit camera via pointer drag on the canvas.
+    // dx/dy are in CSS pixels; multiply by sensitivity (radians per pixel).
+    addOrbitPointerListeners(canvas) { dx, dy ->
+      demoScene.orbitBy(dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
+    }
 
     instance.startTime = performanceNow()
     instance.lastFrameTime = instance.startTime
