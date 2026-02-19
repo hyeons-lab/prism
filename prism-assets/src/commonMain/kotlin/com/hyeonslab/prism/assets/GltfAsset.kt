@@ -6,6 +6,7 @@ import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.ecs.components.MeshComponent
 import com.hyeonslab.prism.ecs.components.TransformComponent
 import com.hyeonslab.prism.math.Transform
+import com.hyeonslab.prism.renderer.Color
 import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.Mesh
 import com.hyeonslab.prism.renderer.Texture
@@ -61,7 +62,8 @@ class GltfAsset(
         ),
       )
       world.addComponent(entity, MeshComponent(mesh = node.mesh))
-      world.addComponent(entity, MaterialComponent(material = node.material))
+      val material = node.material ?: Material(baseColor = Color.WHITE, label = "default")
+      world.addComponent(entity, MaterialComponent(material = material))
       entity
     }
 }

@@ -455,8 +455,8 @@ class WgpuRenderer(
   }
 
   override fun invalidateMaterial(material: Material) {
-    materialBindGroupCache.remove(material)
-    materialUniformBufferCache.remove(material)
+    materialBindGroupCache.remove(material)?.close()
+    materialUniformBufferCache.remove(material)?.close()
   }
 
   // ===== Drawing =====
