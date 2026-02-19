@@ -122,7 +122,26 @@
 - [x] Three upstream forks (wgpu4k-native, wgpu4k, webgpu-ktypes) for Android API 35+ compatibility
 - **Status:** Complete — rotating lit cube on Android (Galaxy Fold, API 36, Vulkan)
 
-### M9: PBR Materials ⏳
+### M9: PBR Materials ✅
+- [x] Cook-Torrance BRDF: GGX NDF, Smith-GGX geometry, Fresnel-Schlick
+- [x] Explicit multi-bind-group pipeline layout (4 groups: scene, object, material, environment)
+- [x] Scene uniforms: VP matrix, camera position, ambient, light count (96 bytes)
+- [x] Object uniforms: model matrix + padded normalMatrix mat3x3f (112 bytes)
+- [x] Material uniforms: baseColor, metallic, roughness, emissive, occlusion, texture flags (48 bytes)
+- [x] Light storage buffer: max 16 lights, 64 bytes/light, directional/point/spot types
+- [x] UV sphere mesh with tangents (positionNormalUvTangent vertex layout)
+- [x] Tangent-space normal mapping via TBN matrix + flag-based shader branching
+- [x] Five PBR texture slots: albedo, normal, metallicRoughness, occlusion, emissive
+- [x] ECS PBR RenderSystem: queries LightComponent entities, builds LightData list each frame
+- [x] HDR render target (RGBA16Float intermediate) + Khronos PBR Neutral tone mapping
+- [x] CPU-side IBL: BRDF split-sum LUT (256×256, Hammersley + GGX importance sampling)
+- [x] CPU-side IBL: irradiance cubemap (hemisphere convolution of procedural sky)
+- [x] CPU-side IBL: prefiltered specular env cubemap (5 mip levels, GGX importance sampling)
+- [x] Procedural sky gradient: zenith blue → horizon white → nadir brown
+- [x] PBR sphere grid demo: 7×7 spheres (metallic 0→1 on X, roughness 0→1 on Y)
+- [x] Compose PBR controls: env intensity, metallic, roughness sliders
+- **Status:** Complete — `./gradlew :prism-demo-core:jvmRun` renders PBR sphere grid with IBL + HDR
+
 ### M10: glTF Asset Loading ⏳
 ### M11: Flutter Integration ✅
 
@@ -139,10 +158,10 @@
 
 | Module | Tests | Classes Tested |
 |---|---|---|
-| prism-math | 75 | Vec3 (26), Mat4 (24), Quaternion (25) |
-| prism-renderer | 95 | Color (15), Mesh (25), VertexLayout (22), Camera (19), Shader (14) |
-| prism-demo | 8 | DemoStore (MVI reducer, 8) |
-| **Total** | **178** | |
+| prism-math | 80 | Vec3 (26), Mat4 (29), Quaternion (25) |
+| prism-renderer | 146 | Color (24), Mesh (35), VertexLayout (22), Camera (19), Shader (29), IblGenerator (8), LightData (6), Material (3) |
+| prism-demo-core | 10 | DemoStore (MVI reducer, 10) |
+| **Total** | **236** | |
 
 Run tests: `./gradlew jvmTest` (JVM) or `./gradlew macosArm64Test iosSimulatorArm64Test` (Apple native)
 

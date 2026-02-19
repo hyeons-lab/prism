@@ -4,49 +4,67 @@ import com.hyeonslab.prism.core.Time
 import com.hyeonslab.prism.ecs.System
 import com.hyeonslab.prism.ecs.World
 import com.hyeonslab.prism.ecs.components.CameraComponent
+import com.hyeonslab.prism.ecs.components.LightComponent
 import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.ecs.components.MeshComponent
 import com.hyeonslab.prism.ecs.components.TransformComponent
 import com.hyeonslab.prism.math.Mat4
-import com.hyeonslab.prism.renderer.PipelineDescriptor
+import com.hyeonslab.prism.renderer.Color
+import com.hyeonslab.prism.renderer.LightData
+import com.hyeonslab.prism.renderer.LightType
+import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.RenderPassDescriptor
-import com.hyeonslab.prism.renderer.RenderPipeline
 import com.hyeonslab.prism.renderer.Renderer
-import com.hyeonslab.prism.renderer.Shaders
-import com.hyeonslab.prism.renderer.VertexLayout
 
+/**
+ * PBR render system that queries light and mesh entities each frame.
+ *
+ * The renderer's internal PBR pipeline is auto-bound during [Renderer.beginRenderPass]. This system
+ * collects lights, sets camera/material uniforms, and issues draw calls.
+ */
 class RenderSystem(private val renderer: Renderer) : System {
   override val name: String = "RenderSystem"
   override val priority: Int = 100
 
-  private var defaultPipeline: RenderPipeline? = null
-
   override fun initialize(world: World) {
-    val shader =
-      renderer.createShaderModule(Shaders.VERTEX_SHADER, Shaders.FRAGMENT_UNLIT, "Default")
-    defaultPipeline =
-      renderer.createPipeline(
-        PipelineDescriptor(
-          shader = shader,
-          vertexLayout = VertexLayout.positionNormalUv(),
-          label = "Default Pipeline",
-        )
-      )
+    // PBR pipeline is created by the renderer in initialize().
+    // No shader/pipeline creation needed here.
   }
 
   override fun update(world: World, time: Time) {
-    val pipeline = defaultPipeline ?: return
-
     renderer.beginFrame()
     renderer.beginRenderPass(RenderPassDescriptor())
 
     // Set camera from the first CameraComponent found
     val cameras = world.query<CameraComponent>()
     if (cameras.isNotEmpty()) {
-      renderer.setCamera(cameras.first().second.camera)
+      val cam = cameras.first().second.camera
+      renderer.setCamera(cam)
     }
 
-    renderer.bindPipeline(pipeline)
+    // Collect lights from LightComponent entities
+    val lightEntities = world.query<LightComponent>()
+    val lightDataList =
+      lightEntities.map { (entity, lightComp) ->
+        val transform = world.getComponent<TransformComponent>(entity)
+        val position = transform?.position ?: com.hyeonslab.prism.math.Vec3.ZERO
+        LightData(
+          type =
+            when (lightComp.lightType) {
+              com.hyeonslab.prism.ecs.components.LightType.DIRECTIONAL -> LightType.DIRECTIONAL
+              com.hyeonslab.prism.ecs.components.LightType.POINT -> LightType.POINT
+              com.hyeonslab.prism.ecs.components.LightType.SPOT -> LightType.SPOT
+            },
+          position = position,
+          direction = lightComp.direction,
+          color = lightComp.color,
+          intensity = lightComp.intensity,
+          range = lightComp.range,
+          spotAngle = lightComp.spotAngle,
+          innerAngle = lightComp.innerAngle,
+        )
+      }
+    renderer.setLights(lightDataList)
 
     // Render all entities with a MeshComponent
     val meshEntities = world.query<MeshComponent>()
@@ -62,11 +80,10 @@ class RenderSystem(private val renderer: Renderer) : System {
       val transform = world.getComponent<TransformComponent>(entity)
       val modelMatrix = transform?.toTransform()?.toModelMatrix() ?: Mat4.identity()
 
-      // Set material color if MaterialComponent is present
-      val material = world.getComponent<MaterialComponent>(entity)
-      if (material?.material != null) {
-        renderer.setMaterialColor(material.material!!.baseColor)
-      }
+      // Set material (PBR or default)
+      val matComp = world.getComponent<MaterialComponent>(entity)
+      val material = matComp?.material ?: Material(baseColor = Color.WHITE)
+      renderer.setMaterial(material)
 
       renderer.drawMesh(mesh, modelMatrix)
     }

@@ -5,11 +5,12 @@ import PrismDemo
 /// Flutter plugin entry point for iOS. Registers the method channel and platform view factory.
 ///
 /// Method channel contract (must match FlutterMethodHandler.kt on Android):
-///   setRotationSpeed({speed: Float}) → true
 ///   togglePause() → true
-///   setCubeColor({r: Float, g: Float, b: Float}) → true
-///   isInitialized() → true
-///   getState() → {rotationSpeed, isPaused, fps}
+///   setMetallic({metallic: Float}) → true
+///   setRoughness({roughness: Float}) → true
+///   setEnvIntensity({intensity: Float}) → true
+///   isInitialized() → Bool
+///   getState() → {metallic, roughness, envIntensity, isPaused, fps}
 ///   shutdown() → true
 public class PrismFlutterPlugin: NSObject, FlutterPlugin {
 
@@ -40,20 +41,23 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
         let args = call.arguments as? [String: Any] ?? [:]
 
         switch call.method {
-        case "setRotationSpeed":
-            let speed = (args["speed"] as? NSNumber)?.floatValue ?? 45.0
-            store.dispatch(event: DemoIntent.SetRotationSpeed(speed: speed))
-            result(true)
-
         case "togglePause":
             store.dispatch(event: DemoIntent.TogglePause.shared)
             result(true)
 
-        case "setCubeColor":
-            let r = (args["r"] as? NSNumber)?.floatValue ?? 0.3
-            let g = (args["g"] as? NSNumber)?.floatValue ?? 0.5
-            let b = (args["b"] as? NSNumber)?.floatValue ?? 0.9
-            store.dispatch(event: DemoIntent.SetCubeColor(color: Color(r: r, g: g, b: b)))
+        case "setMetallic":
+            let metallic = (args["metallic"] as? NSNumber)?.floatValue ?? 0.0
+            store.dispatch(event: DemoIntent.SetMetallic(metallic: metallic))
+            result(true)
+
+        case "setRoughness":
+            let roughness = (args["roughness"] as? NSNumber)?.floatValue ?? 0.5
+            store.dispatch(event: DemoIntent.SetRoughness(roughness: roughness))
+            result(true)
+
+        case "setEnvIntensity":
+            let intensity = (args["intensity"] as? NSNumber)?.floatValue ?? 1.0
+            store.dispatch(event: DemoIntent.SetEnvIntensity(envIntensity: intensity))
             result(true)
 
         case "isInitialized":
@@ -62,7 +66,9 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
         case "getState":
             let state = store.state.value
             result([
-                "rotationSpeed": state.rotationSpeed,
+                "metallic": state.metallic,
+                "roughness": state.roughness,
+                "envIntensity": state.envIntensity,
                 "isPaused": state.isPaused,
                 "fps": state.fps,
             ])

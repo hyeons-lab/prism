@@ -7,9 +7,8 @@ class MethodNotImplementedException(method: String) : Exception("Unknown method:
  * Handles Flutter MethodChannel calls by dispatching to [PrismBridge]. Platform-specific
  * implementations connect this to the actual Flutter MethodChannel.
  *
- * The supported methods are: setRotationSpeed, togglePause, setCubeColor, isInitialized, getState,
- * shutdown. Unknown methods throw [MethodNotImplementedException] — the platform plugin should
- * catch this and call the appropriate "not implemented" response.
+ * Supported methods: setRotationSpeed, togglePause, setMetallic, setRoughness, setEnvIntensity,
+ * isInitialized, getState, shutdown. Unknown methods throw [MethodNotImplementedException].
  */
 class FlutterMethodHandler(private val bridge: PrismBridge) {
 
@@ -24,11 +23,19 @@ class FlutterMethodHandler(private val bridge: PrismBridge) {
         bridge.togglePause()
         true
       }
-      "setCubeColor" -> {
-        val r = (args["r"] as? Number)?.toFloat() ?: 0.3f
-        val g = (args["g"] as? Number)?.toFloat() ?: 0.5f
-        val b = (args["b"] as? Number)?.toFloat() ?: 0.9f
-        bridge.setCubeColor(r, g, b)
+      "setMetallic" -> {
+        val metallic = (args["metallic"] as? Number)?.toFloat() ?: 0f
+        bridge.setMetallic(metallic)
+        true
+      }
+      "setRoughness" -> {
+        val roughness = (args["roughness"] as? Number)?.toFloat() ?: 0.5f
+        bridge.setRoughness(roughness)
+        true
+      }
+      "setEnvIntensity" -> {
+        val intensity = (args["intensity"] as? Number)?.toFloat() ?: 1f
+        bridge.setEnvIntensity(intensity)
         true
       }
       "isInitialized" -> bridge.isInitialized()
@@ -37,6 +44,9 @@ class FlutterMethodHandler(private val bridge: PrismBridge) {
         mapOf(
           "rotationSpeed" to state.rotationSpeed.toDouble(),
           "isPaused" to state.isPaused,
+          "metallic" to state.metallic.toDouble(),
+          "roughness" to state.roughness.toDouble(),
+          "envIntensity" to state.envIntensity.toDouble(),
           "fps" to state.fps.toDouble(),
         )
       }

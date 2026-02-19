@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prism_flutter/prism_flutter.dart';
 
@@ -29,64 +31,89 @@ class PrismDemoPage extends StatefulWidget {
 }
 
 class _PrismDemoPageState extends State<PrismDemoPage> {
-  late PrismEngine engine;
-  bool isInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    engine = PrismEngine();
-    _initEngine();
-  }
-
-  Future<void> _initEngine() async {
-    await engine.initialize(appName: 'Flutter Demo');
-    setState(() {
-      isInitialized = true;
-    });
-  }
+  final _engine = PrismEngine();
+  double _metallic = 0.0;
+  double _roughness = 0.5;
+  double _envIntensity = 1.0;
+  bool _isPaused = false;
 
   @override
   void dispose() {
-    engine.shutdown();
+    unawaited(_engine.shutdown());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Prism 3D Engine'),
-      ),
+      appBar: AppBar(title: const Text('Prism 3D Engine — PBR Demo')),
       body: Column(
         children: [
           Expanded(
-            child: isInitialized
-                ? PrismRenderView(engine: engine)
-                : const Center(child: CircularProgressIndicator()),
+            child: PrismRenderView(engine: _engine),
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Column(
               children: [
-                ElevatedButton(
-                  onPressed: () {
-                    engine.setClearColor(0.39, 0.58, 0.93, 1.0);
-                  },
-                  child: const Text('Blue'),
+                Row(
+                  children: [
+                    const SizedBox(width: 80, child: Text('Metallic')),
+                    Expanded(
+                      child: Slider(
+                        value: _metallic,
+                        min: 0,
+                        max: 1,
+                        onChanged: (value) {
+                          setState(() => _metallic = value);
+                          _engine.setMetallic(value);
+                        },
+                      ),
+                    ),
+                    Text(_metallic.toStringAsFixed(2)),
+                  ],
                 ),
-                ElevatedButton(
-                  onPressed: () {
-                    engine.setClearColor(0.2, 0.2, 0.2, 1.0);
-                  },
-                  child: const Text('Dark'),
+                Row(
+                  children: [
+                    const SizedBox(width: 80, child: Text('Roughness')),
+                    Expanded(
+                      child: Slider(
+                        value: _roughness,
+                        min: 0,
+                        max: 1,
+                        onChanged: (value) {
+                          setState(() => _roughness = value);
+                          _engine.setRoughness(value);
+                        },
+                      ),
+                    ),
+                    Text(_roughness.toStringAsFixed(2)),
+                  ],
                 ),
-                ElevatedButton(
+                Row(
+                  children: [
+                    const SizedBox(width: 80, child: Text('Env IBL')),
+                    Expanded(
+                      child: Slider(
+                        value: _envIntensity,
+                        min: 0,
+                        max: 2,
+                        onChanged: (value) {
+                          setState(() => _envIntensity = value);
+                          _engine.setEnvIntensity(value);
+                        },
+                      ),
+                    ),
+                    Text(_envIntensity.toStringAsFixed(2)),
+                  ],
+                ),
+                FilledButton.icon(
                   onPressed: () {
-                    engine.setClearColor(0.1, 0.6, 0.3, 1.0);
+                    setState(() => _isPaused = !_isPaused);
+                    _engine.togglePause();
                   },
-                  child: const Text('Green'),
+                  icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                  label: Text(_isPaused ? 'Resume' : 'Pause'),
                 ),
               ],
             ),

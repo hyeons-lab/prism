@@ -4,7 +4,6 @@ import com.hyeonslab.prism.demo.DemoIntent
 import com.hyeonslab.prism.demo.DemoScene
 import com.hyeonslab.prism.demo.DemoStore
 import com.hyeonslab.prism.demo.DemoUiState
-import com.hyeonslab.prism.renderer.Color
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -33,8 +32,16 @@ class PrismBridge {
     store.dispatch(DemoIntent.TogglePause)
   }
 
-  fun setCubeColor(r: Float, g: Float, b: Float) {
-    store.dispatch(DemoIntent.SetCubeColor(Color(r, g, b)))
+  fun setMetallic(metallic: Float) {
+    store.dispatch(DemoIntent.SetMetallic(metallic))
+  }
+
+  fun setRoughness(roughness: Float) {
+    store.dispatch(DemoIntent.SetRoughness(roughness))
+  }
+
+  fun setEnvIntensity(intensity: Float) {
+    store.dispatch(DemoIntent.SetEnvIntensity(intensity))
   }
 
   fun updateAspectRatio(width: Int, height: Int) {

@@ -2,6 +2,7 @@ package com.hyeonslab.prism.renderer
 
 import com.hyeonslab.prism.core.Subsystem
 import com.hyeonslab.prism.math.Mat4
+import com.hyeonslab.prism.math.Vec3
 
 /**
  * Core rendering interface for the Prism engine.
@@ -129,4 +130,16 @@ interface Renderer : Subsystem {
    * @param color The RGBA color to use as the material's base color.
    */
   fun setMaterialColor(color: Color) {}
+
+  /**
+   * Sets a PBR material for subsequent draw calls. Writes material parameters and binds textures
+   * (or defaults).
+   */
+  fun setMaterial(material: Material) {}
+
+  /** Sets the light array for the current frame. */
+  fun setLights(lights: List<LightData>) {}
+
+  /** Sets the camera world-space position for PBR specular calculations. */
+  fun setCameraPosition(position: Vec3) {}
 }

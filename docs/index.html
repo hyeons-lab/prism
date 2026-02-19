@@ -59,13 +59,14 @@
     <section id="demo">
       <div class="container">
         <p class="section-label">Live Demo</p>
-        <h2 class="section-title">WebGPU in your browser</h2>
+        <h2 class="section-title">PBR rendering in your browser</h2>
         <p class="section-desc">
-          A spinning cube rendered with WebGPU &mdash; the same graphics API
-          that powers Prism across every platform.
+          A 5&times;5 sphere grid rendered with Cook-Torrance BRDF &mdash; metallic
+          increases left to right, roughness increases top to bottom. Same WebGPU
+          pipeline that runs on Metal, Vulkan, and DX12.
         </p>
         <div class="demo-wrapper">
-          <canvas id="demo-canvas" role="img" aria-label="Spinning lit cube rendered with WebGPU, textured with the Hyeons' Lab logo"></canvas>
+          <canvas id="demo-canvas" role="img" aria-label="PBR sphere grid rendered with WebGPU: 25 spheres varying metallic and roughness via Cook-Torrance BRDF"></canvas>
           <div id="demo-fallback" class="demo-fallback" hidden>
             <p>
               Your browser doesn't support WebGPU yet.<br />
@@ -74,7 +75,7 @@
             </p>
           </div>
         </div>
-        <p class="demo-caption">Drag to rotate &mdash; WebGPU rendered with WGSL shaders, texture mapping, and Blinn-Phong lighting.</p>
+        <p class="demo-caption">Drag to orbit &mdash; Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick. Two point lights.</p>
       </div>
     </section>
 
@@ -108,8 +109,17 @@
             <span class="feature-icon">R</span>
             <h3>wgpu4k Renderer</h3>
             <p>
-              WebGPU-backed pipeline with WGSL shaders, depth testing, and
-              lighting. Runs on Metal, Vulkan, DX12, and WebGPU.
+              WebGPU-backed PBR pipeline with WGSL shaders, Cook-Torrance BRDF,
+              HDR rendering, and tone mapping. Metal, Vulkan, DX12, WebGPU.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">P</span>
+            <h3>PBR Materials &amp; IBL</h3>
+            <p>
+              Cook-Torrance BRDF (GGX NDF, Smith-GGX, Fresnel-Schlick), CPU-side
+              IBL (irradiance + prefiltered env + BRDF LUT), HDR + Khronos PBR
+              Neutral tone mapping.
             </p>
           </div>
           <div class="feature-card">
@@ -177,9 +187,10 @@
 
 <span class="hl-green">prism-renderer</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
 
-<span class="hl">prism-demo</span>                   <span class="dim">Demo app (rotating lit cube)</span></pre>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid)</span></pre>
         </div>
       </div>
     </section>
@@ -246,12 +257,12 @@
               <tr>
                 <td>Flutter (iOS/Android)</td>
                 <td>Platform channels + native rendering</td>
-                <td class="status-planned">Planned</td>
+                <td class="status-done">Working</td>
               </tr>
               <tr>
                 <td>Flutter Web</td>
-                <td>WebGPU via HtmlElementView</td>
-                <td class="status-planned">Planned</td>
+                <td>WebGPU via HtmlElementView + Kotlin/WASM</td>
+                <td class="status-done">Working</td>
               </tr>
             </tbody>
           </table>
@@ -340,12 +351,12 @@
               <p>Vulkan via wgpu4k, SurfaceView + Choreographer</p>
             </div>
           </div>
-          <div class="milestone planned">
+          <div class="milestone done">
             <span class="milestone-tag">M9</span>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>PBR materials</h4>
-              <p>Cook-Torrance BRDF, IBL, HDR</p>
+              <p>Cook-Torrance BRDF, IBL, HDR tone mapping</p>
             </div>
           </div>
           <div class="milestone planned">
@@ -356,12 +367,12 @@
               <p>glTF 2.0 meshes, textures, animations</p>
             </div>
           </div>
-          <div class="milestone planned">
+          <div class="milestone done">
             <span class="milestone-tag">M11</span>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>Flutter integration</h4>
-              <p>Platform channels, native rendering, and Flutter Web via WebGPU</p>
+              <p>Platform channels, native rendering, and Flutter Web via Kotlin/WASM</p>
             </div>
           </div>
         </div>
@@ -388,14 +399,14 @@
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">3</span> Run the demo</h3>
-            <pre class="code-block"><span class="comment"># GLFW window (Metal on macOS)</span>
-<span class="cmd">./gradlew</span> :prism-demo:jvmRun
+            <pre class="code-block"><span class="comment"># GLFW window — PBR sphere grid (Metal on macOS)</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:jvmRun
 
-<span class="comment"># Compose Desktop with embedded 3D</span>
-<span class="cmd">./gradlew</span> :prism-demo:runCompose
+<span class="comment"># Compose Desktop with embedded 3D + PBR sliders</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:runCompose
 
 <span class="comment"># WASM in the browser</span>
-<span class="cmd">./gradlew</span> :prism-demo:wasmJsBrowserDistribution</pre>
+<span class="cmd">./gradlew</span> :prism-demo-core:wasmJsBrowserDistribution</pre>
           </div>
         </div>
       </div>
@@ -420,8 +431,7 @@
       import { initDemo } from "./demo.js";
       const canvas = document.getElementById("demo-canvas");
       const fallback = document.getElementById("demo-fallback");
-      const logoUrl = "logo.png";
-      const ok = await initDemo(canvas, logoUrl).catch(() => false);
+      const ok = await initDemo(canvas).catch(() => false);
       if (!ok) {
         canvas.hidden = true;
         fallback.hidden = false;

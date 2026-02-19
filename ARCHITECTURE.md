@@ -17,7 +17,7 @@ For build commands, contribution guidelines, and project status, see [AGENTS.md]
 7. [Scene Graph (prism-scene)](#7-scene-graph-prism-scene)
 8. [Platform Surface Layer (prism-native-widgets)](#8-platform-surface-layer-prism-native-widgets)
 9. [Compose Integration (prism-compose)](#9-compose-integration-prism-compose)
-10. [Demo Architecture (prism-demo)](#10-demo-architecture-prism-demo)
+10. [Demo Architecture (prism-demo-core)](#10-demo-architecture-prism-demo-core)
 11. [Platform-Specific Integration Patterns](#11-platform-specific-integration-patterns)
 12. [Performance Characteristics & Future Improvements](#12-performance-characteristics--future-improvements)
 
@@ -109,7 +109,7 @@ prism-renderer
 
 prism-ios                           (XCFramework aggregator, re-exports all modules)
 
-prism-demo                          (depends on all engine modules)
+prism-demo-core                     (depends on all engine modules)
 ```
 
 ### Module Responsibilities
@@ -128,7 +128,7 @@ prism-demo                          (depends on all engine modules)
 | `prism-compose` | Compose Multiplatform integration with MVI state management | UI framework bridge |
 | `prism-flutter` | Flutter bridge: PrismBridge + DemoStore MVI (Android/iOS), @JsExport WASM entry (web) | M11 |
 | `prism-ios` | XCFramework aggregator for iOS/SPM distribution | Packaging |
-| `prism-demo` | Demo app with rotating lit cube across all platforms | Reference impl |
+| `prism-demo-core` | Demo app with PBR sphere grid across all platforms | Reference impl |
 
 ### Source Set Hierarchy
 
@@ -351,20 +351,30 @@ Single implementation using wgpu4k. Constructor takes `WGPUContext` (holds devic
 **Initialization:**
 1. Configure surface (unless `surfacePreConfigured`): query supported alpha modes, prefer `Inherit`, fall back to `Opaque`
 2. Create depth texture (`Depth24Plus`, recreated on resize)
-3. Create uniform buffer (128 bytes): VP matrix (bytes 0-63) + model matrix (bytes 64-127)
-4. Create material uniform buffer (16 bytes): RGBA base color
+3. Create scene uniform buffer (96 bytes): VP matrix, camera position, ambient, light count
+4. Create object uniform buffer (112 bytes): model matrix (64 bytes) + padded normalMatrix (mat3x3, 48 bytes with std140 padding)
+5. Create material uniform buffer (48 bytes): baseColor, metallic, roughness, emissive, occlusion, texture flags
+6. Create light storage buffer (1024 bytes): up to 16 lights at 64 bytes each
+7. Create environment uniform buffer (16 bytes): env intensity, max mip level
+8. Create default 1×1 textures: white (albedo/metallicRoughness/occlusion), flat-normal (128,128,255,255), black (emissive)
+9. Create default bind groups for all 4 groups; IBL textures populated by `initializeIbl()`
 
 ### GPU Resource Model
 
 | Resource | Lifetime | Size | Purpose |
 |----------|----------|------|---------|
-| Uniform buffer | Long-lived | 128 bytes | View-projection + model matrices |
-| Material buffer | Long-lived | 16 bytes | Base color vec4 |
-| Depth texture | Recreated on resize | surface W x H | Depth testing |
+| Scene uniform buffer | Long-lived | 96 bytes | VP matrix, camera pos, light count, ambient |
+| Object uniform buffer | Long-lived | 112 bytes | Model matrix (64B) + padded normalMatrix mat3x3 (48B) |
+| Material uniform buffer | Long-lived | 48 bytes | PBR params: color, metallic, roughness, emissive |
+| Light storage buffer | Long-lived | 1024 bytes | Up to 16 lights at 64 bytes each |
+| Environment uniform buffer | Long-lived | 16 bytes | IBL intensity, max mip level |
+| HDR color texture | Recreated on resize | surface W×H (RGBA16Float) | HDR intermediate render target |
+| Depth texture | Recreated on resize | surface W×H | Depth testing |
+| IBL textures (3) | Per scene (long-lived) | Varies | BRDF LUT (256×256), irradiance cubemap (16px), prefiltered env (32px, 5 mips) |
 | Vertex/index buffers | Per mesh, long-lived | Varies | Geometry |
 | Command encoder | Per frame (ephemeral) | — | GPU command recording |
 | Render pass encoder | Per frame (ephemeral) | — | Draw call recording |
-| Bind group | Per `bindPipeline()` call | — | Resource bindings |
+| Bind groups (4) | Per frame | — | Scene / object / material / environment bindings |
 
 Ephemeral resources are tracked via wgpu4k's `AutoClosableContext` and cleaned up at frame end.
 
@@ -376,25 +386,33 @@ beginFrame()
   └─ CommandEncoder created + .bind()
 
 beginRenderPass(descriptor)
-  └─ surface.getCurrentTexture() → color attachment (clear on load, store)
+  └─ If hdrEnabled: color attachment = HDR texture (RGBA16Float, clear on load)
+     else: color attachment = swapchain texture (clear on load)
   └─ depth-stencil attachment (clear depth=1.0)
-  └─ RenderPassEncoder created
+  └─ RenderPassEncoder created + pipeline set
 
-setCamera(camera)
-  └─ queue.writeBuffer(uniformBuffer, offset=0, vpMatrix, 64 bytes)
+setCameraPosition(pos) + setCamera(camera) + setLights(lights)  [via RenderSystem]
+  └─ queue.writeBuffer(sceneUniformBuffer, vpMatrix + cameraPos + lightCount + ambient, 96 bytes)
+  └─ queue.writeBuffer(lightStorageBuffer, lightArray, numLights × 64 bytes)
 
-bindPipeline(pipeline)
-  └─ renderPass.setPipeline()
-  └─ Create BindGroup: binding 0 = uniforms, binding 1 = material
-  └─ renderPass.setBindGroup(0, bindGroup)
+setMaterial(material)  [per draw call, before drawMesh]
+  └─ queue.writeBuffer(pbrMaterialUniformBuffer, pbr params, 48 bytes)
+  └─ renderPass.setBindGroup(2u, defaultMaterialBindGroup) [group 2: PBR params + default textures]
 
-drawMesh(mesh, transform)  [repeated per object]
-  └─ queue.writeBuffer(uniformBuffer, offset=64, modelMatrix, 64 bytes)
-  └─ queue.writeBuffer(materialBuffer, offset=0, baseColor, 16 bytes)
-  └─ renderPass.setVertexBuffer(0, mesh.vertexBuffer)
+drawMesh(mesh, transform)  [per draw call]
+  └─ queue.writeBuffer(objectUniformBuffer, modelMatrix + paddedNormalMatrix, 112 bytes)
+  └─ renderPass.setBindGroup(1u, objectBindGroup)     [group 1: model + normalMatrix]
+  └─ renderPass.setVertexBuffer(0, mesh.vertexBuffer) [48 bytes/vertex: pos+normal+uv+tangent]
   └─ renderPass.drawIndexed(indexCount)
+  Note: groups 0 (scene) and 3 (env) are set once in beginRenderPass(), not per draw call.
 
 endRenderPass()
+  └─ renderPass.end()
+
+Tone mapping pass (if hdrEnabled)
+  └─ New RenderPassEncoder targeting swapchain texture (clear on load)
+  └─ toneMapPipeline (fullscreen triangle, no vertex buffer)
+  └─ Samples HDR texture, applies Khronos PBR Neutral tone mapping → LDR output
   └─ renderPass.end()
 
 endFrame()
@@ -407,21 +425,37 @@ endFrame()
 
 ### WGSL Shaders
 
-Embedded as string constants in `Shaders.kt`. Single shader module with both vertex and fragment stages.
+Embedded as string constants in `Shaders.kt`. Two shader pairs: `PBR_VERTEX_SHADER` / `PBR_FRAGMENT_SHADER` for the main PBR pass, and `TONE_MAP_VERTEX_SHADER` / `TONE_MAP_FRAGMENT_SHADER` for the fullscreen HDR-to-LDR blit.
 
-**Uniform layout (std140):**
+**Explicit 4-group bind group layout:**
 ```wgsl
-@group(0) @binding(0) var<uniform> uniforms : Uniforms;        // 128 bytes
-@group(0) @binding(1) var<uniform> material : MaterialUniforms; // 16 bytes
+@group(0) @binding(0) var<uniform> scene : SceneUniforms;   // 96 bytes: VP, cameraPos, lightCount, ambient
+@group(0) @binding(1) var<storage, read> lights : LightArray; // 1024 bytes: up to 16 lights
+
+@group(1) @binding(0) var<uniform> object : ObjectUniforms; // 128 bytes: model + padded normalMatrix
+
+@group(2) @binding(0) var<uniform> material : MaterialUniforms; // 48 bytes: PBR params + texture flags
+@group(2) @binding(1) var materialSampler : sampler;            // one shared sampler for all 5 PBR slots
+@group(2) @binding(2..6): baseColorTex, metallicRoughnessTex, normalTex, occlusionTex, emissiveTex
+
+@group(3) @binding(0) var<uniform> env : EnvironmentUniforms;  // 16 bytes: envIntensity, maxMipLevel
+@group(3) @binding(1) var envSampler : sampler;                 // one shared clamp sampler
+@group(3) @binding(2) var irradianceMap : texture_cube<f32>;
+@group(3) @binding(3) var prefilteredEnv : texture_cube<f32>;
+@group(3) @binding(4) var brdfLut : texture_2d<f32>;
 ```
 
-**Vertex stage** (`vs_main`): Transforms position by model and VP matrices. Transforms normal by model matrix (no inverse-transpose — assumes uniform scale). Passes world normal and UV as varyings.
+**PBR vertex stage** (`vs_main`): Transforms position to clip space via `scene.viewProjection * object.model`. Transforms normal via `object.normalMatrix` (inverse-transpose mat3). Outputs world position, world normal, UV, and world tangent as varyings.
 
-**Fragment stage** (`fs_main`): Lambertian diffuse lighting with hardcoded directional light `normalize(vec3(0.5, 1.0, 0.8))`. Ambient = 0.15, diffuse = NdotL * 0.85. Output = `material.baseColor.rgb * (ambient + diffuse)`.
+**PBR fragment stage** (`fs_main`): Cook-Torrance BRDF — GGX NDF (`D`), Smith-GGX geometry (`G`), Fresnel-Schlick (`F`). Loops over `scene.numLights` directional/point/spot lights. Adds IBL diffuse (irradiance cube sample) and specular (split-sum: prefiltered env + BRDF LUT). Flag-based texture sampling for all 5 PBR slots. Normal mapping via TBN matrix when `hasNormalTexture` flag is set. Outputs linear HDR colors (no clamping).
+
+**Tone map vertex stage**: Generates fullscreen triangle from `vertex_index` — no vertex buffer needed.
+
+**Tone map fragment stage**: Samples HDR texture, applies Khronos PBR Neutral tone mapping to map linear HDR → [0,1] LDR.
 
 ### Vertex Layout
 
-Position (Float3, 12 bytes) + Normal (Float3, 12 bytes) + UV (Float2, 8 bytes) = **32 bytes/vertex**.
+Position (Float3, 12 bytes) + Normal (Float3, 12 bytes) + UV (Float2, 8 bytes) + Tangent (Float4, 16 bytes) = **48 bytes/vertex**. The tangent W component encodes the bitangent handedness sign (`+1` or `−1`) for TBN matrix reconstruction in the shader.
 
 ### Pipeline Configuration
 
@@ -432,6 +466,7 @@ TriangleList topology, back-face culling (CCW front face), Depth24Plus depth tes
 - `Mesh.triangle()` — 3 vertices, 3 indices
 - `Mesh.quad()` — 4 vertices, 6 indices (2 triangles)
 - `Mesh.cube()` — 24 vertices (4 per face for distinct normals), 36 indices, Uint32 index format
+- `Mesh.sphere(stacks, slices, radius)` — UV sphere with tangents; `(stacks+1)×(slices+1)` vertices, `stacks×slices×6` indices. Seam duplication for correct UV wrapping. Tangent = ∂position/∂u normalized, W = +1.0.
 
 ---
 
@@ -538,22 +573,23 @@ Two constructors: one creates and owns an Engine (calls shutdown on dispose), on
 
 ---
 
-## 10. Demo Architecture (prism-demo)
+## 10. Demo Architecture (prism-demo-core)
 
 ### Shared Logic (commonMain)
 
-**`DemoScene`** — data holder for `Engine`, `World`, `WgpuRenderer`, `cubeEntity`, `cameraEntity`. Two tick methods:
-- `tick(deltaTime, elapsed, frameCount, rotationSpeed)` — computes angle from elapsed time, delegates to `tickWithAngle`
-- `tickWithAngle(deltaTime, elapsed, frameCount, angle)` — sets cube rotation quaternion, calls `world.update(time)`
+**`DemoScene`** — data holder for `Engine`, `World`, `WgpuRenderer`, `cameraEntity`. Two tick methods:
+- `tick(deltaTime, elapsed, frameCount)` — calls `world.update(time)`
+- `tickWithAngle(deltaTime, elapsed, frameCount, angle)` — kept for iOS/macOS platform compat; angle is unused in the static sphere grid scene
 
-**`createDemoScene(wgpuContext, width, height, surfacePreConfigured, initialColor)`** factory:
-1. Creates `WgpuRenderer`, adds to `Engine`, initializes
+**`createDemoScene(wgpuContext, width, height, surfacePreConfigured)`** factory:
+1. Creates `WgpuRenderer`, enables HDR (`hdrEnabled = true`), calls `initializeIbl()`, adds to `Engine`, initializes
 2. Creates `World`, adds `RenderSystem`
-3. Creates camera entity: position `(2, 2, 4)`, target `(0,0,0)`, FOV 60, near 0.1, far 100
-4. Creates cube entity: `Mesh.cube()`, blue material `(0.3, 0.5, 0.9)`
-5. Initializes World (triggers RenderSystem → shader compilation + pipeline creation)
+3. Creates camera entity: position `(0, 0, 12)`, target `(0,0,0)`, FOV 45, near 0.1, far 100
+4. Creates directional light (warm white 1.0/0.95/0.8, intensity 2.0, direction −0.5/−1/−0.5) and point light (cool white 0.8/0.9/1.0, intensity 80, range 20, at position 5/5/5)
+5. Creates 7×7 sphere grid using a shared `Mesh.sphere()` instance — metallic 0→1 on X axis, roughness 0.04→1.0 on Y axis, spacing 1.5 units
+6. Initializes World (triggers RenderSystem → PBR shader compilation + 4-group pipeline creation)
 
-**`DemoStore`** — `Store<DemoUiState, DemoIntent>` managing rotation speed (default 45 deg/s), pause state, cube color, FPS display.
+**`DemoStore`** — `Store<DemoUiState, DemoIntent>` managing rotation speed (default 45 deg/s), pause state, metallic (0.5), roughness (0.5), envIntensity (1.0), and FPS display.
 
 ### Platform Entry Points
 
@@ -574,14 +610,14 @@ All converge on `DemoScene`:
 
 ### ECS Rendering Pipeline (End-to-End)
 
-1. **Setup**: `World.addSystem(RenderSystem(renderer))` → `World.initialize()` → `RenderSystem.initialize()` compiles WGSL shader, creates default pipeline
+1. **Setup**: `World.addSystem(RenderSystem(renderer))` → `World.initialize()` → `RenderSystem.initialize()` compiles PBR WGSL shaders, creates explicit 4-group pipeline layout
 2. **Each frame**: `world.update(time)` → `RenderSystem.update()`:
-   - `beginFrame()` → `beginRenderPass()` (cornflower blue clear)
-   - Query `CameraComponent` → `setCamera()` (writes VP matrix)
-   - `bindPipeline()` (sets pipeline + bind group)
-   - For each `MeshComponent` entity: lazy-upload mesh, compute model matrix from `TransformComponent`, set material color, `drawMesh()`
-   - `endRenderPass()` → `endFrame()` (submit + present)
-3. **Animation**: `DemoScene.tickWithAngle()` updates `TransformComponent.rotation` on the cube entity before `world.update()` triggers the render pass
+   - `beginFrame()` → `beginRenderPass()` (renders to HDR texture when `hdrEnabled`; cornflower blue clear)
+   - Query `CameraComponent` → `setCamera()` (writes VP matrix) + `setCameraPosition()` (writes camera position to scene uniforms)
+   - Query `LightComponent` entities → build `List<LightData>` → `setLights()` (writes light array + light count)
+   - For each `MeshComponent` entity: lazy-upload mesh, compute model + normal matrices from `TransformComponent`, `setMaterial()`, `drawMesh()`
+   - `endRenderPass()` → tone-map pass (HDR → LDR) → `endFrame()` (submit + present)
+3. **Scene**: static PBR sphere grid — no per-frame transform mutations; all motion is driven by scene tick without animation
 
 ---
 
@@ -633,9 +669,9 @@ All converge on `DemoScene`:
 | **Math** | Pure Kotlin Float32, scalar operations | No SIMD, heap-allocated vectors |
 | **Transform** | `toModelMatrix()` allocates 3 intermediate Mat4 per call | Not cached |
 | **Scene graph** | `worldTransformMatrix()` recursive with no caching | O(depth) per node, no dirty flags |
-| **Shading** | Single directional light, hardcoded | No light uniform buffer array |
+| **Shading** | PBR Cook-Torrance BRDF, up to 16 lights, IBL | 4-bind-group layout; bind groups recreated per draw, no caching |
 | **Culling** | None | Every entity is drawn every frame |
-| **Textures** | Depth buffer only | No color/normal/roughness texture support |
+| **Textures** | Depth + IBL (BRDF LUT, irradiance, prefiltered env) | PBR texture slots ready; no loaded albedo/normal/metallicRoughness textures yet |
 | **Memory** | Mesh CPU data retained after GPU upload | Can release after `uploadMesh()` |
 
 ### Planned Improvements
@@ -648,9 +684,9 @@ All converge on `DemoScene`:
 - Frustum and occlusion culling
 
 **Materials:**
-- PBR (Cook-Torrance BRDF, image-based lighting, HDR)
-- Texture support (albedo, normal, metallic-roughness)
-- Light uniform buffer array (multiple dynamic lights)
+- Texture loading pipeline (albedo, normal, metallic-roughness) from glTF assets or disk
+- Spotlight support in PBR shader
+- Runtime IBL from loaded HDR environment maps
 
 **Assets:**
 - glTF 2.0 loading (geometry, materials, animations)

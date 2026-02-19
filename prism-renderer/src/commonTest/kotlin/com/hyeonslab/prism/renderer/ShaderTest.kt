@@ -8,60 +8,134 @@ import kotlin.test.Test
 
 class ShaderTest {
 
-  // --- Shaders constants ---
+  // --- PBR Shader constants ---
 
   @Test
-  fun uniformsSize() {
-    Shaders.UNIFORMS_SIZE shouldBe 128L
+  fun sceneUniformsSize() {
+    Shaders.SCENE_UNIFORMS_SIZE shouldBe 96L
   }
 
   @Test
-  fun materialUniformsSize() {
-    Shaders.MATERIAL_UNIFORMS_SIZE shouldBe 16L
-  }
-
-  // --- Vertex shader ---
-
-  @Test
-  fun vertexShaderStage() {
-    Shaders.VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
+  fun objectUniformsSize() {
+    Shaders.OBJECT_UNIFORMS_SIZE shouldBe 112L
   }
 
   @Test
-  fun vertexShaderEntryPoint() {
-    Shaders.VERTEX_SHADER.entryPoint shouldBe "vs_main"
+  fun pbrMaterialUniformsSize() {
+    Shaders.PBR_MATERIAL_UNIFORMS_SIZE shouldBe 48L
   }
 
   @Test
-  fun vertexShaderCodeNotEmpty() {
-    Shaders.VERTEX_SHADER.code.shouldNotBeEmpty()
+  fun lightBufferSize() {
+    Shaders.LIGHT_BUFFER_SIZE shouldBe Shaders.MAX_LIGHTS * Shaders.LIGHT_STRIDE
   }
 
   @Test
-  fun vertexShaderContainsEntryFunction() {
-    Shaders.VERTEX_SHADER.code shouldContain "fn vs_main"
+  fun envUniformsSize() {
+    Shaders.ENV_UNIFORMS_SIZE shouldBe 16L
   }
 
-  // --- Fragment shader ---
+  // --- PBR Vertex shader ---
 
   @Test
-  fun fragmentUnlitStage() {
-    Shaders.FRAGMENT_UNLIT.stage shouldBe ShaderStage.FRAGMENT
-  }
-
-  @Test
-  fun fragmentUnlitEntryPoint() {
-    Shaders.FRAGMENT_UNLIT.entryPoint shouldBe "fs_main"
+  fun pbrVertexShaderStage() {
+    Shaders.PBR_VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
   }
 
   @Test
-  fun fragmentUnlitCodeNotEmpty() {
-    Shaders.FRAGMENT_UNLIT.code.shouldNotBeEmpty()
+  fun pbrVertexShaderEntryPoint() {
+    Shaders.PBR_VERTEX_SHADER.entryPoint shouldBe "vs_main"
   }
 
   @Test
-  fun fragmentUnlitContainsEntryFunction() {
-    Shaders.FRAGMENT_UNLIT.code shouldContain "fn fs_main"
+  fun pbrVertexShaderCodeNotEmpty() {
+    Shaders.PBR_VERTEX_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun pbrVertexShaderContainsEntryFunction() {
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "fn vs_main"
+  }
+
+  @Test
+  fun pbrVertexShaderContainsBindings() {
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(0)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(1)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(2)"
+    Shaders.PBR_VERTEX_SHADER.code shouldContain "@group(3)"
+  }
+
+  // --- PBR Fragment shader ---
+
+  @Test
+  fun pbrFragmentShaderStage() {
+    Shaders.PBR_FRAGMENT_SHADER.stage shouldBe ShaderStage.FRAGMENT
+  }
+
+  @Test
+  fun pbrFragmentShaderEntryPoint() {
+    Shaders.PBR_FRAGMENT_SHADER.entryPoint shouldBe "fs_main"
+  }
+
+  @Test
+  fun pbrFragmentShaderCodeNotEmpty() {
+    Shaders.PBR_FRAGMENT_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun pbrFragmentShaderContainsBrdfFunctions() {
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn distributionGGX"
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn geometrySmith"
+    Shaders.PBR_FRAGMENT_SHADER.code shouldContain "fn fresnelSchlick"
+  }
+
+  // --- Tone map vertex shader ---
+
+  @Test
+  fun toneMapVertexShaderStage() {
+    Shaders.TONE_MAP_VERTEX_SHADER.stage shouldBe ShaderStage.VERTEX
+  }
+
+  @Test
+  fun toneMapVertexShaderEntryPoint() {
+    Shaders.TONE_MAP_VERTEX_SHADER.entryPoint shouldBe "tm_vs"
+  }
+
+  @Test
+  fun toneMapVertexShaderCodeNotEmpty() {
+    Shaders.TONE_MAP_VERTEX_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun toneMapVertexShaderContainsEntryFunction() {
+    Shaders.TONE_MAP_VERTEX_SHADER.code shouldContain "fn tm_vs"
+  }
+
+  // --- Tone map fragment shader ---
+
+  @Test
+  fun toneMapFragmentShaderStage() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.stage shouldBe ShaderStage.FRAGMENT
+  }
+
+  @Test
+  fun toneMapFragmentShaderEntryPoint() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.entryPoint shouldBe "tm_fs"
+  }
+
+  @Test
+  fun toneMapFragmentShaderCodeNotEmpty() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code.shouldNotBeEmpty()
+  }
+
+  @Test
+  fun toneMapFragmentShaderContainsToneMapFunction() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code shouldContain "fn toneMapKhronosPbrNeutral"
+  }
+
+  @Test
+  fun toneMapFragmentShaderContainsGroup0Binding() {
+    Shaders.TONE_MAP_FRAGMENT_SHADER.code shouldContain "@group(0)"
   }
 
   // --- ShaderSource ---

@@ -14,6 +14,7 @@ class PrismDemoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Prism Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: Colors.blue,
         useMaterial3: true,
@@ -32,11 +33,27 @@ class PrismDemoPage extends StatefulWidget {
 
 class _PrismDemoPageState extends State<PrismDemoPage> {
   final _engine = PrismEngine();
-  double _rotationSpeed = 45.0;
+  double _metallic = 0.0;
+  double _roughness = 0.5;
+  double _envIntensity = 1.0;
   bool _isPaused = false;
+  double _fps = 0.0;
+  Timer? _fpsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fpsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      final state = await _engine.getState();
+      if (mounted) {
+        setState(() => _fps = (state['fps'] as num?)?.toDouble() ?? 0.0);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _fpsTimer?.cancel();
     unawaited(_engine.shutdown());
     super.dispose();
   }
@@ -44,74 +61,185 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Prism 3D Demo')),
-      body: Column(
+      // Full-screen: no AppBar, body fills the viewport.
+      body: Stack(
         children: [
-          // 3D render view
-          Expanded(
+          // 3D render view fills the entire screen.
+          Positioned.fill(
             child: PrismRenderView(engine: _engine),
           ),
-          // Controls
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                // Rotation speed slider
-                Row(
-                  children: [
-                    const Text('Speed'),
-                    Expanded(
-                      child: Slider(
-                        value: _rotationSpeed,
-                        min: 0,
-                        max: 360,
-                        onChanged: (value) {
-                          setState(() => _rotationSpeed = value);
-                          _engine.setRotationSpeed(value);
-                        },
-                      ),
-                    ),
-                    Text('${_rotationSpeed.toInt()}°/s'),
-                  ],
-                ),
-                // Color buttons + pause
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _colorButton('Blue', 0.3, 0.5, 0.9),
-                    _colorButton('Red', 0.9, 0.2, 0.2),
-                    _colorButton('Green', 0.2, 0.8, 0.3),
-                    _colorButton('Gold', 0.9, 0.7, 0.1),
-                    FilledButton.icon(
-                      onPressed: () {
-                        setState(() => _isPaused = !_isPaused);
-                        _engine.togglePause();
-                      },
-                      icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                      label: Text(_isPaused ? 'Resume' : 'Pause'),
-                    ),
-                  ],
-                ),
-              ],
+          // FPS indicator — top-right corner.
+          Positioned(
+            top: 16,
+            right: 16,
+            child: _FpsChip(fps: _fps),
+          ),
+          // PBR controls — semi-transparent panel at the bottom.
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _ControlPanel(
+              metallic: _metallic,
+              roughness: _roughness,
+              envIntensity: _envIntensity,
+              isPaused: _isPaused,
+              onMetallic: (v) {
+                setState(() => _metallic = v);
+                _engine.setMetallic(v);
+              },
+              onRoughness: (v) {
+                setState(() => _roughness = v);
+                _engine.setRoughness(v);
+              },
+              onEnvIntensity: (v) {
+                setState(() => _envIntensity = v);
+                _engine.setEnvIntensity(v);
+              },
+              onTogglePause: () {
+                setState(() => _isPaused = !_isPaused);
+                _engine.togglePause();
+              },
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _colorButton(String label, double r, double g, double b) {
-    return FilledButton(
-      onPressed: () => _engine.setCubeColor(r, g, b),
-      style: FilledButton.styleFrom(
-        backgroundColor: Color.fromRGBO(
-          (r * 255).toInt(),
-          (g * 255).toInt(),
-          (b * 255).toInt(),
-          1.0,
+class _FpsChip extends StatelessWidget {
+  final double fps;
+  const _FpsChip({required this.fps});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '${fps.toStringAsFixed(0)} fps',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      child: Text(label, style: const TextStyle(color: Colors.white)),
+    );
+  }
+}
+
+class _ControlPanel extends StatelessWidget {
+  final double metallic;
+  final double roughness;
+  final double envIntensity;
+  final bool isPaused;
+  final ValueChanged<double> onMetallic;
+  final ValueChanged<double> onRoughness;
+  final ValueChanged<double> onEnvIntensity;
+  final VoidCallback onTogglePause;
+
+  const _ControlPanel({
+    required this.metallic,
+    required this.roughness,
+    required this.envIntensity,
+    required this.isPaused,
+    required this.onMetallic,
+    required this.onRoughness,
+    required this.onEnvIntensity,
+    required this.onTogglePause,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black54,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PbrSlider(
+            label: 'Metallic',
+            value: metallic,
+            min: 0,
+            max: 1,
+            onChanged: onMetallic,
+          ),
+          _PbrSlider(
+            label: 'Roughness',
+            value: roughness,
+            min: 0,
+            max: 1,
+            onChanged: onRoughness,
+          ),
+          _PbrSlider(
+            label: 'Env IBL',
+            value: envIntensity,
+            min: 0,
+            max: 2,
+            onChanged: onEnvIntensity,
+          ),
+          const SizedBox(height: 4),
+          FilledButton.icon(
+            onPressed: onTogglePause,
+            icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
+            label: Text(isPaused ? 'Resume' : 'Pause'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PbrSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final ValueChanged<double> onChanged;
+
+  const _PbrSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: Colors.white70,
+              thumbColor: Colors.white,
+              inactiveTrackColor: Colors.white24,
+              overlayColor: Colors.white24,
+            ),
+            child: Slider(value: value, min: min, max: max, onChanged: onChanged),
+          ),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text(
+            value.toStringAsFixed(2),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }

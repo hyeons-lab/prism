@@ -438,7 +438,7 @@ fun main() {
 
 4. **HDR + tone mapping:**
    - Render to HDR (rgba16float) render target
-   - Full-screen tone mapping pass (ACES filmic or Khronos PBR Neutral)
+   - Full-screen tone mapping pass (Khronos PBR Neutral)
    - Gamma correction in final output
 
 ### Phase 8: glTF Asset Loading
@@ -576,13 +576,13 @@ fun main() {
 - sRGB color correction and byte-order fixes for ARM64
 - **Validates:** Android compilation, wgpu4k Vulkan backend, cross-platform rendering parity
 
-### M9: PBR Materials
+### M9: PBR Materials ✅
 - Physically Based Rendering pipeline (metallic-roughness workflow)
 - PBR WGSL shaders: Cook-Torrance BRDF (GGX normal distribution, Smith geometry, Fresnel-Schlick)
 - Material properties: baseColor, metallic, roughness, normal map, AO, emissive
 - Image-Based Lighting (IBL): irradiance map (diffuse) + prefiltered environment map (specular) + BRDF LUT
 - Multiple point/directional/spot lights with proper attenuation
-- HDR rendering with tone mapping (ACES or Khronos PBR Neutral)
+- HDR rendering with tone mapping (Khronos PBR Neutral)
 - **Validates:** advanced shader pipeline, texture sampling, multi-texture bind groups, HDR
 
 ### M10: glTF Asset Loading
@@ -624,11 +624,11 @@ fun main() {
 ---
 
 ## 10. Verification Plan
-1. `./gradlew :prism-renderer:build` — compiles with wgpu4k
-2. `./gradlew :prism-demo:jvmRun` — opens GLFW window, renders triangle
-3. Upgrade to rotating cube with camera
-4. Add lighting + materials
-5. Wire ECS RenderSystem, render multiple entities
-6. Embed in Compose window with FPS overlay
-7. PBR sphere grid demo (varying metallic/roughness) renders correctly
+1. ✅ `./gradlew :prism-renderer:build` — compiles with wgpu4k
+2. ✅ `./gradlew :prism-demo-core:jvmRun` — opens GLFW window, renders triangle
+3. ✅ Upgrade to rotating cube with camera
+4. ✅ Add lighting + materials
+5. ✅ Wire ECS RenderSystem, render multiple entities
+6. ✅ Embed in Compose window with FPS overlay
+7. ✅ PBR sphere grid demo (varying metallic/roughness) renders correctly
 8. Load Khronos glTF sample model (e.g., DamagedHelmet) and render with PBR materials

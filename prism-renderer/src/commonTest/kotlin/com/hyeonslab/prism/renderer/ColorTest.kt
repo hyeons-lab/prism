@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.renderer
 
+import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import kotlin.test.Test
 
@@ -89,5 +90,80 @@ class ColorTest {
     c.r shouldBe 256f / 255f
     c.g shouldBe -1f / 255f
     c.b shouldBe 512f / 255f
+  }
+
+  // --- toLinear / toSrgb ---
+
+  private val eps = 1e-4f
+
+  @Test
+  fun toLinearBlack() {
+    val linear = Color.BLACK.toLinear()
+    linear.r shouldBe (0f plusOrMinus eps)
+    linear.g shouldBe (0f plusOrMinus eps)
+    linear.b shouldBe (0f plusOrMinus eps)
+  }
+
+  @Test
+  fun toLinearWhite() {
+    val linear = Color.WHITE.toLinear()
+    linear.r shouldBe (1f plusOrMinus eps)
+    linear.g shouldBe (1f plusOrMinus eps)
+    linear.b shouldBe (1f plusOrMinus eps)
+  }
+
+  @Test
+  fun toLinearMidRange() {
+    // sRGB 0.5 -> linear ~0.2140
+    val linear = Color(0.5f, 0.5f, 0.5f).toLinear()
+    linear.r shouldBe (0.2140f plusOrMinus 0.001f)
+  }
+
+  @Test
+  fun toLinearPreservesAlpha() {
+    val c = Color(0.5f, 0.5f, 0.5f, 0.75f).toLinear()
+    c.a shouldBe 0.75f
+  }
+
+  @Test
+  fun toSrgbBlack() {
+    val srgb = Color.BLACK.toSrgb()
+    srgb.r shouldBe (0f plusOrMinus eps)
+  }
+
+  @Test
+  fun toSrgbWhite() {
+    val srgb = Color.WHITE.toSrgb()
+    srgb.r shouldBe (1f plusOrMinus eps)
+  }
+
+  @Test
+  fun roundtripLinearSrgb() {
+    val original = Color(0.3f, 0.6f, 0.9f, 0.5f)
+    val roundtrip = original.toLinear().toSrgb()
+    roundtrip.r shouldBe (original.r plusOrMinus 0.001f)
+    roundtrip.g shouldBe (original.g plusOrMinus 0.001f)
+    roundtrip.b shouldBe (original.b plusOrMinus 0.001f)
+    roundtrip.a shouldBe original.a
+  }
+
+  @Test
+  fun roundtripSrgbLinear() {
+    val original = Color(0.214f, 0.214f, 0.214f)
+    val roundtrip = original.toSrgb().toLinear()
+    roundtrip.r shouldBe (original.r plusOrMinus 0.001f)
+  }
+
+  // --- toFloatArray ---
+
+  @Test
+  fun toFloatArray() {
+    val c = Color(0.1f, 0.2f, 0.3f, 0.4f)
+    val arr = c.toFloatArray()
+    arr.size shouldBe 4
+    arr[0] shouldBe 0.1f
+    arr[1] shouldBe 0.2f
+    arr[2] shouldBe 0.3f
+    arr[3] shouldBe 0.4f
   }
 }

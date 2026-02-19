@@ -16,6 +16,9 @@ enum class TextureFormat {
 
   /** 24-bit depth + 8-bit stencil packed format. */
   DEPTH24_STENCIL8,
+
+  /** 16-bit floating-point RGBA (HDR). */
+  RGBA16_FLOAT,
 }
 
 /** Texture sampling filter mode. */

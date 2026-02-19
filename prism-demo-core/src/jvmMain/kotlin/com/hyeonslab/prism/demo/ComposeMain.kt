@@ -10,13 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposePanel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.core.Time
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.ecs.components.TransformComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.math.Quaternion
-import com.hyeonslab.prism.math.Vec3
-import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.widget.AwtRenderingContext
 import com.hyeonslab.prism.widget.PrismPanel
 import ffi.LibraryLoader
@@ -66,14 +59,7 @@ private fun createAndShowUi() {
     log.i { "PrismPanel ready \u2014 initializing scene" }
     val ctx = prismPanel.wgpuContext
     if (ctx != null) {
-      val s =
-        createDemoScene(
-          ctx,
-          prismPanel.width,
-          prismPanel.height,
-          surfacePreConfigured = true,
-          initialColor = store.state.value.cubeColor,
-        )
+      val s = createDemoScene(ctx, prismPanel.width, prismPanel.height, surfacePreConfigured = true)
       s.renderer.onResize = { w, h ->
         val rc = ctx.renderingContext
         if (rc is AwtRenderingContext) {
@@ -103,7 +89,6 @@ private fun createAndShowUi() {
       val startTimeNs = System.nanoTime()
       var frameCount = 0L
       var lastFrameTimeNs = startTimeNs
-      var rotationAngle = 0f
 
       while (true) {
         withFrameNanos {
@@ -124,20 +109,16 @@ private fun createAndShowUi() {
             store.dispatch(DemoIntent.UpdateFps(smoothedFps))
           }
 
-          // Update rotation
-          if (!currentState.isPaused) {
-            rotationAngle += deltaSec * MathUtils.toRadians(currentState.rotationSpeed)
-          }
-          val cubeTransform = s.world.getComponent<TransformComponent>(s.cubeEntity)
-          cubeTransform?.rotation = Quaternion.fromAxisAngle(Vec3.UP, rotationAngle)
+          // Apply PBR slider values to sphere materials each frame.
+          s.setMaterialOverride(currentState.metallic, currentState.roughness)
+          s.setEnvIntensity(currentState.envIntensity)
 
-          // Update material color
-          val cubeMaterial = s.world.getComponent<MaterialComponent>(s.cubeEntity)
-          cubeMaterial?.material = Material(baseColor = currentState.cubeColor)
-
-          // Run ECS update (triggers RenderSystem)
-          val time = Time(deltaTime = deltaSec, totalTime = totalSec, frameCount = frameCount)
-          s.world.update(time)
+          // Run ECS update (triggers RenderSystem); pass 0 when paused.
+          s.tick(
+            deltaTime = if (currentState.isPaused) 0f else deltaSec,
+            elapsed = totalSec,
+            frameCount = frameCount,
+          )
         }
       }
     }

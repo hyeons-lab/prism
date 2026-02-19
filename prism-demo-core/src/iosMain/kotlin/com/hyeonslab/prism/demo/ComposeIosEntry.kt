@@ -117,13 +117,7 @@ private fun IosComposeDemoContent() {
           val s = createPrismSurface(view, width, height)
           surface = s
           val wgpuCtx = checkNotNull(s.wgpuContext) { "wgpu context not available" }
-          val sc =
-            createDemoScene(
-              wgpuCtx,
-              width = width,
-              height = height,
-              initialColor = store.state.value.cubeColor,
-            )
+          val sc = createDemoScene(wgpuCtx, width = width, height = height)
           scene = sc
 
           val delegate =

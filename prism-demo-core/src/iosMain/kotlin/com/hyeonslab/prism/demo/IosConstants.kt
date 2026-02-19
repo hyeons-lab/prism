@@ -1,8 +1,6 @@
 package com.hyeonslab.prism.demo
 
-import com.hyeonslab.prism.ecs.components.MaterialComponent
 import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.renderer.Material
 import kotlinx.coroutines.sync.Mutex
 import platform.Foundation.NSOperationQueue
 import platform.QuartzCore.CACurrentMediaTime
@@ -11,7 +9,7 @@ import platform.QuartzCore.CACurrentMediaTime
 internal const val IOS_DEFAULT_WIDTH = 800
 internal const val IOS_DEFAULT_HEIGHT = 600
 
-/** Shared [DemoStore] so Native and Compose tabs share pause, speed, and color state. */
+/** Shared [DemoStore] so Native and Compose tabs share pause, speed, and state. */
 internal val sharedDemoStore: DemoStore = DemoStore()
 
 /**
@@ -29,7 +27,7 @@ internal object SharedDemoTime {
   private var accumulatedElapsed = 0.0
   private var paused = false
 
-  // Angle tracking — accumulates an offset when speed changes so the cube doesn't jump.
+  // Angle tracking — accumulates an offset when speed changes so rotation doesn't jump.
   private var angleOffset = 0.0
   private var elapsedAtSpeedChange = 0.0
   private var lastSpeed = Double.NaN
@@ -94,8 +92,8 @@ internal object SharedDemoTime {
 
 /**
  * Shared per-frame update logic for both Native and Compose iOS render delegates. Reads the current
- * [DemoStore] state, ticks [SharedDemoTime] for synchronized elapsed/angle values, updates the cube
- * transform and material, dispatches smoothed FPS, and runs the ECS world update.
+ * [DemoStore] state, ticks [SharedDemoTime] for synchronized elapsed/angle values, dispatches
+ * smoothed FPS, and runs the ECS world update.
  */
 internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float, frameCount: Long) {
   val currentState = store.state.value
@@ -110,12 +108,6 @@ internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float,
     angle = a
   }
 
-  // Update material color only when it actually changes to avoid per-frame allocation
-  val cubeMaterial = scene.world.getComponent<MaterialComponent>(scene.cubeEntity)
-  if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
-    cubeMaterial.material = Material(baseColor = currentState.cubeColor)
-  }
-
   // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
   if (deltaTime > 0f) {
     val smoothedFps = currentState.fps * 0.9f + (1f / deltaTime) * 0.1f
@@ -124,7 +116,7 @@ internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float,
     }
   }
 
-  // Rotation + ECS update via shared DemoScene method
+  // ECS update via shared DemoScene method (sphere grid is static; angle is unused)
   scene.tickWithAngle(
     deltaTime = if (currentState.isPaused) 0f else deltaTime,
     elapsed = elapsed,

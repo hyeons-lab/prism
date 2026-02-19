@@ -7,10 +7,6 @@ import com.hyeonslab.prism.demo.DemoIntent
 import com.hyeonslab.prism.demo.DemoScene
 import com.hyeonslab.prism.demo.DemoStore
 import com.hyeonslab.prism.demo.createDemoScene
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.renderer.Color
-import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -35,6 +31,31 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
 
 @JsFun("() => performance.now()") private external fun performanceNow(): Double
 
+/**
+ * Attaches pointer-drag listeners to [canvas] for orbit camera control. Calls [onDelta] with
+ * (deltaX, deltaY) in CSS pixels on each pointermove while a pointer button is held.
+ */
+@JsFun(
+  """(canvas, onDelta) => {
+  let active = false, lastX = 0, lastY = 0;
+  canvas.addEventListener('pointerdown', e => {
+    active = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId); e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('pointermove', e => {
+    if (!active) return;
+    onDelta(e.clientX - lastX, e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY; e.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('pointerup',     () => { active = false; });
+  canvas.addEventListener('pointercancel', () => { active = false; });
+}"""
+)
+private external fun addOrbitPointerListeners(
+  canvas: HTMLCanvasElement,
+  onDelta: (Double, Double) -> Unit,
+)
+
 @JsFun("(msg) => console.error('Prism Flutter Web: ' + msg)")
 private external fun logError(message: String)
 
@@ -46,7 +67,6 @@ private class EngineInstance(
   var scene: DemoScene? = null,
   var surface: PrismSurface? = null,
   var running: Boolean = false,
-  var accumulatedAngle: Float = 0f,
   var startTime: Double = 0.0,
   var lastFrameTime: Double = 0.0,
   var frameCount: Long = 0L,
@@ -78,8 +98,7 @@ fun prismInit(canvasId: String) {
     old.surface?.detach()
   }
 
-  // Create instance with store before launching the coroutine so control methods
-  // (setRotationSpeed, togglePause, setCubeColor) work immediately.
+  // Create instance with store before launching the coroutine so control methods work immediately.
   val instance = EngineInstance(store = DemoStore())
   instances[canvasId] = instance
 
@@ -97,19 +116,18 @@ fun prismInit(canvasId: String) {
     instance.surface = surface
     val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
 
-    val demoScene =
-      createDemoScene(
-        wgpuContext,
-        width = width,
-        height = height,
-        initialColor = instance.store.state.value.cubeColor,
-      )
+    val demoScene = createDemoScene(wgpuContext, width = width, height = height)
     instance.scene = demoScene
+
+    // Orbit camera via pointer drag on the canvas.
+    // dx/dy are in CSS pixels; multiply by sensitivity (radians per pixel).
+    addOrbitPointerListeners(canvas) { dx, dy ->
+      demoScene.orbitBy(dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
+    }
 
     instance.startTime = performanceNow()
     instance.lastFrameTime = instance.startTime
     instance.frameCount = 0L
-    instance.accumulatedAngle = 0f
     instance.running = true
 
     log.i { "WebGPU initialized on '$canvasId' — starting render loop" }
@@ -131,22 +149,14 @@ fun prismInit(canvasId: String) {
           instance.store.dispatch(DemoIntent.UpdateFps(smoothedFps))
         }
 
-        if (!state.isPaused) {
-          val speedRadians = MathUtils.toRadians(state.rotationSpeed)
-          instance.accumulatedAngle += speedRadians * deltaTime
-        }
+        // Apply PBR slider values to sphere materials each frame.
+        demoScene.setMaterialOverride(state.metallic, state.roughness)
+        demoScene.setEnvIntensity(state.envIntensity)
 
-        // Update material color when it changes
-        val cubeMaterial = demoScene.world.getComponent<MaterialComponent>(demoScene.cubeEntity)
-        if (cubeMaterial != null && cubeMaterial.material?.baseColor != state.cubeColor) {
-          cubeMaterial.material = Material(baseColor = state.cubeColor)
-        }
-
-        demoScene.tickWithAngle(
+        demoScene.tick(
           deltaTime = if (state.isPaused) 0f else deltaTime,
           elapsed = elapsed,
           frameCount = instance.frameCount,
-          angle = instance.accumulatedAngle,
         )
 
         requestAnimationFrame(::renderFrame)
@@ -164,31 +174,39 @@ fun prismInit(canvasId: String) {
   }
 }
 
-/** Set rotation speed in degrees per second. */
-@JsExport
-fun prismSetRotationSpeed(canvasId: String, degreesPerSecond: Float) {
-  instances[canvasId]?.store?.dispatch(DemoIntent.SetRotationSpeed(degreesPerSecond))
-}
-
 /** Toggle pause/resume. */
 @JsExport
 fun prismTogglePause(canvasId: String) {
   instances[canvasId]?.store?.dispatch(DemoIntent.TogglePause)
 }
 
-/** Set cube color (RGB, 0.0 to 1.0). */
+/** Set metallic factor (0.0 to 1.0). */
 @JsExport
-fun prismSetCubeColor(canvasId: String, r: Float, g: Float, b: Float) {
-  instances[canvasId]?.store?.dispatch(DemoIntent.SetCubeColor(Color(r, g, b)))
+fun prismSetMetallic(canvasId: String, metallic: Float) {
+  instances[canvasId]?.store?.dispatch(DemoIntent.SetMetallic(metallic))
 }
 
-/** Get current state as a JS-friendly format. Returns JSON string. */
+/** Set roughness factor (0.0 to 1.0). */
+@JsExport
+fun prismSetRoughness(canvasId: String, roughness: Float) {
+  instances[canvasId]?.store?.dispatch(DemoIntent.SetRoughness(roughness))
+}
+
+/** Set environment (IBL) intensity (0.0 to 2.0). */
+@JsExport
+fun prismSetEnvIntensity(canvasId: String, intensity: Float) {
+  instances[canvasId]?.store?.dispatch(DemoIntent.SetEnvIntensity(intensity))
+}
+
+/** Get current state as a JSON string. */
 @JsExport
 fun prismGetState(canvasId: String): String {
   val state = instances[canvasId]?.store?.state?.value ?: return "{}"
   val fps = state.fps.let { if (it.isFinite()) it else 0f }
-  val speed = state.rotationSpeed.let { if (it.isFinite()) it else 0f }
-  return """{"rotationSpeed":$speed,"isPaused":${state.isPaused},"fps":$fps}"""
+  val metallic = state.metallic.let { if (it.isFinite()) it else 0f }
+  val roughness = state.roughness.let { if (it.isFinite()) it else 0.5f }
+  val envIntensity = state.envIntensity.let { if (it.isFinite()) it else 1f }
+  return """{"isPaused":${state.isPaused},"metallic":$metallic,"roughness":$roughness,"envIntensity":$envIntensity,"fps":$fps}"""
 }
 
 /** Check if engine is initialized for the given canvas. */

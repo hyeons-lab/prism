@@ -112,6 +112,13 @@ class MeshTest {
   }
 
   @Test
+  fun cubeUsesPositionNormalUvTangentLayout() {
+    val mesh = Mesh.cube()
+    mesh.vertexLayout shouldBe VertexLayout.positionNormalUvTangent()
+    mesh.vertexLayout.stride shouldBe 48
+  }
+
+  @Test
   fun cubeNormalsAreUnitLength() {
     assertNormalsUnitLength(Mesh.cube())
   }
@@ -133,6 +140,23 @@ class MeshTest {
         mesh.vertices[i + 1] shouldBe (expectedNy plusOrMinus epsilon)
         mesh.vertices[i + 2] shouldBe (expectedNz plusOrMinus epsilon)
       }
+    }
+  }
+
+  @Test
+  fun cubeTangentsAreUnitLength() {
+    val mesh = Mesh.cube()
+    val floatsPerVertex = mesh.vertexLayout.stride / 4
+    val tangentAttr = mesh.vertexLayout.attributes.first { it.name == "tangent" }
+    val tOff = tangentAttr.offset / 4
+
+    for (v in 0 until mesh.vertexCount) {
+      val base = v * floatsPerVertex + tOff
+      val tx = mesh.vertices[base]
+      val ty = mesh.vertices[base + 1]
+      val tz = mesh.vertices[base + 2]
+      val length = sqrt(tx * tx + ty * ty + tz * tz)
+      length shouldBe (1f plusOrMinus epsilon)
     }
   }
 
@@ -180,6 +204,91 @@ class MeshTest {
     val mesh = Mesh(layout)
     mesh.vertices = floatArrayOf(1f, 2f, 3f)
     mesh.vertexCount shouldBe 0
+  }
+
+  // --- Sphere ---
+
+  @Test
+  fun sphereVertexCount() {
+    val stacks = 16
+    val slices = 16
+    val mesh = Mesh.sphere(stacks = stacks, slices = slices)
+    mesh.vertexCount shouldBe (stacks + 1) * (slices + 1)
+  }
+
+  @Test
+  fun sphereIndexCount() {
+    val stacks = 16
+    val slices = 16
+    val mesh = Mesh.sphere(stacks = stacks, slices = slices)
+    mesh.indexCount shouldBe stacks * slices * 6
+  }
+
+  @Test
+  fun sphereLabel() {
+    Mesh.sphere().label shouldBe "Sphere"
+  }
+
+  @Test
+  fun sphereUsesPositionNormalUvTangentLayout() {
+    val mesh = Mesh.sphere()
+    mesh.vertexLayout shouldBe VertexLayout.positionNormalUvTangent()
+    mesh.vertexLayout.stride shouldBe 48
+  }
+
+  @Test
+  fun sphereNormalsAreUnitLength() {
+    assertNormalsUnitLength(Mesh.sphere(stacks = 8, slices = 8))
+  }
+
+  @Test
+  fun sphereTangentsAreUnitLength() {
+    val mesh = Mesh.sphere(stacks = 8, slices = 8)
+    val floatsPerVertex = mesh.vertexLayout.stride / 4
+    val tangentAttr = mesh.vertexLayout.attributes.first { it.name == "tangent" }
+    val tangentFloatOffset = tangentAttr.offset / 4
+
+    // Pole vertices have tangent (0,0,1) which is still unit-length, so all vertices are checked.
+    for (v in 0 until mesh.vertexCount) {
+      val i = v * floatsPerVertex + tangentFloatOffset
+      val tx = mesh.vertices[i]
+      val ty = mesh.vertices[i + 1]
+      val tz = mesh.vertices[i + 2]
+      val length = sqrt(tx * tx + ty * ty + tz * tz)
+      length shouldBe (1f plusOrMinus epsilon)
+    }
+  }
+
+  @Test
+  fun sphereTangentsPerpendicularToNormals() {
+    val mesh = Mesh.sphere(stacks = 8, slices = 8)
+    val floatsPerVertex = mesh.vertexLayout.stride / 4
+    val normalAttr = mesh.vertexLayout.attributes.first { it.name == "normal" }
+    val tangentAttr = mesh.vertexLayout.attributes.first { it.name == "tangent" }
+    val nOff = normalAttr.offset / 4
+    val tOff = tangentAttr.offset / 4
+
+    // Check dot product is ~0 (except at poles where tangent is arbitrary)
+    for (v in 0 until mesh.vertexCount) {
+      val base = v * floatsPerVertex
+      val nx = mesh.vertices[base + nOff]
+      val ny = mesh.vertices[base + nOff + 1]
+      val nz = mesh.vertices[base + nOff + 2]
+      val tx = mesh.vertices[base + tOff]
+      val ty = mesh.vertices[base + tOff + 1]
+      val tz = mesh.vertices[base + tOff + 2]
+      val dot = nx * tx + ny * ty + nz * tz
+      // At the poles, normal is (0, ±1, 0) and tangent is (-sinTheta, 0, cosTheta)
+      // which is always perpendicular, so this check should hold everywhere
+      dot shouldBe (0f plusOrMinus 0.001f)
+    }
+  }
+
+  @Test
+  fun sphereDefaultParameters() {
+    val mesh = Mesh.sphere()
+    mesh.vertexCount shouldBe (32 + 1) * (32 + 1)
+    mesh.indexCount shouldBe 32 * 32 * 6
   }
 
   // --- toString ---

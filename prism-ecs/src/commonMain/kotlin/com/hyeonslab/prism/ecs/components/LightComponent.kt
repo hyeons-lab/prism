@@ -16,5 +16,6 @@ data class LightComponent(
   var intensity: Float = 1f,
   var range: Float = 10f,
   var spotAngle: Float = 45f,
+  var innerAngle: Float = -1f,
   var direction: Vec3 = Vec3(0f, -1f, 0f),
 ) : Component

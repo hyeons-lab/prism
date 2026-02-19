@@ -394,7 +394,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 
 ## Current Project Status
 
-**Phase:** Flutter integration complete (M11), all platforms operational
+**Phase:** PBR materials + Flutter integration complete (M9, M11), all platforms operational
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -407,11 +407,11 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ WgpuRenderer with WGSL shaders, depth testing, lighting
 - ✅ GLFW windowing on JVM Desktop (macOS Metal)
 - ✅ ECS-driven rendering pipeline (M4 complete)
-- ✅ Demo app: rotating lit cube via Engine + ECS + WgpuRenderer
+- ✅ Demo app: rotating lit cube via Engine + ECS + WgpuRenderer (M4); PBR sphere grid demo (M9)
 - ✅ Compose Desktop integration with MVI architecture (M5 complete)
 - ✅ PrismPanel: AWT Canvas with native handle → wgpu surface (macOS Metal, Windows/Linux stubs)
 - ✅ Compose demo: Material3 UI controls driving 3D scene via EngineStore/DemoStore
-- ✅ Unit tests: 178 tests across prism-math (75), prism-renderer (95), prism-demo-core (8)
+- ✅ Unit tests: 236 tests across prism-math (80), prism-renderer (146), prism-demo-core (10)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
 - ✅ iOS native rendering via MTKView + wgpu4k iosContextRenderer (M7 complete)
@@ -424,6 +424,11 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ Android build targets added to all modules (migrated to `com.android.kotlin.multiplatform.library`)
 - ✅ Android wgpu4k rendering via Vulkan with SurfaceView + Choreographer render loop (M8 complete)
 - ✅ Android demo APK with rotating lit cube
+- ✅ PBR materials: Cook-Torrance BRDF (GGX NDF, Smith-GGX, Fresnel-Schlick), IBL, HDR tone mapping (M9 complete)
+- ✅ Multi-bind-group pipeline (4 groups: scene, object, material, environment)
+- ✅ CPU-side IBL: BRDF LUT, irradiance cubemap, prefiltered specular env (5 mip levels)
+- ✅ HDR render target (RGBA16Float) + Khronos PBR Neutral tone mapping
+- ✅ PBR sphere grid demo: 7×7 spheres with metallic/roughness gradient
 - ✅ Android Compose demo: SurfaceView + DemoStore MVI + Material3 controls (matching JVM/iOS Compose demos)
 - ✅ Flutter Android plugin: SurfaceView + Choreographer + PrismBridge MethodChannel (M11)
 - ✅ Flutter iOS plugin: MTKView + configureDemo + PrismBridge MethodChannel (M11)
@@ -433,7 +438,6 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 **What's in progress:**
 
 **What's next:**
-- ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
