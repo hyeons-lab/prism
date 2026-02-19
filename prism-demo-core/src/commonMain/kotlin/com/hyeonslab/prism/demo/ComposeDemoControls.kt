@@ -43,7 +43,7 @@ fun ComposeDemoControls(
 
       // Env intensity slider
       Text(
-        "Env Intensity: ${"%.2f".format(state.envIntensity)}",
+        "Env Intensity: ${state.envIntensity.fmt2()}",
         style = MaterialTheme.typography.bodySmall,
       )
       Slider(
@@ -55,7 +55,7 @@ fun ComposeDemoControls(
       Spacer(Modifier.height(8.dp))
 
       // Metallic preview slider
-      Text("Metallic: ${"%.2f".format(state.metallic)}", style = MaterialTheme.typography.bodySmall)
+      Text("Metallic: ${state.metallic.fmt2()}", style = MaterialTheme.typography.bodySmall)
       Slider(
         value = state.metallic,
         onValueChange = { onIntent(DemoIntent.SetMetallic(it)) },
@@ -65,10 +65,7 @@ fun ComposeDemoControls(
       Spacer(Modifier.height(8.dp))
 
       // Roughness preview slider
-      Text(
-        "Roughness: ${"%.2f".format(state.roughness)}",
-        style = MaterialTheme.typography.bodySmall,
-      )
+      Text("Roughness: ${state.roughness.fmt2()}", style = MaterialTheme.typography.bodySmall)
       Slider(
         value = state.roughness,
         onValueChange = { onIntent(DemoIntent.SetRoughness(it)) },
@@ -83,4 +80,14 @@ fun ComposeDemoControls(
       }
     }
   }
+}
+
+/**
+ * KMP-compatible 2-decimal-place float formatter.
+ *
+ * Replaces `"%.2f".format(x)` which is unavailable in Kotlin/WASM.
+ */
+private fun Float.fmt2(): String {
+  val v = (this * 100 + 0.5f).toInt().coerceAtLeast(0)
+  return "${v / 100}.${(v % 100).toString().padStart(2, '0')}"
 }
