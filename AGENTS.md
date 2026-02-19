@@ -347,7 +347,8 @@ Before writing code, create a plan file in `devlog/plans/`:
    - Check highest `NNNNNN` in existing `devlog/NNNNNN-*.md` files (exclude `plans/`), increment
    - `<branch-name>`: Git branch name with `/` replaced by `-`
 4. **Create plan file**: `devlog/plans/NNNNNN-NN-<description>.md`
-   - Structure: `## Context` (high-level rationale) then `## Plan` (actionable steps)
+   - `NN` is a required two-digit sequence number (01, 02, ...)
+   - Structure: `## Thinking` (exploratory reasoning) then `## Plan` (actionable steps)
    - Plans are append-only; note deviations in the devlog
 5. **Commit and push** the devlog and plan files, then **draft PR** via `gh pr create --draft`
 6. **Write code**, format, validate, commit, push
@@ -371,26 +372,26 @@ Skip the question if the project already has a committed `devlog/` directory.
 
 ### Devlog Conventions
 
-One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively as you work.
+One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively as you work — do not wait for the user to ask. See `devlog/CONVENTIONS.md` for the full specification.
 
-**Sections** (omit if empty):
-- **Agent:** `Name (model-id) @ repository:<repo> branch:<branch>`
-- **Intent:** User's goal
-- **What Changed:** `date path — what and why`
-- **Decisions:** `date Decision — reasoning`
-- **Issues:** Problems, failed attempts, resolutions
+**Timestamps:** ISO 8601 with UTC offset — e.g. `2026-02-14T10:30-08:00`. Always include time, not just date.
+
+**Required sections** (omit if empty):
+- **Agent:** `Agent Name (model-id) @ repository branch branch-name` — add a new line with timestamp if agent or model changes mid-branch
+- **Intent:** User's goal or problem being solved
+- **What Changed:** `timestamp path/to/file — what and why` (record final state, not iterations; group similar files)
+- **Decisions:** `timestamp Decision — reasoning`
+- **Issues:** Problems, failed attempts, and resolutions. Log what you tried, why it failed, and what you learned.
 - **Commits:** `hash — message`
-- **Progress:** Checklist of tasks
+
+**Optional sections** (omit if empty): Progress, Research & Discoveries, Lessons Learned, Next Steps
 
 **Rules:**
-- One flat file per branch — append to existing sections, don't split into sessions
-- Track "why" not just "what"
-- Append-only across conversations
-- Never log secrets
-
-### Progress Tracking
-
-Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. Track decisions, changes, and issues. See `devlog/CONVENTIONS.md` for section structure and formatting.
+- One flat file per branch — append to existing sections as work progresses; don't split into sessions
+- Track "why" not just "what" — capture reasoning, not file diffs
+- Append-only across conversations — append new entries to existing sections rather than rewriting them
+- Never log secrets — no API keys, tokens, credentials, PII, or private URLs; use placeholders like `<API_KEY>` instead
+- On merge conflict: rebase onto main and renumber your devlog file
 
 ## Current Project Status
 
