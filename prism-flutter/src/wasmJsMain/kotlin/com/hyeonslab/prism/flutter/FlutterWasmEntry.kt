@@ -149,6 +149,10 @@ fun prismInit(canvasId: String) {
           instance.store.dispatch(DemoIntent.UpdateFps(smoothedFps))
         }
 
+        // Apply PBR slider values to sphere materials each frame.
+        demoScene.setMaterialOverride(state.metallic, state.roughness)
+        demoScene.setEnvIntensity(state.envIntensity)
+
         demoScene.tick(
           deltaTime = if (state.isPaused) 0f else deltaTime,
           elapsed = elapsed,

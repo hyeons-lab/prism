@@ -389,6 +389,12 @@ class WgpuRenderer(
     device.queue.writeBuffer(buf, 64u, posData)
   }
 
+  /** Updates the IBL environment intensity in the env uniform buffer. */
+  fun setEnvIntensity(intensity: Float) {
+    val buf = envUniformBuffer ?: return
+    device.queue.writeBuffer(buf, 0u, floatArrayOf(intensity))
+  }
+
   // ===== Lights =====
 
   override fun setLights(lights: List<LightData>) {

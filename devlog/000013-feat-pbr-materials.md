@@ -44,6 +44,18 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
   6. `LightData.innerAngle` field added to expose spot light inner cone; replaces hardcoded 80% in WGSL
   7. Redundant `setCameraPosition` call after `setCamera` in RenderSystem removed
 
+- Critical review (second round) found additional issues after rebase onto main:
+  8. `mat3x3f` in uniform buffer is WGSL spec-illegal (§13.4.1) — replaced with 3 vec4f columns
+  9. Bitangent cross product wrong: cross(N,T) → cross(T,N)
+  10. Emissive double-converts via toLinear() — emissive is linear HDR, not sRGB; fix: remove conversion
+  11. Android ArrayBuffer.of(FloatArray) byte-swap: BIG_ENDIAN ByteBuffer on ARM64 — fix: use deprecated writeBuffer(buf, offset, FloatArray) overload everywhere
+  12. IntArray index buffer same bug — fix: reinterpret via Float.fromBits before using writeBuffer
+  13. hdrEnabled mid-frame toggle race — fix: snapshot hdrEnabledForFrame at beginRenderPass
+  14. normalMatrix() crashes on zero-scale transforms — fix: guard with abs(det) < 1e-6 → Mat3.identity()
+  15. Flutter demos referenced removed DemoIntent.SetCubeColor — compile errors; updated to PBR API
+  16. docs/index.html: M9/M11 marked planned, Flutter marked planned, old module names — all updated
+  17. docs/demo.js: spinning cube replaced with PBR sphere grid (Cook-Torrance BRDF)
+
 ## Commits
 - 16213a2 docs: add devlog and plan for PBR materials (M9)
 - 5fc2bfe feat: implement PBR rendering pipeline (Steps 1-4)
@@ -53,6 +65,8 @@ Implement M9: PBR materials pipeline — Cook-Torrance BRDF, ECS-driven lights, 
 - 7f0db1b docs: mark M9 PBR materials complete, update BUILD_STATUS + AGENTS
 - 74c24b0 docs: update docs for M9 PBR materials completion
 - 5e69d09 docs: fix ARCHITECTURE.md inaccuracies found in critical review
+- 3629d8e fix: resolve critical review issues in PBR pipeline
+- db80dc4 feat: update Flutter demos and docs for PBR (M9 + M11)
 
 ## Progress
 - [x] Step 1: Data model expansion + math helpers

@@ -86,6 +86,22 @@ class DemoScene(
     cameraComponent.camera.position = Vec3(x, y, z)
   }
 
+  /**
+   * Overrides metallic and roughness on all sphere entities. Called each frame from the Flutter
+   * render loop to apply DemoStore slider values to the rendered materials.
+   */
+  fun setMaterialOverride(metallic: Float, roughness: Float) {
+    for ((_, matComp) in world.query<MaterialComponent>()) {
+      val current = matComp.material ?: continue
+      matComp.material = current.copy(metallic = metallic, roughness = roughness)
+    }
+  }
+
+  /** Updates the IBL environment intensity on the renderer. */
+  fun setEnvIntensity(intensity: Float) {
+    renderer.setEnvIntensity(intensity)
+  }
+
   fun shutdown() {
     world.shutdown()
     engine.shutdown()
