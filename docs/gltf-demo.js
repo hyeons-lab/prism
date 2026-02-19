@@ -45,6 +45,41 @@ function mul4(a, b) {
   return out;
 }
 
+// Convert a glTF quaternion [x,y,z,w] to a column-major mat4x4 for WebGPU.
+function quatToMat4([x, y, z, w]) {
+  // prettier-ignore
+  return new Float32Array([
+    1-2*(y*y+z*z), 2*(x*y+w*z),   2*(x*z-w*y),   0,  // col 0
+    2*(x*y-w*z),   1-2*(x*x+z*z), 2*(y*z+w*x),   0,  // col 1
+    2*(x*z+w*y),   2*(y*z-w*x),   1-2*(x*x+y*y), 0,  // col 2
+    0,             0,             0,             1,  // col 3
+  ]);
+}
+
+// Read TRS transform from the glTF scene's root node and return a model matrix.
+// Falls back to identity if no transform is defined.
+function getNodeModelMatrix(json) {
+  const scene = json.scenes?.[json.scene ?? 0];
+  const node  = scene?.nodes?.length ? json.nodes[scene.nodes[0]] : null;
+  if (!node) { const m = new Float32Array(16); m[0]=m[5]=m[10]=m[15]=1; return m; }
+  if (node.matrix) return new Float32Array(node.matrix);
+  let m = new Float32Array(16); m[0]=m[5]=m[10]=m[15]=1;
+  // glTF TRS order: T * R * S  (applied right-to-left)
+  if (node.scale) {
+    const s = node.scale;
+    const sm = new Float32Array(16); sm[0]=s[0]; sm[5]=s[1]; sm[10]=s[2]; sm[15]=1;
+    m = mul4(m, sm);
+  }
+  if (node.rotation) m = mul4(m, quatToMat4(node.rotation));
+  if (node.translation) {
+    const t = node.translation;
+    const tm = new Float32Array(16); tm[0]=tm[5]=tm[10]=tm[15]=1;
+    tm[12]=t[0]; tm[13]=t[1]; tm[14]=t[2];
+    m = mul4(tm, m);
+  }
+  return m;
+}
+
 // ── GLB parsing ───────────────────────────────────────────────────────────────
 
 async function loadGlb(url) {
@@ -343,9 +378,8 @@ export async function initGltfDemo(canvas) {
     size: 64,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  const identity = new Float32Array(16);
-  identity[0] = identity[5] = identity[10] = identity[15] = 1;
-  device.queue.writeBuffer(objBuf, 0, identity);
+  // Apply the scene node's transform (DamagedHelmet has a 180° Y rotation).
+  device.queue.writeBuffer(objBuf, 0, getNodeModelMatrix(json));
 
   // ── Bind group layouts ────────────────────────────────────────────────────────
 
