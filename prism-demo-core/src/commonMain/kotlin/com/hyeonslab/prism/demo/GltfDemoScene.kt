@@ -3,6 +3,7 @@ package com.hyeonslab.prism.demo
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.assets.GltfAsset
 import com.hyeonslab.prism.assets.GltfLoader
+import com.hyeonslab.prism.assets.ImageDecoder
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.ecs.World
 import com.hyeonslab.prism.ecs.components.CameraComponent
@@ -13,9 +14,13 @@ import com.hyeonslab.prism.ecs.systems.RenderSystem
 import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Camera
 import com.hyeonslab.prism.renderer.Color
+import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.Renderer
+import com.hyeonslab.prism.renderer.Texture
 import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 private val log = Logger.withTag("GltfDemoScene")
 
@@ -30,6 +35,9 @@ private const val GLTF_ORBIT_RADIUS = 3.5f
  * @param height Initial surface height in pixels.
  * @param glbData Raw bytes of the GLB file to load.
  * @param surfacePreConfigured When true, the renderer skips its own surface configuration.
+ * @param progressiveScope When non-null, textures are decoded and uploaded asynchronously in this
+ *   scope while the scene renders immediately with placeholder materials. When null, the function
+ *   blocks until all textures are uploaded before returning.
  */
 suspend fun createGltfDemoScene(
   wgpuContext: WGPUContext,
@@ -37,6 +45,7 @@ suspend fun createGltfDemoScene(
   height: Int,
   glbData: ByteArray,
   surfacePreConfigured: Boolean = false,
+  progressiveScope: CoroutineScope? = null,
 ): DemoScene {
   val renderer = WgpuRenderer(wgpuContext, surfacePreConfigured = surfacePreConfigured)
   val engine = Engine()
@@ -49,13 +58,50 @@ suspend fun createGltfDemoScene(
   val world = World()
   world.addSystem(RenderSystem(renderer))
 
-  // Parse GLB and upload textures before instantiating entities
-  val asset = GltfLoader().load("model.glb", glbData)
-  uploadGltfTextures(renderer, asset)
-  for (node in asset.renderableNodes) {
-    renderer.uploadMesh(node.mesh)
+  val nodeCount: Int
+  if (progressiveScope != null) {
+    // Progressive: parse structure fast (no image decode), render with placeholder materials,
+    // then decode and upload each texture in the background.
+    val result = GltfLoader().loadStructure("model.glb", glbData)
+    val asset = result.asset
+    nodeCount = asset.renderableNodes.size
+    for (node in asset.renderableNodes) {
+      renderer.uploadMesh(node.mesh)
+    }
+    asset.instantiateInWorld(world)
+
+    val texToMaterials = buildTexToMaterialsMap(asset)
+    progressiveScope.launch {
+      for (i in result.rawTextureImageBytes.indices) {
+        val rawBytes = result.rawTextureImageBytes[i] ?: continue
+        val texture = asset.textures.getOrNull(i) ?: continue
+        val imageData =
+          try {
+            ImageDecoder.decode(rawBytes, unpremultiply = true)
+          } catch (e: Exception) {
+            log.w { "Progressive texture $i decode failed: ${e.message}" }
+            null
+          } ?: continue
+        // Update descriptor to real image dimensions before GPU allocation.
+        texture.descriptor =
+          texture.descriptor.copy(width = imageData.width, height = imageData.height)
+        renderer.initializeTexture(texture)
+        renderer.uploadTextureData(texture, imageData.pixels)
+        // Evict cached bind groups so the next draw call rebuilds them with the real texture.
+        texToMaterials[texture]?.forEach { renderer.invalidateMaterial(it) }
+      }
+      log.i { "Progressive texture loading complete ($nodeCount primitives)" }
+    }
+  } else {
+    // Non-progressive: block on full image decode, then upload all textures before returning.
+    val asset = GltfLoader().load("model.glb", glbData)
+    uploadGltfTextures(renderer, asset)
+    nodeCount = asset.renderableNodes.size
+    for (node in asset.renderableNodes) {
+      renderer.uploadMesh(node.mesh)
+    }
+    asset.instantiateInWorld(world)
   }
-  asset.instantiateInWorld(world)
 
   // Camera positioned to view the model at orbit distance
   val cameraEntity = world.createEntity()
@@ -96,9 +142,7 @@ suspend fun createGltfDemoScene(
   )
 
   world.initialize()
-  log.i {
-    "glTF demo scene initialized: ${asset.renderableNodes.size} primitives (${width}x${height})"
-  }
+  log.i { "glTF demo scene initialized: $nodeCount primitives (${width}x${height})" }
   return DemoScene(engine, world, renderer, cameraEntity, orbitRadius = GLTF_ORBIT_RADIUS)
 }
 
@@ -109,4 +153,24 @@ private fun uploadGltfTextures(renderer: Renderer, asset: GltfAsset) {
     renderer.initializeTexture(assetTexture)
     renderer.uploadTextureData(assetTexture, imageData.pixels)
   }
+}
+
+/**
+ * Builds a reverse map from [Texture] to all [Material]s that reference it. Used during progressive
+ * loading to invalidate the renderer's bind group cache when a texture is uploaded.
+ */
+private fun buildTexToMaterialsMap(asset: GltfAsset): Map<Texture, List<Material>> {
+  val map = mutableMapOf<Texture, MutableList<Material>>()
+  for (node in asset.renderableNodes) {
+    val mat = node.material ?: continue
+    listOfNotNull(
+        mat.albedoTexture,
+        mat.normalTexture,
+        mat.metallicRoughnessTexture,
+        mat.occlusionTexture,
+        mat.emissiveTexture,
+      )
+      .forEach { tex -> map.getOrPut(tex) { mutableListOf() }.add(mat) }
+  }
+  return map
 }

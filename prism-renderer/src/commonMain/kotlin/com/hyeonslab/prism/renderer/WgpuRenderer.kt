@@ -454,6 +454,11 @@ class WgpuRenderer(
     setMaterial(Material(baseColor = color))
   }
 
+  override fun invalidateMaterial(material: Material) {
+    materialBindGroupCache.remove(material)
+    materialUniformBufferCache.remove(material)
+  }
+
   // ===== Drawing =====
 
   override fun drawMesh(mesh: Mesh, transform: Mat4) {

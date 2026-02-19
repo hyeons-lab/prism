@@ -165,4 +165,12 @@ interface Renderer : Subsystem {
    * @param pixels Raw RGBA8 pixel data in row-major order (4 bytes per pixel).
    */
   fun uploadTextureData(texture: Texture, pixels: ByteArray) {}
+
+  /**
+   * Evicts [material] from the bind group cache so the next [setMaterial] call rebuilds it.
+   *
+   * Call this after updating a material's texture handles (e.g., progressive texture loading) to
+   * ensure the renderer picks up the new texture views on the next draw call.
+   */
+  fun invalidateMaterial(material: Material) {}
 }

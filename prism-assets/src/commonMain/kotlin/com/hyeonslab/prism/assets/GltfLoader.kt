@@ -19,6 +19,18 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.sqrt
 import kotlinx.serialization.json.Json
 
+/**
+ * Result of [GltfLoader.loadStructure]: the asset with placeholder textures (dimensions 1×1, no GPU
+ * handle) plus raw compressed image bytes for progressive texture upload.
+ *
+ * @param asset The parsed asset. Textures have correct format/sampler descriptors but 1×1
+ *   placeholder dimensions — call [com.hyeonslab.prism.renderer.Renderer.initializeTexture] after
+ *   updating [com.hyeonslab.prism.renderer.Texture.descriptor] to the real image dimensions.
+ * @param rawTextureImageBytes Raw PNG/JPEG bytes parallel to [GltfAsset.textures]. Each entry is
+ *   the compressed source image data for the corresponding texture, or null if unavailable.
+ */
+class GltfLoadResult(val asset: GltfAsset, val rawTextureImageBytes: List<ByteArray?>)
+
 /** Loads glTF 2.0 (.gltf / .glb) files into [GltfAsset]. */
 class GltfLoader : AssetLoader<GltfAsset> {
   override val supportedExtensions: List<String> = listOf("gltf", "glb")
@@ -48,6 +60,48 @@ class GltfLoader : AssetLoader<GltfAsset> {
       }
     val renderableNodes = traverseDefaultScene(doc, buffers, materials)
     return GltfAsset(textures, textureImageData, renderableNodes)
+  }
+
+  /**
+   * Loads the glTF structure (meshes, materials, scene hierarchy) without decoding images. Returns
+   * a [GltfLoadResult] containing an [GltfAsset] with 1×1 placeholder textures (no GPU handles) and
+   * the raw compressed image bytes for each texture.
+   *
+   * This is the first step of progressive loading. After calling this, the caller can:
+   * 1. Render the scene immediately (materials render with default white/normal textures).
+   * 2. In a background coroutine: decode each entry in [GltfLoadResult.rawTextureImageBytes],
+   *    update [com.hyeonslab.prism.renderer.Texture.descriptor] dimensions, call
+   *    [com.hyeonslab.prism.renderer.Renderer.initializeTexture],
+   *    [com.hyeonslab.prism.renderer.Renderer.uploadTextureData], and
+   *    [com.hyeonslab.prism.renderer.Renderer.invalidateMaterial] to swap in the real texture.
+   */
+  suspend fun loadStructure(path: String, data: ByteArray): GltfLoadResult {
+    val (json, bin) =
+      if (GlbReader.isGlb(data)) {
+        val glb = GlbReader.read(data)
+        Pair(glb.json, glb.bin)
+      } else {
+        Pair(data.decodeToString(), null)
+      }
+
+    val doc = jsonParser.decodeFromString<GltfDocument>(json)
+    val basePath = path.substringBeforeLast('/').takeIf { '/' in path } ?: ""
+    val buffers = resolveBuffers(doc, basePath, bin)
+    val rawImageBytes = extractRawImageBytes(doc, buffers, basePath)
+    // Build textures with no imageData — all get 1×1 placeholder dimensions.
+    val textures = buildTextures(doc, emptyList())
+    val materials = buildMaterials(doc, textures)
+    assignTextureFormats(textures, materials)
+    // Raw bytes parallel to textures (each texture's source image index).
+    val rawTextureBytesParallelToTextures =
+      (doc.textures ?: emptyList()).map { gltfTex ->
+        gltfTex.source?.let { rawImageBytes.getOrNull(it) }
+      }
+    // No decoded image data — textures are not yet uploaded to GPU.
+    val textureImageData: List<ImageData?> = List(textures.size) { null }
+    val renderableNodes = traverseDefaultScene(doc, buffers, materials)
+    val asset = GltfAsset(textures, textureImageData, renderableNodes)
+    return GltfLoadResult(asset, rawTextureBytesParallelToTextures)
   }
 
   // ===== Buffer resolution =====
@@ -117,6 +171,39 @@ class GltfLoader : AssetLoader<GltfAsset> {
           }
         }
       )
+    }
+  }
+
+  /**
+   * Extracts raw compressed image bytes (PNG/JPEG) from buffers without decoding them. Returns a
+   * list parallel to [GltfDocument.images]. Used by [loadStructure] for progressive loading.
+   */
+  private suspend fun extractRawImageBytes(
+    doc: GltfDocument,
+    buffers: List<ByteArray?>,
+    basePath: String,
+  ): List<ByteArray?> = buildList {
+    for (image in doc.images ?: emptyList()) {
+      val bytes: ByteArray? =
+        when {
+          image.uri != null && image.uri.startsWith("data:") -> decodeDataUri(image.uri)
+          image.bufferView != null -> {
+            val bv = doc.bufferViews?.getOrNull(image.bufferView)
+            val buf = bv?.let { buffers.getOrNull(it.buffer) }
+            buf?.copyOfRange(bv.byteOffset, (bv.byteOffset + bv.byteLength).coerceAtMost(buf.size))
+          }
+          image.uri != null -> {
+            val fullPath = if (basePath.isNotEmpty()) "$basePath/${image.uri}" else image.uri
+            try {
+              FileReader.readBytes(fullPath)
+            } catch (e: Exception) {
+              Logger.w(TAG) { "Failed to read image '${image.uri}': ${e.message}" }
+              null
+            }
+          }
+          else -> null
+        }
+      add(bytes)
     }
   }
 

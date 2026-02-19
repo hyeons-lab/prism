@@ -88,6 +88,18 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 2026-02-19 All materials routed through getOrCreateMaterialBindGroup() — eliminates the shared pbrMaterialUniformBuffer overwrite race; simple, cache-friendly
 2026-02-19 SamplerKey data class for sampler cache — most models use 1-2 unique samplers; cache eliminates redundant createSampler() calls
 
+## What Changed (progressive loading)
+2026-02-19 prism-assets/src/.../GltfLoader.kt — GltfLoadResult class; loadStructure() fast-path (no image decode); extractRawImageBytes() private helper
+2026-02-19 prism-renderer/src/.../Renderer.kt — add invalidateMaterial(material) default method
+2026-02-19 prism-renderer/src/.../WgpuRenderer.kt — override invalidateMaterial(): evicts from materialBindGroupCache + materialUniformBufferCache
+2026-02-19 prism-demo-core/src/.../GltfDemoScene.kt — progressiveScope: CoroutineScope? param; when non-null uses loadStructure() + background decode loop; buildTexToMaterialsMap() reverse index for cache invalidation
+2026-02-19 prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt — pass GlobalScope as progressiveScope to createGltfDemoScene
+
+## Decisions (progressive loading)
+2026-02-19 No Material field mutability needed — WgpuRenderer already checks `it.handle != null` in getOrCreateMaterialBindGroup, so placeholder (handle=null) textures fall through to default views; invalidateMaterial() evicts the bind group so next setMaterial() call rebuilds with real texture views
+2026-02-19 texture.descriptor updated to real dimensions before initializeTexture() — avoids allocating a 1×1 GPU texture that can't receive writeTexture with the full image pixels
+2026-02-19 buildTexToMaterialsMap() scans renderableNodes to build texture→materials reverse map — allows targeted invalidation without scanning all materials every frame
+
 ## Progress
 - [x] Build setup: add kotlinx-serialization to prism-assets
 - [x] GltfTypes.kt — internal serializable JSON schema types
@@ -103,6 +115,7 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 - [x] Fix drag direction inversion on all platforms (web, Android, iOS)
 - [x] Fix WASM race conditions (prismGetState/prismTogglePause before WASM loaded)
 - [x] Implement WASM ImageDecoder (was TODO stub — textures now display on web)
+- [x] Progressive glTF texture loading (web: render geometry immediately, textures stream in)
 
 ## Commits
 89e524d — chore: add devlog and plan for glTF 2.0 asset loading (M10)

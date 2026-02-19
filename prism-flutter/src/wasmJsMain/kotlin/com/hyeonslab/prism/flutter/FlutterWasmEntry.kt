@@ -178,7 +178,13 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
     val demoScene =
       if (glbData != null) {
         log.i { "Loaded GLB (${glbData.size} bytes) — initializing glTF scene" }
-        createGltfDemoScene(wgpuContext, width = width, height = height, glbData = glbData)
+        createGltfDemoScene(
+          wgpuContext,
+          width = width,
+          height = height,
+          glbData = glbData,
+          progressiveScope = GlobalScope,
+        )
       } else {
         log.w { "GLB not available — falling back to sphere-grid demo" }
         createDemoScene(wgpuContext, width = width, height = height)
