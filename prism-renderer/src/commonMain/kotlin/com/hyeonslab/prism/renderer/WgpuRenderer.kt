@@ -612,6 +612,18 @@ class WgpuRenderer(
     return texture
   }
 
+  override fun uploadTextureData(texture: Texture, pixels: ByteArray) {
+    val gpuTexture = texture.handle as? WGPUTexture ?: return
+    val w = texture.descriptor.width.toUInt()
+    val h = texture.descriptor.height.toUInt()
+    device.queue.writeTexture(
+      TexelCopyTextureInfo(texture = gpuTexture),
+      ArrayBuffer.of(pixels),
+      TexelCopyBufferLayout(bytesPerRow = w * 4u),
+      Extent3D(w, h),
+    )
+  }
+
   override fun createShaderModule(
     vertexSource: ShaderSource,
     fragmentSource: ShaderSource,

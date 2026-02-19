@@ -142,4 +142,14 @@ interface Renderer : Subsystem {
 
   /** Sets the camera world-space position for PBR specular calculations. */
   fun setCameraPosition(position: Vec3) {}
+
+  /**
+   * Uploads raw RGBA8 pixel data to a previously created [Texture].
+   *
+   * Must be called after [createTexture] and before the texture is used in a draw call.
+   *
+   * @param texture The texture to populate. Must have a valid [Texture.handle].
+   * @param pixels Raw RGBA8 pixel data in row-major order (4 bytes per pixel).
+   */
+  fun uploadTextureData(texture: Texture, pixels: ByteArray) {}
 }
