@@ -673,7 +673,7 @@ class WgpuRenderer(
               )
             } else null,
           multisample = MultisampleState(count = 1u, mask = 0xFFFFFFFu),
-          layout = pbrPipelineLayout,
+          layout = null, // auto-derive layout from shader; PBR pipeline uses buildPbrPipeline()
           label = descriptor.label,
         )
       )

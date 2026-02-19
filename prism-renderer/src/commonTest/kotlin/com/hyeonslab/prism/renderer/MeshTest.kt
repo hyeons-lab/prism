@@ -248,7 +248,7 @@ class MeshTest {
     val tangentAttr = mesh.vertexLayout.attributes.first { it.name == "tangent" }
     val tangentFloatOffset = tangentAttr.offset / 4
 
-    // Skip pole vertices where tangent is degenerate (sinTheta=0, cosTheta=1 → tangent=(0,0,1))
+    // Pole vertices have tangent (0,0,1) which is still unit-length, so all vertices are checked.
     for (v in 0 until mesh.vertexCount) {
       val i = v * floatsPerVertex + tangentFloatOffset
       val tx = mesh.vertices[i]

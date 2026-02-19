@@ -175,68 +175,86 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
       val layout = VertexLayout.positionNormalUvTangent()
       val mesh = Mesh(layout, label = "Cube")
 
-      // Helper to emit one face (4 vertices) with a shared normal and tangent.
+      // Helper to write one face (4 vertices) with a shared normal and tangent directly into
+      // [dst] at [dstOffset], avoiding intermediate array allocations.
       // Tangent = direction of increasing U, w=1.0 (right-handed TBN).
-      fun face(positions: FloatArray, n: FloatArray, t: FloatArray, uvs: FloatArray): FloatArray {
-        val out = FloatArray(4 * 12) // 4 verts × 12 floats
+      fun face(
+        dst: FloatArray,
+        dstOffset: Int,
+        positions: FloatArray,
+        n: FloatArray,
+        t: FloatArray,
+        uvs: FloatArray,
+      ) {
         for (v in 0 until 4) {
-          val o = v * 12
+          val o = dstOffset + v * 12
           val p = v * 3
           val u = v * 2
-          out[o + 0] = positions[p]
-          out[o + 1] = positions[p + 1]
-          out[o + 2] = positions[p + 2]
-          out[o + 3] = n[0]
-          out[o + 4] = n[1]
-          out[o + 5] = n[2]
-          out[o + 6] = uvs[u]
-          out[o + 7] = uvs[u + 1]
-          out[o + 8] = t[0]
-          out[o + 9] = t[1]
-          out[o + 10] = t[2]
-          out[o + 11] = t[3]
+          dst[o + 0] = positions[p]
+          dst[o + 1] = positions[p + 1]
+          dst[o + 2] = positions[p + 2]
+          dst[o + 3] = n[0]
+          dst[o + 4] = n[1]
+          dst[o + 5] = n[2]
+          dst[o + 6] = uvs[u]
+          dst[o + 7] = uvs[u + 1]
+          dst[o + 8] = t[0]
+          dst[o + 9] = t[1]
+          dst[o + 10] = t[2]
+          dst[o + 11] = t[3]
         }
-        return out
       }
 
       val s = 0.5f
-      val verts =
-        face( // Front (+Z): tangent = +X
-          floatArrayOf(-s, s, s, -s, -s, s, s, -s, s, s, s, s),
-          floatArrayOf(0f, 0f, 1f),
-          floatArrayOf(1f, 0f, 0f, 1f),
-          floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-        ) +
-          face( // Back (-Z): tangent = -X
-            floatArrayOf(s, s, -s, s, -s, -s, -s, -s, -s, -s, s, -s),
-            floatArrayOf(0f, 0f, -1f),
-            floatArrayOf(-1f, 0f, 0f, 1f),
-            floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-          ) +
-          face( // Right (+X): tangent = -Z
-            floatArrayOf(s, s, s, s, -s, s, s, -s, -s, s, s, -s),
-            floatArrayOf(1f, 0f, 0f),
-            floatArrayOf(0f, 0f, -1f, 1f),
-            floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-          ) +
-          face( // Left (-X): tangent = +Z
-            floatArrayOf(-s, s, -s, -s, -s, -s, -s, -s, s, -s, s, s),
-            floatArrayOf(-1f, 0f, 0f),
-            floatArrayOf(0f, 0f, 1f, 1f),
-            floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-          ) +
-          face( // Top (+Y): tangent = +X
-            floatArrayOf(-s, s, -s, -s, s, s, s, s, s, s, s, -s),
-            floatArrayOf(0f, 1f, 0f),
-            floatArrayOf(1f, 0f, 0f, 1f),
-            floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-          ) +
-          face( // Bottom (-Y): tangent = +X
-            floatArrayOf(-s, -s, s, -s, -s, -s, s, -s, -s, s, -s, s),
-            floatArrayOf(0f, -1f, 0f),
-            floatArrayOf(1f, 0f, 0f, 1f),
-            floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
-          )
+      val verts = FloatArray(6 * 4 * 12) // 6 faces × 4 verts × 12 floats, no intermediate copies
+      face( // Front (+Z): tangent = +X
+        verts,
+        0 * 48,
+        floatArrayOf(-s, s, s, -s, -s, s, s, -s, s, s, s, s),
+        floatArrayOf(0f, 0f, 1f),
+        floatArrayOf(1f, 0f, 0f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
+      face( // Back (-Z): tangent = -X
+        verts,
+        1 * 48,
+        floatArrayOf(s, s, -s, s, -s, -s, -s, -s, -s, -s, s, -s),
+        floatArrayOf(0f, 0f, -1f),
+        floatArrayOf(-1f, 0f, 0f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
+      face( // Right (+X): tangent = -Z
+        verts,
+        2 * 48,
+        floatArrayOf(s, s, s, s, -s, s, s, -s, -s, s, s, -s),
+        floatArrayOf(1f, 0f, 0f),
+        floatArrayOf(0f, 0f, -1f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
+      face( // Left (-X): tangent = +Z
+        verts,
+        3 * 48,
+        floatArrayOf(-s, s, -s, -s, -s, -s, -s, -s, s, -s, s, s),
+        floatArrayOf(-1f, 0f, 0f),
+        floatArrayOf(0f, 0f, 1f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
+      face( // Top (+Y): tangent = +X
+        verts,
+        4 * 48,
+        floatArrayOf(-s, s, -s, -s, s, s, s, s, s, s, s, -s),
+        floatArrayOf(0f, 1f, 0f),
+        floatArrayOf(1f, 0f, 0f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
+      face( // Bottom (-Y): tangent = +X
+        verts,
+        5 * 48,
+        floatArrayOf(-s, -s, s, -s, -s, -s, s, -s, -s, s, -s, s),
+        floatArrayOf(0f, -1f, 0f),
+        floatArrayOf(1f, 0f, 0f, 1f),
+        floatArrayOf(0f, 1f, 0f, 0f, 1f, 0f, 1f, 1f),
+      )
 
       mesh.vertices = verts
       mesh.indices =

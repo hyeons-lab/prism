@@ -109,8 +109,16 @@ private fun createAndShowUi() {
             store.dispatch(DemoIntent.UpdateFps(smoothedFps))
           }
 
-          // Run ECS update (triggers RenderSystem)
-          s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
+          // Apply PBR slider values to sphere materials each frame.
+          s.setMaterialOverride(currentState.metallic, currentState.roughness)
+          s.setEnvIntensity(currentState.envIntensity)
+
+          // Run ECS update (triggers RenderSystem); pass 0 when paused.
+          s.tick(
+            deltaTime = if (currentState.isPaused) 0f else deltaSec,
+            elapsed = totalSec,
+            frameCount = frameCount,
+          )
         }
       }
     }
