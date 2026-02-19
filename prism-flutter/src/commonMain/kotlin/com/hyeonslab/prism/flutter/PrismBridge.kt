@@ -1,41 +1,55 @@
 package com.hyeonslab.prism.flutter
 
-import com.hyeonslab.prism.core.Engine
-import com.hyeonslab.prism.core.EngineConfig
+import com.hyeonslab.prism.demo.DemoIntent
+import com.hyeonslab.prism.demo.DemoScene
+import com.hyeonslab.prism.demo.DemoStore
+import com.hyeonslab.prism.demo.DemoUiState
+import com.hyeonslab.prism.renderer.Color
+import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Bridge between the Prism engine and Flutter platform channels. Provides a simplified API surface
- * that Flutter's Dart code can call through platform channels (MethodChannel) or FFI.
+ * Bridge between the Prism engine and Flutter platform channels. Holds a [DemoScene] (rendering)
+ * and [DemoStore] (UI state via MVI). The render loop is driven natively (Choreographer on Android,
+ * MTKView delegate on iOS) — Flutter only sends control intents through the method channel.
  */
-@Suppress("UnusedParameter")
 class PrismBridge {
-  private var engine: Engine? = null
+  var scene: DemoScene? = null
+    private set
 
-  fun initialize(appName: String, targetFps: Int = 60): Boolean {
-    if (engine != null) return false
-    val config = EngineConfig(appName = appName, targetFps = targetFps)
-    engine = Engine(config).also { it.initialize() }
-    return true
+  val store: DemoStore = DemoStore()
+
+  val state: StateFlow<DemoUiState>
+    get() = store.state
+
+  fun attachScene(scene: DemoScene) {
+    this.scene = scene
+  }
+
+  fun setRotationSpeed(degreesPerSecond: Float) {
+    store.dispatch(DemoIntent.SetRotationSpeed(degreesPerSecond))
+  }
+
+  fun togglePause() {
+    store.dispatch(DemoIntent.TogglePause)
+  }
+
+  fun setCubeColor(r: Float, g: Float, b: Float) {
+    store.dispatch(DemoIntent.SetCubeColor(Color(r, g, b)))
+  }
+
+  fun updateAspectRatio(width: Int, height: Int) {
+    scene?.updateAspectRatio(width, height)
+  }
+
+  /** Detach the scene reference without shutting it down (caller owns the shutdown). */
+  fun detachScene() {
+    scene = null
   }
 
   fun shutdown() {
-    engine?.shutdown()
-    engine = null
+    scene?.shutdown()
+    scene = null
   }
 
-  fun isInitialized(): Boolean = engine != null
-
-  fun getEngine(): Engine? = engine
-
-  fun resize(width: Int, height: Int) {
-    // Forward to renderer subsystem when connected
-  }
-
-  fun setClearColor(r: Float, g: Float, b: Float, a: Float) {
-    // Will be forwarded to renderer
-  }
-
-  fun frame(deltaTimeMs: Long) {
-    // Tick one frame of the engine
-  }
+  fun isInitialized(): Boolean = scene != null
 }

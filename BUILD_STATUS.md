@@ -124,7 +124,16 @@
 
 ### M9: PBR Materials ⏳
 ### M10: glTF Asset Loading ⏳
-### M11: Flutter Integration ⏳
+### M11: Flutter Integration ✅
+
+- [x] Build system: prism-flutter module with Android, iOS, wasmJs targets, prism-demo-core dependency
+- [x] PrismBridge + FlutterMethodHandler: DemoScene/DemoStore MVI bridge for native platforms
+- [x] Android Flutter plugin: PrismFlutterPlugin.kt + PrismPlatformView.kt (SurfaceView + Choreographer)
+- [x] iOS Flutter plugin: PrismFlutterPlugin.swift + PrismPlatformView.swift (MTKView + configureDemo)
+- [x] Flutter Web: Kotlin/WASM @JsExport entry point + Dart JS interop via conditional imports
+- [x] Dart plugin: PrismEngine (MethodChannel on mobile, JS interop on web), PrismRenderView (AndroidView/UiKitView/HtmlElementView)
+- [x] Flutter example app: Material3 demo with speed slider, color buttons, pause/resume
+- **Status:** Complete — Flutter plugin with Android, iOS, and Web support
 
 ## Test Coverage
 

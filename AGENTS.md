@@ -97,7 +97,7 @@ prism/
 ├── prism-audio         # Audio engine interface (stub for future implementation)
 ├── prism-native-widgets# Platform-specific rendering surfaces (PrismSurface)
 ├── prism-compose       # Jetpack Compose Multiplatform integration
-├── prism-flutter       # Flutter bridge (minimal, future work)
+├── prism-flutter       # Flutter bridge (Android/iOS MethodChannel + Web WASM)
 ├── prism-ios           # iOS XCFramework aggregator (SPM distribution)
 ├── prism-demo-core     # Demo shared code (KMP library, all platforms)
 ├── prism-android-demo  # Android app (consumes prism-demo-core)
@@ -196,8 +196,9 @@ module-name/src/
 - **macOS Native (GLFW)**: GLFW windowing with Metal backend via wgpu4k `glfwContextRenderer`, AppKit NSPanel for floating controls
 - **Android**: SurfaceView + wgpu4k `androidContextRenderer` with Vulkan backend, Choreographer-driven render loop
 - **Linux/Windows Native**: GLFW windowing with Vulkan/DX12 via wgpu4k `glfwContextRenderer` (compiles, untested)
-- **Flutter (iOS/Android)**: Platform channels + native rendering via PrismBridge (planned, M11)
-- **Flutter Web**: WebGPU via HtmlElementView (planned, M11)
+- **Flutter (Android)**: SurfaceView + Choreographer via PrismBridge, MethodChannel control API, consumes KMP artifacts from Maven local
+- **Flutter (iOS)**: MTKView + configureDemo via PrismBridge, MethodChannel control API, consumes PrismDemo.xcframework via podspec
+- **Flutter Web**: HtmlElementView canvas + Kotlin/WASM @JsExport functions, Dart JS interop via conditional imports, requestAnimationFrame render loop
 
 ### Module Dependency Graph
 
@@ -393,7 +394,7 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 
 ## Current Project Status
 
-**Phase:** Android rendering via wgpu4k/Vulkan complete (M8), all platforms operational
+**Phase:** Flutter integration complete (M11), all platforms operational
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -424,13 +425,16 @@ Update the branch devlog (`devlog/NNNNNN-<branch-name>.md`) as work progresses. 
 - ✅ Android wgpu4k rendering via Vulkan with SurfaceView + Choreographer render loop (M8 complete)
 - ✅ Android demo APK with rotating lit cube
 - ✅ Android Compose demo: SurfaceView + DemoStore MVI + Material3 controls (matching JVM/iOS Compose demos)
+- ✅ Flutter Android plugin: SurfaceView + Choreographer + PrismBridge MethodChannel (M11)
+- ✅ Flutter iOS plugin: MTKView + configureDemo + PrismBridge MethodChannel (M11)
+- ✅ Flutter Web: Kotlin/WASM @JsExport + HtmlElementView canvas + Dart JS interop (M11)
+- ✅ Flutter example app: Material3 UI controls (speed slider, color buttons, pause/resume)
 
 **What's in progress:**
 
 **What's next:**
 - ⏭️ PBR materials (Cook-Torrance BRDF, IBL, HDR)
 - ⏭️ glTF 2.0 asset loading
-- ⏭️ Flutter integration: iOS/Android (platform channels, native rendering) + Flutter Web (WebGPU via HtmlElementView)
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
