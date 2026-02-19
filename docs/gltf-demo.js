@@ -522,10 +522,14 @@ export async function initGltfDemo(canvas) {
 
   // ── Render loop ───────────────────────────────────────────────────────────────
 
-  let lastW = 0, lastH = 0, animId;
+  let lastW = 0, lastH = 0, animId, lastTime = 0;
 
-  function frame() {
+  function frame(now = 0) {
     animId = requestAnimationFrame(frame);
+    const dt = lastTime > 0 ? (now - lastTime) / 1000 : 0;
+    lastTime = now;
+    // Auto-orbit when not dragging (~17.5 deg/s, matching the WASM demo default)
+    if (!dragging) azimuth += 0.305 * dt;
 
     const dpr = window.devicePixelRatio || 1;
     const w   = Math.floor(canvas.clientWidth * dpr) || 1;

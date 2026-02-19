@@ -82,30 +82,30 @@
 
     <!-- Demo: glTF DamagedHelmet -->
     <section id="gltf-demo">
-      <div class="container">
-        <p class="section-label">glTF 2.0 Asset Loading</p>
-        <h2 class="section-title">DamagedHelmet — textured PBR model</h2>
-        <p class="section-desc">
-          Real-time glTF 2.0 rendering with all five PBR textures: base color,
-          metallic-roughness, normal map, ambient occlusion, and emissive.
-          Model parsed directly from the GLB binary at runtime with no
-          external libraries &mdash; pure WebGPU.
+      <canvas id="gltf-canvas" role="img" aria-label="DamagedHelmet glTF model rendered with WebGPU PBR: base color, normal map, metallic-roughness, occlusion, and emissive textures"></canvas>
+      <div id="gltf-fallback" class="gltf-demo-fallback" hidden>
+        <p>
+          Your browser doesn't support WebGPU yet.<br />
+          Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
+          <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
         </p>
-        <div class="demo-wrapper">
-          <canvas id="gltf-canvas" role="img" aria-label="DamagedHelmet glTF model rendered with WebGPU PBR: base color, normal map, metallic-roughness, occlusion, and emissive textures"></canvas>
-          <div id="gltf-fallback" class="demo-fallback" hidden>
-            <p>
-              Your browser doesn't support WebGPU yet.<br />
-              Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
-              <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
-            </p>
-          </div>
+      </div>
+      <div class="gltf-demo-overlay">
+        <div class="container">
+          <p class="section-label">glTF 2.0 Asset Loading</p>
+          <h2 class="section-title">DamagedHelmet — textured PBR model</h2>
+          <p class="section-desc">
+            Real-time glTF 2.0 rendering with all five PBR textures: base color,
+            metallic-roughness, normal map, ambient occlusion, and emissive.
+            Model parsed directly from the GLB binary at runtime with no
+            external libraries &mdash; pure WebGPU.
+          </p>
+          <p class="demo-caption">
+            Drag to orbit &middot; Scroll to zoom &mdash; Cook-Torrance BRDF + Khronos PBR Neutral tone mapping.
+            Model: <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" style="color:inherit;text-decoration:underline">DamagedHelmet</a>
+            &copy; Khronos Group, CC BY 4.0.
+          </p>
         </div>
-        <p class="demo-caption">
-          Drag to orbit &middot; Scroll to zoom &mdash; Cook-Torrance BRDF + Khronos PBR Neutral tone mapping.
-          Model: <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" style="color:inherit;text-decoration:underline">DamagedHelmet</a>
-          &copy; Khronos Group, CC BY 4.0.
-        </p>
       </div>
     </section>
 
@@ -469,7 +469,7 @@
       const gltfCanvas   = document.getElementById("gltf-canvas");
       const gltfFallback = document.getElementById("gltf-fallback");
       const ok2 = await initGltfDemo(gltfCanvas).catch(() => false);
-      if (!ok2) { gltfCanvas.hidden = true; gltfFallback.hidden = false; }
+      if (!ok2) { gltfCanvas.style.display = "none"; gltfFallback.hidden = false; }
     </script>
   </body>
 </html>
