@@ -123,6 +123,11 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 7db8a80 — feat: implement iOS/macOS CGImage decoder for glTF texture loading
 b26f287 — feat: add unpremultiply option to ImageDecoder (default: false)
 8d4babf — feat: replace Flutter PBR sphere grid with interactive DamagedHelmet glTF demo
+00cadc5 — feat: add DamagedHelmet glTF demo to landing page
+59ed885 — fix: apply glTF node rotation to DamagedHelmet and correct initial camera azimuth
 5f88225 — fix: apply all PR review corrections to glTF asset loading
 55e0096 — fix: correct drag direction and WASM race conditions in Flutter web demo
 5b32857 — fix: implement WASM image decoder for glTF texture support
+8a55501 — chore: update devlog with final commits and bug fixes
+39bf082 — fix: iOS NSData init form, add auto-orbit for visible pause effect
+50139a2 — feat: progressive glTF texture loading on Flutter web
