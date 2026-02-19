@@ -100,6 +100,9 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 - [x] Unit tests (GlbReaderTest, GltfLoaderTest, UnpremultiplyTest)
 - [x] Demo integration (DamagedHelmet.glb via GltfDemoScene + Flutter)
 - [x] Review fixes: loader correctness, renderer architecture, platform integration, docs
+- [x] Fix drag direction inversion on all platforms (web, Android, iOS)
+- [x] Fix WASM race conditions (prismGetState/prismTogglePause before WASM loaded)
+- [x] Implement WASM ImageDecoder (was TODO stub — textures now display on web)
 
 ## Commits
 89e524d — chore: add devlog and plan for glTF 2.0 asset loading (M10)
@@ -107,3 +110,6 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 7db8a80 — feat: implement iOS/macOS CGImage decoder for glTF texture loading
 b26f287 — feat: add unpremultiply option to ImageDecoder (default: false)
 8d4babf — feat: replace Flutter PBR sphere grid with interactive DamagedHelmet glTF demo
+5f88225 — fix: apply all PR review corrections to glTF asset loading
+55e0096 — fix: correct drag direction and WASM race conditions in Flutter web demo
+5b32857 — fix: implement WASM image decoder for glTF texture support
