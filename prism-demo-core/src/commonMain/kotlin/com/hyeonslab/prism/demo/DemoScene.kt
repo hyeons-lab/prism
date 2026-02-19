@@ -29,16 +29,16 @@ private const val SPHERE_COLS = 7
 private const val SPHERE_ROWS = 7
 private const val SPHERE_SPACING = 1.5f
 
-/** Holds the engine, ECS world, renderer, and camera entity for the PBR sphere grid demo scene. */
+/** Holds the engine, ECS world, renderer, and camera entity for a demo scene. */
 class DemoScene(
   val engine: Engine,
   val world: World,
   val renderer: WgpuRenderer,
   val cameraEntity: Entity,
+  private val orbitRadius: Float = 12f,
 ) {
   private var orbitAzimuth = 0f
   private var orbitElevation = 0f
-  private val orbitRadius = 12f
 
   /**
    * Advances the scene by one frame: runs the ECS world update. The PBR sphere grid is a static

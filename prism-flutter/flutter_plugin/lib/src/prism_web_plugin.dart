@@ -7,19 +7,10 @@ import 'package:web/web.dart' as web;
 /// JS interop bindings to the Prism WASM module's exported functions.
 /// All control functions take a canvasId to address the correct engine instance.
 @JS('prismInit')
-external void _prismInit(String canvasId);
+external void _prismInit(String canvasId, String glbUrl);
 
 @JS('prismTogglePause')
 external void _prismTogglePause(String canvasId);
-
-@JS('prismSetMetallic')
-external void _prismSetMetallic(String canvasId, double metallic);
-
-@JS('prismSetRoughness')
-external void _prismSetRoughness(String canvasId, double roughness);
-
-@JS('prismSetEnvIntensity')
-external void _prismSetEnvIntensity(String canvasId, double intensity);
 
 @JS('prismGetState')
 external String _prismGetState(String canvasId);
@@ -84,7 +75,6 @@ class PrismWebEngine {
           await mod.default();
         }
         const names = ["prismInit", "prismTogglePause",
-                        "prismSetMetallic", "prismSetRoughness", "prismSetEnvIntensity",
                         "prismGetState", "prismIsInitialized", "prismShutdown"];
         for (const name of names) {
           if (typeof mod[name] === "function") {
@@ -129,20 +119,11 @@ class PrismWebEngine {
     return _wasmLoadingFuture!;
   }
 
-  static void init(String canvasId) => _prismInit(canvasId);
+  static void init(String canvasId) =>
+      _prismInit(canvasId, 'DamagedHelmet.glb');
 
   static Future<void> togglePause(String canvasId) async =>
       _prismTogglePause(canvasId);
-
-  static Future<void> setMetallic(String canvasId, double metallic) async =>
-      _prismSetMetallic(canvasId, metallic);
-
-  static Future<void> setRoughness(String canvasId, double roughness) async =>
-      _prismSetRoughness(canvasId, roughness);
-
-  static Future<void> setEnvIntensity(
-          String canvasId, double intensity) async =>
-      _prismSetEnvIntensity(canvasId, intensity);
 
   static Future<Map<String, dynamic>> getState(String canvasId) async {
     final json = _prismGetState(canvasId);

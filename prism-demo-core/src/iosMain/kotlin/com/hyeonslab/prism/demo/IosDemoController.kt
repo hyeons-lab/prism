@@ -9,7 +9,10 @@ import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
+import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGSize
+import platform.Foundation.NSBundle
+import platform.Foundation.NSData
 import platform.MetalKit.MTKView
 import platform.MetalKit.MTKViewDelegateProtocol
 import platform.QuartzCore.CACurrentMediaTime
@@ -18,9 +21,9 @@ import platform.darwin.NSObject
 private val log = Logger.withTag("PrismIOS")
 
 /**
- * Handle returned by [configureDemo] that manages the lifecycle of the demo scene and GPU
- * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
- * release the WGPU instance, adapter, device, and surface.
+ * Handle returned by [configureDemo] / [configureDemoWithGltf] that manages the lifecycle of the
+ * demo scene and GPU resources. Swift must call [shutdown] when the view controller is torn down
+ * (e.g. in `deinit`) to release the WGPU instance, adapter, device, and surface.
  *
  * [renderDelegate] is stored here to prevent garbage collection — MTKView.delegate is a WEAK
  * reference in UIKit, so without a strong reference the K/N GC will collect the delegate.
@@ -30,6 +33,10 @@ class IosDemoHandle(
   private val scene: DemoScene,
   @Suppress("unused") private val renderDelegate: MTKViewDelegateProtocol,
 ) {
+  fun orbitBy(dx: Float, dy: Float) {
+    scene.orbitBy(dx, dy)
+  }
+
   fun shutdown() {
     log.i { "Shutting down iOS demo..." }
     scene.shutdown()
@@ -73,6 +80,56 @@ suspend fun configureDemo(view: MTKView, store: DemoStore): IosDemoHandle {
   view.delegate = delegate
   log.i { "iOS demo configured — render delegate installed" }
   return IosDemoHandle(surface, scene, delegate)
+}
+
+/**
+ * Configures a glTF demo scene for the Flutter plugin. Tries to load DamagedHelmet.glb from the app
+ * bundle (Flutter assets are stored under `flutter_assets/`); falls back to the PBR sphere-grid
+ * demo if loading fails.
+ */
+suspend fun configureDemoWithGltf(view: MTKView, store: DemoStore): IosDemoHandle {
+  var width = view.drawableSize.useContents { width.toInt() }
+  var height = view.drawableSize.useContents { height.toInt() }
+  if (width <= 0 || height <= 0) {
+    log.w { "drawableSize not ready (${width}x${height}), using defaults" }
+    width = IOS_DEFAULT_WIDTH
+    height = IOS_DEFAULT_HEIGHT
+  }
+  log.i { "Configuring glTF demo: ${width}x${height}" }
+
+  val surface = createPrismSurface(view, width, height)
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+
+  // Load the GLB from the bundle — Flutter assets land at flutter_assets/<path> in the bundle.
+  val glbData = loadBundleAssetBytes("flutter_assets/assets/DamagedHelmet.glb")
+  val scene =
+    if (glbData != null) {
+      log.i { "Loaded DamagedHelmet.glb (${glbData.size} bytes)" }
+      createGltfDemoScene(wgpuContext, width = width, height = height, glbData = glbData)
+    } else {
+      log.w { "DamagedHelmet.glb not found in bundle — falling back to sphere-grid demo" }
+      createDemoScene(wgpuContext, width = width, height = height)
+    }
+
+  val delegate = DemoRenderDelegate(scene, store)
+  view.delegate = delegate
+  log.i { "iOS glTF demo configured — render delegate installed" }
+  return IosDemoHandle(surface, scene, delegate)
+}
+
+/**
+ * Loads a file from the app bundle by its relative path (e.g. `"flutter_assets/assets/Foo.glb"`).
+ * Returns null if the file cannot be found or read.
+ */
+private fun loadBundleAssetBytes(relativePath: String): ByteArray? {
+  val resourcePath = NSBundle.mainBundle.resourcePath ?: return null
+  val fullPath = "$resourcePath/$relativePath"
+  val nsData = NSData.dataWithContentsOfFile(fullPath) ?: return null
+  val length = nsData.length.toInt()
+  if (length == 0) return null
+  val bytes = ByteArray(length)
+  bytes.usePinned { pinned -> nsData.getBytes(pinned.addressOf(0), nsData.length) }
+  return bytes
 }
 
 /**

@@ -144,6 +144,11 @@ class WgpuRenderer(
   private var defaultMaterialBindGroup: GPUBindGroup? = null
   private var envBindGroup: GPUBindGroup? = null
 
+  // --- Per-material bind group / texture view caches (keyed by identity) ---
+  private val textureViewCache = mutableMapOf<Texture, WGPUTextureView>()
+  private val materialBindGroupCache = mutableMapOf<Material, GPUBindGroup>()
+  private val materialUniformBufferCache = mutableMapOf<Material, WGPUBuffer>()
+
   // --- PBR Pipeline ---
   private var pbrPipeline: GPURenderPipeline? = null
 
@@ -250,6 +255,12 @@ class WgpuRenderer(
     defaultClampSampler?.close()
     depthTextureView?.close()
     depthTexture?.close()
+    textureViewCache.values.forEach { it.close() }
+    textureViewCache.clear()
+    materialBindGroupCache.values.forEach { it.close() }
+    materialBindGroupCache.clear()
+    materialUniformBufferCache.values.forEach { it.close() }
+    materialUniformBufferCache.clear()
     if (!surfacePreConfigured) {
       wgpuContext.close()
     }
@@ -421,11 +432,20 @@ class WgpuRenderer(
 
   override fun setMaterial(material: Material) {
     val renderPass = currentRenderPass ?: return
-    writePbrMaterialUniforms(material)
+    val hasTextures =
+      material.albedoTexture != null ||
+        material.metallicRoughnessTexture != null ||
+        material.normalTexture != null ||
+        material.occlusionTexture != null ||
+        material.emissiveTexture != null
 
-    // Bind material bind group with default textures
-    // (Real texture binding will be added when texture loading is implemented)
-    val matBg = defaultMaterialBindGroup
+    val matBg =
+      if (hasTextures) {
+        getOrCreateMaterialBindGroup(material)
+      } else {
+        writePbrMaterialUniforms(material)
+        defaultMaterialBindGroup
+      }
     if (matBg != null) {
       renderPass.setBindGroup(2u, matBg)
     }
@@ -1324,7 +1344,10 @@ class WgpuRenderer(
 
   private fun writePbrMaterialUniforms(material: Material) {
     val buf = pbrMaterialUniformBuffer ?: return
+    writePbrMaterialUniformsToBuffer(material, buf)
+  }
 
+  private fun writePbrMaterialUniformsToBuffer(material: Material, buf: WGPUBuffer) {
     var flags = 0
     if (material.albedoTexture != null) flags = flags or 1
     if (material.metallicRoughnessTexture != null) flags = flags or 2
@@ -1355,6 +1378,63 @@ class WgpuRenderer(
 
     device.queue.writeBuffer(buf, 0u, data)
   }
+
+  private fun getOrCreateTextureView(texture: Texture): WGPUTextureView =
+    textureViewCache.getOrPut(texture) {
+      val gpuTexture =
+        texture.handle as? WGPUTexture
+          ?: error("Texture '${texture}' has no GPU handle — call uploadTextureData first")
+      gpuTexture.createView()
+    }
+
+  @Suppress("LongMethod")
+  private fun getOrCreateMaterialBindGroup(material: Material): GPUBindGroup =
+    materialBindGroupCache.getOrPut(material) {
+      val matBuffer =
+        device.createBuffer(
+          BufferDescriptor(
+            size = Shaders.PBR_MATERIAL_UNIFORMS_SIZE.toULong(),
+            usage = GPUBufferUsage.Uniform or GPUBufferUsage.CopyDst,
+            label = "Material Uniforms (${material.label})",
+          )
+        )
+      materialUniformBufferCache[material] = matBuffer
+      writePbrMaterialUniformsToBuffer(material, matBuffer)
+
+      val albedoView =
+        material.albedoTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultWhiteTextureView!!
+      val mrView =
+        material.metallicRoughnessTexture
+          ?.takeIf { it.handle != null }
+          ?.let { getOrCreateTextureView(it) } ?: defaultWhiteTextureView!!
+      val normalView =
+        material.normalTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultNormalTextureView!!
+      val occlusionView =
+        material.occlusionTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultWhiteTextureView!!
+      val emissiveView =
+        material.emissiveTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultBlackTextureView!!
+
+      device.createBindGroup(
+        BindGroupDescriptor(
+          layout = materialBindGroupLayout!!,
+          entries =
+            listOf(
+              BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = matBuffer)),
+              BindGroupEntry(binding = 1u, resource = defaultSampler!!),
+              BindGroupEntry(binding = 2u, resource = albedoView),
+              BindGroupEntry(binding = 3u, resource = mrView),
+              BindGroupEntry(binding = 4u, resource = normalView),
+              BindGroupEntry(binding = 5u, resource = occlusionView),
+              BindGroupEntry(binding = 6u, resource = emissiveView),
+            ),
+          label = "Material Bind Group (${material.label})",
+        )
+      )
+    }
 
   // ===== Private: Format mapping =====
 

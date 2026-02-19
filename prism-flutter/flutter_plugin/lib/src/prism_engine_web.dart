@@ -20,24 +20,6 @@ class PrismEngine {
     if (id != null) await PrismWebEngine.togglePause(id);
   }
 
-  /// Set the metallic factor for the PBR spheres (0.0 to 1.0).
-  Future<void> setMetallic(double metallic) async {
-    final id = _canvasId;
-    if (id != null) await PrismWebEngine.setMetallic(id, metallic);
-  }
-
-  /// Set the roughness factor for the PBR spheres (0.0 to 1.0).
-  Future<void> setRoughness(double roughness) async {
-    final id = _canvasId;
-    if (id != null) await PrismWebEngine.setRoughness(id, roughness);
-  }
-
-  /// Set the environment (IBL) intensity (0.0 to 2.0).
-  Future<void> setEnvIntensity(double intensity) async {
-    final id = _canvasId;
-    if (id != null) await PrismWebEngine.setEnvIntensity(id, intensity);
-  }
-
   /// Check if the WASM engine is initialized and rendering.
   Future<bool> isInitialized() async {
     final id = _canvasId;
@@ -45,7 +27,7 @@ class PrismEngine {
     return PrismWebEngine.isInitialized(id);
   }
 
-  /// Get the current engine state (metallic, roughness, envIntensity, isPaused, fps).
+  /// Get the current engine state (isPaused, fps).
   Future<Map<String, dynamic>> getState() async {
     final id = _canvasId;
     if (id == null) return {};
