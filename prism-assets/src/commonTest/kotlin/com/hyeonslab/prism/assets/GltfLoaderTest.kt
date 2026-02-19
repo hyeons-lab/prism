@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.assets
 
+import com.hyeonslab.prism.renderer.TextureFormat
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -86,6 +87,97 @@ class GltfLoaderTest {
     val asset = loader.load("test.glb", glb)
     asset.renderableNodes.size shouldBe 1
     asset.renderableNodes[0].mesh.vertices.size shouldBe 36
+  }
+
+  // ===== Primitive mode =====
+
+  @Test
+  fun load_linePrimitive_skippedWithNoMesh() = runTest {
+    // mode=1 (LINES) is not supported; the primitive should be silently skipped.
+    val gltf = triangleGltfWithMode(mode = 1)
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    asset.renderableNodes.size shouldBe 0
+  }
+
+  @Test
+  fun load_explicitTrianglesMode_accepted() = runTest {
+    // mode=4 (TRIANGLES) is the default and must be accepted.
+    val gltf = triangleGltfWithMode(mode = 4)
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    asset.renderableNodes.size shouldBe 1
+  }
+
+  // ===== Scene graph cycle detection =====
+
+  @Test
+  fun load_cycleInSceneGraph_doesNotLoopAndProducesOneNode() = runTest {
+    // Node 0 lists itself as a child — the cycle detector should fire and not recurse infinitely.
+    val gltf = cycleGltf()
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    // One mesh is still produced from the first (non-cyclic) traversal.
+    asset.renderableNodes.size shouldBe 1
+  }
+
+  // ===== Normalized integer accessors =====
+
+  @Test
+  fun load_normalizedUnsignedByteUvs_decodesCorrectly() = runTest {
+    // UVs stored as UNSIGNED_BYTE (5121) normalized — 255 should map to 1.0, 128 to ~0.502.
+    val gltf = triangleGltfWithUbyteUvs()
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    asset.renderableNodes.size shouldBe 1
+    val mesh = asset.renderableNodes[0].mesh
+    // UV starts at float index 6 per vertex (positionNormalUvTangent layout)
+    // Vertex 0: u = 255/255 = 1.0, v = 0/255 = 0.0
+    mesh.vertices[6] shouldBe (1.0f plusOrMinus 1e-5f) // u
+    mesh.vertices[7] shouldBe (0.0f plusOrMinus 1e-5f) // v
+    // Vertex 1: u = 128/255 ≈ 0.502, v = 255/255 = 1.0
+    mesh.vertices[18] shouldBe (128f / 255f plusOrMinus 1e-5f)
+    mesh.vertices[19] shouldBe (1.0f plusOrMinus 1e-5f)
+  }
+
+  // ===== Negative scale decomposition =====
+
+  @Test
+  fun load_nodeWithNegativeScaleMatrix_decomposesWithNegativeSx() = runTest {
+    // Column-major identity with column 0 negated (scaleX = -1, det < 0).
+    val negScaleMatrix =
+      floatArrayOf(-1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f)
+    val gltf = triangleGltfWithMatrix(negScaleMatrix)
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    val scale = asset.renderableNodes[0].worldTransform.scale
+    scale.x shouldBe (-1f plusOrMinus 1e-5f)
+    scale.y shouldBe (1f plusOrMinus 1e-5f)
+    scale.z shouldBe (1f plusOrMinus 1e-5f)
+  }
+
+  // ===== Texture format assignment =====
+
+  @Test
+  fun load_albedoTextureGetsSrgbFormat() = runTest {
+    val gltf = triangleGltfWithTextures()
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    asset.textures.size shouldBe 2
+    // Texture 0 is used as albedo → must be promoted to RGBA8_SRGB.
+    asset.textures[0].descriptor.format shouldBe TextureFormat.RGBA8_SRGB
+  }
+
+  @Test
+  fun load_normalTextureStaysLinear() = runTest {
+    val gltf = triangleGltfWithTextures()
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    // Texture 1 is used as normal map → must remain RGBA8_UNORM.
+    asset.textures[1].descriptor.format shouldBe TextureFormat.RGBA8_UNORM
+  }
+
+  // ===== imageData parallel to textures =====
+
+  @Test
+  fun load_imageDataParallelToTextures_sizeMatchesTextures() = runTest {
+    // Two textures both reference image 0 — imageData must have 2 entries (parallel to textures).
+    val gltf = triangleGltfWithTextures()
+    val asset = loader.load("test.gltf", gltf.encodeToByteArray())
+    asset.imageData.size shouldBe asset.textures.size
   }
 
   // ===== Helpers =====
@@ -187,6 +279,138 @@ class GltfLoaderTest {
       bytes[i * 4 + 3] = ((bits shr 24) and 0xFF).toByte()
     }
     return bytes
+  }
+
+  /** Triangle glTF with an explicit primitive mode (e.g. 1=LINES, 4=TRIANGLES). */
+  @OptIn(ExperimentalEncodingApi::class)
+  private fun triangleGltfWithMode(mode: Int): String {
+    val positions = trianglePositionBuffer()
+    val b64 = Base64.encode(positions)
+    return """
+      {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "mode": $mode}]}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 36}],
+        "buffers": [{"uri": "data:application/octet-stream;base64,$b64", "byteLength": 36}]
+      }
+    """
+      .trimIndent()
+  }
+
+  /**
+   * glTF where node 0 has a mesh and lists itself (index 0) as a child — a direct cycle. The cycle
+   * detector should skip the re-entry and return exactly one renderable node.
+   */
+  @OptIn(ExperimentalEncodingApi::class)
+  private fun cycleGltf(): String {
+    val positions = trianglePositionBuffer()
+    val b64 = Base64.encode(positions)
+    return """
+      {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0, "children": [0]}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 36}],
+        "buffers": [{"uri": "data:application/octet-stream;base64,$b64", "byteLength": 36}]
+      }
+    """
+      .trimIndent()
+  }
+
+  /**
+   * Triangle glTF with TEXCOORD_0 stored as normalized UNSIGNED_BYTE (componentType 5121). 3
+   * vertices: (u=255,v=0), (u=128,v=255), (u=0,v=128) in UBYTE → divided by 255 to get float.
+   */
+  @OptIn(ExperimentalEncodingApi::class)
+  private fun triangleGltfWithUbyteUvs(): String {
+    val positions = trianglePositionBuffer()
+    // 3 vertices × 2 components (u,v) × 1 byte = 6 bytes, padded to 8 for alignment
+    val uvBytes =
+      byteArrayOf(255.toByte(), 0, 128.toByte(), 255.toByte(), 0, 128.toByte(), 0, 0) // 8 bytes
+    val combined = positions + uvBytes
+    val b64 = Base64.encode(combined)
+    return """
+      {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0, "TEXCOORD_0": 1}}]}],
+        "accessors": [
+          {"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"},
+          {"bufferView": 1, "componentType": 5121, "count": 3, "type": "VEC2", "normalized": true}
+        ],
+        "bufferViews": [
+          {"buffer": 0, "byteOffset": 0, "byteLength": 36},
+          {"buffer": 0, "byteOffset": 36, "byteLength": 6}
+        ],
+        "buffers": [{"uri": "data:application/octet-stream;base64,$b64", "byteLength": 44}]
+      }
+    """
+      .trimIndent()
+  }
+
+  /** Triangle glTF with a 4×4 column-major matrix on the root node. */
+  @OptIn(ExperimentalEncodingApi::class)
+  private fun triangleGltfWithMatrix(matrix: FloatArray): String {
+    val positions = trianglePositionBuffer()
+    val b64 = Base64.encode(positions)
+    val matStr = matrix.joinToString(",")
+    return """
+      {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0, "matrix": [$matStr]}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 36}],
+        "buffers": [{"uri": "data:application/octet-stream;base64,$b64", "byteLength": 36}]
+      }
+    """
+      .trimIndent()
+  }
+
+  /**
+   * Triangle glTF with 2 textures (both referencing image 0) and a material that uses texture 0 as
+   * albedo (sRGB) and texture 1 as normal map (linear). The image bufferView contains 4 random
+   * bytes that will fail to decode — format assignment does not depend on successful decode.
+   */
+  @OptIn(ExperimentalEncodingApi::class)
+  private fun triangleGltfWithTextures(): String {
+    val positions = trianglePositionBuffer()
+    // 4 padding bytes after position data (used as the fake image bufferView)
+    val combined = positions + byteArrayOf(0, 0, 0, 0)
+    val b64 = Base64.encode(combined)
+    return """
+      {
+        "asset": {"version": "2.0"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": {"POSITION": 0}, "material": 0}]}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3"}],
+        "bufferViews": [
+          {"buffer": 0, "byteOffset": 0, "byteLength": 36},
+          {"buffer": 0, "byteOffset": 36, "byteLength": 4}
+        ],
+        "buffers": [{"uri": "data:application/octet-stream;base64,$b64", "byteLength": 40}],
+        "textures": [{"source": 0}, {"source": 0}],
+        "images": [{"bufferView": 1}],
+        "materials": [{
+          "pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+          "normalTexture": {"index": 1}
+        }]
+      }
+    """
+      .trimIndent()
   }
 
   private fun buildGlb(json: String, bin: ByteArray): ByteArray {

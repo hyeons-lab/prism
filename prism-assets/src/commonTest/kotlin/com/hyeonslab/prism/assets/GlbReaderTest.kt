@@ -50,6 +50,47 @@ class GlbReaderTest {
     shouldThrow<IllegalArgumentException> { GlbReader.read(glb) }
   }
 
+  @Test
+  fun read_rejectsNegativeTotalLength() {
+    // totalLength = 0x80000000 (MSB set) is negative as signed Int32 → below minimum of 12.
+    val bad = ByteArray(12)
+    bad[0] = 0x67.toByte()
+    bad[1] = 0x6C.toByte()
+    bad[2] = 0x54.toByte()
+    bad[3] = 0x46.toByte() // magic "glTF"
+    bad[4] = 2
+    bad[5] = 0
+    bad[6] = 0
+    bad[7] = 0 // version 2
+    // totalLength = 0x80000000 = -2147483648 as signed Int
+    bad[8] = 0x00.toByte()
+    bad[9] = 0x00.toByte()
+    bad[10] = 0x00.toByte()
+    bad[11] = 0x80.toByte()
+    shouldThrow<IllegalArgumentException> { GlbReader.read(bad) }
+  }
+
+  @Test
+  fun read_rejectsNegativeChunkLength() {
+    // Build a minimal 20-byte buffer with a valid header but chunkLength = -1.
+    val out = ByteArray(20)
+    writeI32LE(out, 0, 0x46546C67) // magic
+    writeI32LE(out, 4, 2) // version
+    writeI32LE(out, 8, 20) // totalLength = 20 (valid)
+    writeI32LE(out, 12, -1) // chunkLength = 0xFFFFFFFF = -1 (invalid)
+    writeI32LE(out, 16, 0x4E4F534A) // chunkType = JSON
+    shouldThrow<IllegalArgumentException> { GlbReader.read(out) }
+  }
+
+  @Test
+  fun read_jsonChunkPaddingWithSpaces_trimmedCorrectly() {
+    // JSON chunk padded with trailing spaces (0x20) per spec — must be trimmed exactly.
+    val json = """{"asset":{"version":"2.0"}}"""
+    val glb = buildGlb(json = json, bin = null)
+    val result = GlbReader.read(glb)
+    result.json shouldBe json // no trailing spaces in result
+  }
+
   /**
    * Builds a minimal GLB byte array.
    *

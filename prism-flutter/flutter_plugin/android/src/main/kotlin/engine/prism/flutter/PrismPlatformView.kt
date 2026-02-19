@@ -85,6 +85,7 @@ class PrismPlatformView(
           scene?.orbitBy(dx * 0.005f, dy * 0.005f)
           true
         }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
         else -> false
       }
     }

@@ -26,6 +26,7 @@ data class ImageData(val width: Int, val height: Int, val pixels: ByteArray) {
  * identical in both representations).
  */
 internal fun ByteArray.unpremultiplyAlpha() {
+  require(size % 4 == 0) { "unpremultiplyAlpha: array size must be a multiple of 4, got $size" }
   var i = 0
   while (i < size) {
     val a = this[i + 3].toInt() and 0xFF

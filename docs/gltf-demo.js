@@ -86,9 +86,17 @@ async function loadGlb(url) {
   const buf = await (await fetch(url)).arrayBuffer();
   const dv  = new DataView(buf);
   if (dv.getUint32(0, true) !== 0x46546C67) throw new Error("Not a GLB file");
-  const jsonLen = dv.getUint32(12, true);
-  const json    = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
+  const jsonLen  = dv.getUint32(12, true);
+  const jsonType = dv.getUint32(16, true);
+  if (jsonType !== 0x4E4F534A)
+    throw new Error(`GLB: expected JSON chunk (0x4E4F534A), got 0x${jsonType.toString(16)}`);
+  const json     = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
   const binStart = 20 + jsonLen;
+  if (binStart + 8 <= buf.byteLength) {
+    const binType = dv.getUint32(binStart + 4, true);
+    if (binType !== 0x004E4942)
+      throw new Error(`GLB: expected BIN chunk (0x004E4942), got 0x${binType.toString(16)}`);
+  }
   const binLen   = dv.getUint32(binStart, true);
   const bin      = buf.slice(binStart + 8, binStart + 8 + binLen);
   return { json, bin };
@@ -104,7 +112,17 @@ function accessorData(json, bin, index) {
     5121: Uint8Array, 5123: Uint16Array, 5125: Uint32Array,
     5122: Int16Array, 5126: Float32Array,
   }[acc.componentType];
-  return new T(bin, off, acc.count * nc);
+  const elemBytes = T.BYTES_PER_ELEMENT * nc;
+  // Fast path: tightly packed data — construct typed array view directly (zero-copy).
+  if (!bv.byteStride || bv.byteStride === elemBytes) {
+    return new T(bin, off, acc.count * nc);
+  }
+  // Strided data: copy each element individually to produce a tightly packed output array.
+  const out = new T(acc.count * nc);
+  for (let i = 0; i < acc.count; i++) {
+    out.set(new T(bin, off + i * bv.byteStride, nc), i * nc);
+  }
+  return out;
 }
 
 // ── Texture loading ───────────────────────────────────────────────────────────
@@ -316,6 +334,14 @@ export async function initGltfDemo(canvas) {
   const device  = await adapter.requestDevice();
   const context = canvas.getContext("webgpu");
   const format  = navigator.gpu.getPreferredCanvasFormat();
+  // The shader applies manual sRGB gamma encoding (pow(c, 1/2.2)). Warn if the swap chain is
+  // already sRGB — the GPU would apply gamma a second time, washing out the output.
+  if (format.includes('srgb')) {
+    console.warn(
+      'Prism glTF demo: sRGB swap chain detected — manual gamma is applied in the shader; ' +
+      'colors may appear washed out. Consider using a non-sRGB format.',
+    );
+  }
   context.configure({ device, format, alphaMode: "opaque" });
 
   // ── Load GLB ─────────────────────────────────────────────────────────────────

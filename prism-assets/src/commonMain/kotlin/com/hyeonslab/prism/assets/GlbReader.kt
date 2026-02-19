@@ -18,6 +18,7 @@ internal object GlbReader {
     require(version == GLTF_VERSION) { "Unsupported GLB version: $version" }
 
     val totalLength = readInt32LE(data, 8)
+    require(totalLength >= 12) { "GLB length field invalid: $totalLength" }
     require(totalLength <= data.size) { "GLB length $totalLength > data ${data.size}" }
 
     var offset = 12
@@ -29,13 +30,14 @@ internal object GlbReader {
       val chunkType = readInt32LE(data, offset + 4)
       offset += 8
 
+      require(chunkLength >= 0) { "Negative chunk length $chunkLength at offset ${offset - 8}" }
       require(offset + chunkLength <= totalLength) {
         "Chunk extends past file end (offset=$offset, len=$chunkLength, total=$totalLength)"
       }
 
       when (chunkType) {
-        // JSON chunk is padded with spaces (0x20) — trim for clean string
-        CHUNK_JSON -> json = data.decodeToString(offset, offset + chunkLength).trimEnd()
+        // JSON chunk is padded with spaces (0x20 per spec) — trim only spaces, not all whitespace
+        CHUNK_JSON -> json = data.decodeToString(offset, offset + chunkLength).trimEnd(' ')
         CHUNK_BIN -> bin = data.copyOfRange(offset, offset + chunkLength)
       // Unknown chunk types are silently skipped per spec
       }

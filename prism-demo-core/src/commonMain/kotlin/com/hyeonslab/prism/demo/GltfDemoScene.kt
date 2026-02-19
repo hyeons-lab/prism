@@ -106,8 +106,7 @@ suspend fun createGltfDemoScene(
 private fun uploadGltfTextures(renderer: Renderer, asset: GltfAsset) {
   for ((assetTexture, imageData) in asset.textures.zip(asset.imageData)) {
     if (imageData == null) continue
-    val created = renderer.createTexture(assetTexture.descriptor)
-    assetTexture.handle = created.handle
+    renderer.initializeTexture(assetTexture)
     renderer.uploadTextureData(assetTexture, imageData.pixels)
   }
 }

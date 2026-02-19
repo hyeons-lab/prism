@@ -115,6 +115,16 @@ class PrismWebEngine {
     web.window.addEventListener('prism-wasm-ready', readyListener);
     web.window.addEventListener('prism-wasm-error', errorListener);
 
+    // Fail-safe: if neither event fires within 15 s, complete with an error and allow retry.
+    Future<void>.delayed(const Duration(seconds: 15), () {
+      if (!completer.isCompleted) {
+        _wasmLoadingFuture = null;
+        cleanup();
+        completer.completeError(
+            'Prism WASM module load timed out after 15 seconds');
+      }
+    });
+
     web.document.head!.appendChild(script);
     return _wasmLoadingFuture!;
   }

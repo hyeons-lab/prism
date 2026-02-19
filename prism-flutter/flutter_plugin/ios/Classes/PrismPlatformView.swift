@@ -124,14 +124,17 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     }
 
     private func showErrorLabel(message: String) {
-        containerView.subviews.forEach { $0.removeFromSuperview() }
+        // Remove any previous error label but keep the mtkView intact so Metal resources are not
+        // unnecessarily torn down. Error is displayed as an overlay on top of the metal view.
+        containerView.viewWithTag(999)?.removeFromSuperview()
         let label = UILabel(frame: containerView.bounds)
+        label.tag = 999
         label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         label.text = message
         label.textAlignment = .center
         label.textColor = .white
         label.numberOfLines = 0
-        label.backgroundColor = .darkGray
+        label.backgroundColor = UIColor.darkGray.withAlphaComponent(0.85)
         containerView.addSubview(label)
     }
 

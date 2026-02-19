@@ -63,6 +63,44 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 ## Issues
 2026-02-19 Android PrismPlatformView.kt (M11) had stale pre-M9 code (createDemoScene with initialColor param, cubeEntity, DemoUiState.cubeColor) — M11 was implemented before M9 PBR; fixed by complete rewrite
 
+## What Changed (review fixes)
+2026-02-19 prism-renderer/src/.../Texture.kt — `val descriptor` → `var descriptor` (allows post-load sRGB format assignment)
+2026-02-19 prism-renderer/src/.../Texture.kt — TextureDescriptor gets separate `minFilter`/`magFilter` fields
+2026-02-19 prism-renderer/src/.../Renderer.kt — add `initializeTexture(texture: Texture)` default method (in-place GPU init)
+2026-02-19 prism-assets/src/.../ImageDecoder.kt — `unpremultiplyAlpha()` bounds check: `require(size % 4 == 0)`
+2026-02-19 prism-assets/src/.../GlbReader.kt — require totalLength >= 12; require chunkLength >= 0; `trimEnd(' ')` (spec-correct padding trim)
+2026-02-19 prism-assets/src/.../GltfLoader.kt — texture format assignment (sRGB for albedo/emissive, UNORM for normals/MR/occlusion); normalized int accessor support (UBYTE/USHORT/BYTE/SHORT); primitive mode check (skip non-TRIANGLES); scene graph cycle detection; bounds check for accessor reads; negative scale decompose (determinant check); separate minFilter/magFilter from sampler; imageData now parallel to textures (not images)
+2026-02-19 prism-assets/src/.../GltfAsset.kt — doc comment fix: imageData is parallel to textures, not images; default material for null node.material
+2026-02-19 prism-demo-core/src/.../GltfDemoScene.kt — use `renderer.initializeTexture(assetTexture)` instead of createTexture + handle copy
+2026-02-19 prism-renderer/src/.../WgpuRenderer.kt — dynamic object UBO pool (lazy-growing array of buffer+bindgroup pairs); all materials routed through cache; per-frame material uniform refresh (hdrEnabledForFrame always current); sampler cache keyed by SamplerKey(min/mag/wrapU/wrapV); `initializeTexture()` override; resize guard (width/height <= 0); remove single shared objectUniformBuffer/objectBindGroup; remove writePbrMaterialUniforms() (inlined)
+2026-02-19 prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt — `suspendCoroutine` → `suspendCancellableCoroutine`; 4-byte chunked GLB copy (4× fewer JS boundary crossings); `int8ArrayReadInt32LE` @JsFun helper
+2026-02-19 prism-flutter/flutter_plugin/android/.../PrismPlatformView.kt — touch listener returns `true` for ACTION_UP/ACTION_CANCEL
+2026-02-19 prism-flutter/flutter_plugin/ios/Classes/PrismPlatformView.swift — `showErrorLabel()` overlays label (tag 999) without removing mtkView
+2026-02-19 prism-flutter/flutter_plugin/example/lib/main.dart — pause button debounce (750ms window after toggle, suppress state poll)
+2026-02-19 prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart — 15-second timeout for WASM module load
+2026-02-19 docs/gltf-demo.js — `accessorData()` handles byteStride (strided fallback); sRGB swap chain warning; GLB chunk type validation
+2026-02-19 prism-assets/src/commonTest/.../GltfLoaderTest.kt — 8 new tests: mode rejection, cycle detection, normalized UBYTE UVs, negative scale, sRGB/UNORM format assignment, imageData parallel to textures
+2026-02-19 prism-assets/src/commonTest/.../GlbReaderTest.kt — 3 new tests: negative totalLength, negative chunkLength, space-padded JSON trim
+2026-02-19 prism-assets/src/commonTest/.../UnpremultiplyTest.kt — 2 new tests: non-multiple-of-4 throws, empty array no-op
+
+## Decisions (review fixes)
+2026-02-19 Object UBO pool pattern chosen over per-frame recreate — pool grows lazily (max ~256 draws), reset index each beginRenderPass; avoids GPU allocation per frame
+2026-02-19 All materials routed through getOrCreateMaterialBindGroup() — eliminates the shared pbrMaterialUniformBuffer overwrite race; simple, cache-friendly
+2026-02-19 SamplerKey data class for sampler cache — most models use 1-2 unique samplers; cache eliminates redundant createSampler() calls
+
+## Progress
+- [x] Build setup: add kotlinx-serialization to prism-assets
+- [x] GltfTypes.kt — internal serializable JSON schema types
+- [x] GlbReader.kt — GLB binary container parser
+- [x] ImageDecoder.kt — expect/actual image decoding (RGBA8 pixels)
+- [x] GltfAsset.kt — public Prism type with meshes, materials, textures, scene nodes
+- [x] GltfLoader.kt — AssetLoader<GltfAsset> orchestrator
+- [x] Update MeshLoader.kt (remove gltf/glb extensions)
+- [x] Update AssetManager.kt (register GltfLoader)
+- [x] Unit tests (GlbReaderTest, GltfLoaderTest, UnpremultiplyTest)
+- [x] Demo integration (DamagedHelmet.glb via GltfDemoScene + Flutter)
+- [x] Review fixes: loader correctness, renderer architecture, platform integration, docs
+
 ## Commits
 89e524d — chore: add devlog and plan for glTF 2.0 asset loading (M10)
 754bf3e — feat: implement glTF 2.0 asset loading (M10)

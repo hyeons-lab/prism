@@ -38,8 +38,16 @@ class GltfLoader : AssetLoader<GltfAsset> {
     val imageDataList = decodeImages(doc, buffers, basePath)
     val textures = buildTextures(doc, imageDataList)
     val materials = buildMaterials(doc, textures)
+    // Assign sRGB format to albedo and emissive textures; all others stay RGBA8_UNORM (linear).
+    assignTextureFormats(textures, materials)
+    // Build imageData parallel to textures (not images) so asset.textures.zip(asset.imageData)
+    // works correctly even when multiple textures share the same image source.
+    val textureImageData =
+      (doc.textures ?: emptyList()).map { gltfTex ->
+        gltfTex.source?.let { imageDataList.getOrNull(it) }
+      }
     val renderableNodes = traverseDefaultScene(doc, buffers, materials)
-    return GltfAsset(textures, imageDataList, renderableNodes)
+    return GltfAsset(textures, textureImageData, renderableNodes)
   }
 
   // ===== Buffer resolution =====
@@ -117,7 +125,15 @@ class GltfLoader : AssetLoader<GltfAsset> {
       val sampler = gltfTex.sampler?.let { doc.samplers?.getOrNull(it) }
       val img = gltfTex.source?.let { doc.images?.getOrNull(it) }
 
-      val filter =
+      // Separate min and mag filters — minFilter may include mipmap variants.
+      val minF =
+        when (sampler?.minFilter) {
+          FILTER_NEAREST,
+          FILTER_NEAREST_MIPMAP_NEAREST,
+          FILTER_NEAREST_MIPMAP_LINEAR -> TextureFilter.NEAREST
+          else -> TextureFilter.LINEAR
+        }
+      val magF =
         when (sampler?.magFilter) {
           FILTER_NEAREST -> TextureFilter.NEAREST
           else -> TextureFilter.LINEAR
@@ -135,19 +151,38 @@ class GltfLoader : AssetLoader<GltfAsset> {
           else -> TextureWrap.REPEAT
         }
 
+      // Default to RGBA8_UNORM (linear); assignTextureFormats() promotes albedo/emissive to sRGB.
       Texture(
         TextureDescriptor(
           width = imgData?.width ?: 1,
           height = imgData?.height ?: 1,
-          format = TextureFormat.RGBA8_SRGB,
-          minFilter = filter,
-          magFilter = filter,
+          format = TextureFormat.RGBA8_UNORM,
+          minFilter = minF,
+          magFilter = magF,
           wrapU = wrapU,
           wrapV = wrapV,
           label = img?.name ?: gltfTex.name ?: "",
         )
       )
     }
+
+  /**
+   * Promotes albedo and emissive textures from [TextureFormat.RGBA8_UNORM] to
+   * [TextureFormat.RGBA8_SRGB]. Normal-map, metallic-roughness, and occlusion textures must remain
+   * linear (UNORM) for correct PBR math.
+   */
+  private fun assignTextureFormats(textures: List<Texture>, materials: List<Material>) {
+    val srgbTextures = mutableSetOf<Texture>()
+    for (mat in materials) {
+      mat.albedoTexture?.let { srgbTextures.add(it) }
+      mat.emissiveTexture?.let { srgbTextures.add(it) }
+    }
+    for (tex in textures) {
+      if (tex in srgbTextures) {
+        tex.descriptor = tex.descriptor.copy(format = TextureFormat.RGBA8_SRGB)
+      }
+    }
+  }
 
   // ===== Material building =====
 
@@ -189,8 +224,13 @@ class GltfLoader : AssetLoader<GltfAsset> {
     val sceneIdx = doc.scene ?: 0
     val scene = doc.scenes?.getOrNull(sceneIdx) ?: return emptyList()
     val result = mutableListOf<GltfNodeData>()
+    val visited = mutableSetOf<Int>()
 
     fun traverse(nodeIdx: Int, parentWorld: Mat4) {
+      if (!visited.add(nodeIdx)) {
+        Logger.w(TAG) { "Scene graph cycle detected at node $nodeIdx — skipping" }
+        return
+      }
       val node = nodes.getOrNull(nodeIdx) ?: return
       val local = nodeLocalTransform(node)
       val world = parentWorld * local
@@ -225,6 +265,13 @@ class GltfLoader : AssetLoader<GltfAsset> {
     buffers: List<ByteArray?>,
     label: String,
   ): Mesh? {
+    // Only TRIANGLES (mode 4) supported; null defaults to TRIANGLES per spec.
+    val mode = prim.mode ?: PRIMITIVE_TRIANGLES
+    if (mode != PRIMITIVE_TRIANGLES) {
+      Logger.w(TAG) { "Primitive '$label' uses unsupported mode $mode (only TRIANGLES supported)" }
+      return null
+    }
+
     val posIdx =
       prim.attributes["POSITION"]
         ?: run {
@@ -298,14 +345,32 @@ class GltfLoader : AssetLoader<GltfAsset> {
     val bv = doc.bufferViews?.getOrNull(bvIdx) ?: return null
     val buf = buffers.getOrNull(bv.buffer) ?: return null
 
-    val tightStride = componentCount * BYTES_PER_FLOAT
+    val componentBytes = componentTypeBytes(acc.componentType)
+    val tightStride = componentCount * componentBytes
     val stride = if ((bv.byteStride ?: 0) > 0) bv.byteStride!! else tightStride
     val baseOffset = bv.byteOffset + acc.byteOffset
+
+    // Bounds check: verify last element fits within buffer
+    if (acc.count > 0) {
+      val lastByte = baseOffset + (acc.count - 1) * stride + componentCount * componentBytes - 1
+      if (lastByte >= buf.size) {
+        Logger.w(TAG) {
+          "Accessor $accessorIdx data extends past buffer end " +
+            "(lastByte=$lastByte, bufSize=${buf.size}) — skipping"
+        }
+        return null
+      }
+    }
 
     return FloatArray(acc.count * componentCount) { idx ->
       val element = idx / componentCount
       val component = idx % componentCount
-      readF32LE(buf, baseOffset + element * stride + component * BYTES_PER_FLOAT)
+      readComponentAsFloat(
+        buf,
+        baseOffset + element * stride + component * componentBytes,
+        acc.componentType,
+        acc.normalized,
+      )
     }
   }
 
@@ -329,10 +394,28 @@ class GltfLoader : AssetLoader<GltfAsset> {
     val stride = if ((bv.byteStride ?: 0) > 0) bv.byteStride!! else componentBytes
     val baseOffset = bv.byteOffset + acc.byteOffset
 
+    // Bounds check: verify last element fits within buffer
+    if (acc.count > 0) {
+      val lastByte = baseOffset + (acc.count - 1) * stride + componentBytes - 1
+      if (lastByte >= buf.size) {
+        Logger.w(TAG) {
+          "Index accessor $accessorIdx extends past buffer " +
+            "(lastByte=$lastByte, bufSize=${buf.size}) — skipping"
+        }
+        return null
+      }
+    }
+
     return IntArray(acc.count) { i ->
       val offset = baseOffset + i * stride
       when (acc.componentType) {
-        COMP_UINT -> readI32LE(buf, offset)
+        COMP_UINT -> {
+          val value = readI32LE(buf, offset)
+          if (value < 0) {
+            Logger.w(TAG) { "UINT index $i has value > 2^31 — using as signed: $value" }
+          }
+          value
+        }
         COMP_USHORT -> readU16LE(buf, offset)
         COMP_UBYTE -> buf[offset].toInt() and 0xFF
         else -> 0
@@ -368,14 +451,18 @@ class GltfLoader : AssetLoader<GltfAsset> {
     val tx = d[12]
     val ty = d[13]
     val tz = d[14]
-    // Scale = magnitude of each column's upper-3 elements
-    val sx = sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2])
+    // Check determinant of upper-left 3x3 to detect negative scale (reflection).
+    val det =
+      d[0] * (d[5] * d[10] - d[6] * d[9]) - d[4] * (d[1] * d[10] - d[2] * d[9]) +
+        d[8] * (d[1] * d[6] - d[2] * d[5])
+    // Scale = magnitude of each column's upper-3 elements; negate sx if reflected.
+    val sx = sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) * if (det < 0f) -1f else 1f
     val sy = sqrt(d[4] * d[4] + d[5] * d[5] + d[6] * d[6])
     val sz = sqrt(d[8] * d[8] + d[9] * d[9] + d[10] * d[10])
     // Normalize columns to get pure rotation matrix
-    val r00 = if (sx > 0f) d[0] / sx else 0f
-    val r10 = if (sx > 0f) d[1] / sx else 0f
-    val r20 = if (sx > 0f) d[2] / sx else 0f
+    val r00 = if (sx != 0f) d[0] / sx else 0f
+    val r10 = if (sx != 0f) d[1] / sx else 0f
+    val r20 = if (sx != 0f) d[2] / sx else 0f
     val r01 = if (sy > 0f) d[4] / sy else 0f
     val r11 = if (sy > 0f) d[5] / sy else 0f
     val r21 = if (sy > 0f) d[6] / sy else 0f
@@ -403,6 +490,38 @@ class GltfLoader : AssetLoader<GltfAsset> {
 
   // ===== Low-level byte utilities =====
 
+  /**
+   * Reads a single component from [data] at [offset], converting it to Float. Handles all glTF
+   * component types; integer types are normalized (divided to [0,1] or [-1,1]) when [normalized] is
+   * true.
+   */
+  private fun readComponentAsFloat(
+    data: ByteArray,
+    offset: Int,
+    componentType: Int,
+    normalized: Boolean,
+  ): Float =
+    when (componentType) {
+      COMP_FLOAT -> readF32LE(data, offset)
+      COMP_UBYTE -> {
+        val raw = data[offset].toInt() and 0xFF
+        if (normalized) raw / 255.0f else raw.toFloat()
+      }
+      COMP_BYTE -> {
+        val raw = data[offset].toInt()
+        if (normalized) (raw / 127.0f).coerceIn(-1f, 1f) else raw.toFloat()
+      }
+      COMP_USHORT -> {
+        val raw = readU16LE(data, offset)
+        if (normalized) raw / 65535.0f else raw.toFloat()
+      }
+      COMP_SHORT -> {
+        val raw = readI16LE(data, offset)
+        if (normalized) (raw / 32767.0f).coerceIn(-1f, 1f) else raw.toFloat()
+      }
+      else -> readF32LE(data, offset)
+    }
+
   private fun readF32LE(data: ByteArray, offset: Int): Float {
     val bits =
       (data[offset].toInt() and 0xFF) or
@@ -420,6 +539,11 @@ class GltfLoader : AssetLoader<GltfAsset> {
 
   private fun readU16LE(data: ByteArray, offset: Int): Int =
     (data[offset].toInt() and 0xFF) or ((data[offset + 1].toInt() and 0xFF) shl 8)
+
+  private fun readI16LE(data: ByteArray, offset: Int): Int {
+    val raw = readU16LE(data, offset)
+    return if (raw >= 0x8000) raw - 0x10000 else raw
+  }
 
   @OptIn(ExperimentalEncodingApi::class)
   private fun decodeDataUri(uri: String): ByteArray {
@@ -442,14 +566,31 @@ class GltfLoader : AssetLoader<GltfAsset> {
       else -> 1
     }
 
+  /** Returns the byte size of a single component for the given glTF component type. */
+  private fun componentTypeBytes(componentType: Int): Int =
+    when (componentType) {
+      COMP_BYTE,
+      COMP_UBYTE -> 1
+      COMP_SHORT,
+      COMP_USHORT -> 2
+      COMP_UINT,
+      COMP_FLOAT -> 4
+      else -> 4
+    }
+
   companion object {
     private const val TAG = "GltfLoader"
     private const val FLOATS_PER_VERTEX = 12 // positionNormalUvTangent
-    private const val BYTES_PER_FLOAT = 4
+    private const val PRIMITIVE_TRIANGLES = 4
+    private const val COMP_BYTE = 5120
     private const val COMP_UBYTE = 5121
+    private const val COMP_SHORT = 5122
     private const val COMP_USHORT = 5123
     private const val COMP_UINT = 5125
+    private const val COMP_FLOAT = 5126
     private const val FILTER_NEAREST = 9728
+    private const val FILTER_NEAREST_MIPMAP_NEAREST = 9984
+    private const val FILTER_NEAREST_MIPMAP_LINEAR = 9986
     private const val WRAP_REPEAT = 10497
     private const val WRAP_CLAMP = 33071
     private const val WRAP_MIRRORED = 33648

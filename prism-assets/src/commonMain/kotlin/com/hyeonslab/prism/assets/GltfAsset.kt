@@ -33,7 +33,11 @@ data class GltfNodeData(
 class GltfAsset(
   /** All GPU textures referenced by the asset's materials. */
   val textures: List<Texture>,
-  /** Raw pixel data (RGBA8) for each texture. Parallel to [textures]; null if decode failed. */
+  /**
+   * Raw pixel data (RGBA8) for each texture, parallel to [textures]. Each entry is null if the
+   * corresponding image failed to decode. Multiple textures may share the same source image — this
+   * list is built per-texture (not per-image) to keep indexing consistent.
+   */
   val imageData: List<ImageData?>,
   /** Renderable nodes from the default scene, with pre-multiplied world-space transforms. */
   val renderableNodes: List<GltfNodeData>,

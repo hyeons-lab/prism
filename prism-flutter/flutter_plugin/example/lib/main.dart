@@ -37,6 +37,7 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   bool _isPaused = false;
   double _fps = 0.0;
   Timer? _pollTimer;
+  DateTime? _lastPauseToggle;
 
   @override
   void initState() {
@@ -50,7 +51,14 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
       if (mounted) {
         setState(() {
           _fps = (state['fps'] as num?)?.toDouble() ?? 0.0;
-          _isPaused = (state['isPaused'] as bool?) ?? false;
+          // Debounce: don't overwrite _isPaused from poll within 750 ms of a user toggle to
+          // prevent the UI from flickering back to the pre-toggle state before the engine catches up.
+          final sinceToggle = _lastPauseToggle != null
+              ? DateTime.now().difference(_lastPauseToggle!)
+              : const Duration(seconds: 999);
+          if (sinceToggle > const Duration(milliseconds: 750)) {
+            _isPaused = (state['isPaused'] as bool?) ?? false;
+          }
         });
       }
     });
@@ -86,7 +94,10 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
             child: Center(
               child: FilledButton.icon(
                 onPressed: () {
-                  setState(() => _isPaused = !_isPaused);
+                  setState(() {
+                    _isPaused = !_isPaused;
+                    _lastPauseToggle = DateTime.now();
+                  });
                   _engine.togglePause();
                 },
                 icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),

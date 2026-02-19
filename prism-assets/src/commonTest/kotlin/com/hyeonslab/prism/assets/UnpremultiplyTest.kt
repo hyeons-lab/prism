@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.assets
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import kotlin.test.Test
 
@@ -56,6 +57,19 @@ class UnpremultiplyTest {
     pixels[0].u shouldBe 255
     pixels[1].u shouldBe 255
     pixels[2].u shouldBe 255
+  }
+
+  @Test
+  fun unpremultiplyAlpha_nonMultipleOf4Size_throwsIllegalArgumentException() {
+    val pixels = byteArrayOf(100.b, 120.b, 80.b) // 3 bytes — not a multiple of 4
+    shouldThrow<IllegalArgumentException> { pixels.unpremultiplyAlpha() }
+  }
+
+  @Test
+  fun unpremultiplyAlpha_emptyArray_noOp() {
+    val pixels = byteArrayOf()
+    pixels.unpremultiplyAlpha() // should not throw
+    pixels.size shouldBe 0
   }
 
   // Helpers to reduce verbosity for out-of-range byte literals

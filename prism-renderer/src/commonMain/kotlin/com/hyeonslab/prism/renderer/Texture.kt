@@ -74,7 +74,7 @@ data class TextureDescriptor(
  *
  * @param descriptor The texture configuration used to create this texture.
  */
-class Texture(val descriptor: TextureDescriptor) {
+class Texture(var descriptor: TextureDescriptor) {
   /** Platform-specific GPU handle. */
   var handle: Any? = null
 

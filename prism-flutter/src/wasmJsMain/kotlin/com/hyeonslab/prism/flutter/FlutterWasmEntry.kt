@@ -11,11 +11,11 @@ import com.hyeonslab.prism.demo.createGltfDemoScene
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import web.html.HTMLCanvasElement
 
 @JsFun(
@@ -76,6 +76,12 @@ private external fun fetchGlbJs(url: String, onSuccess: (JsAny) -> Unit, onError
 
 @JsFun("(arr, i) => arr[i]") private external fun int8ArrayByte(arr: JsAny, i: Int): Byte
 
+/** Reads 4 bytes as a little-endian signed Int32 — 4× fewer JS boundary crossings vs byte reads. */
+@JsFun(
+  "(arr, i) => (arr[i] & 0xFF) | ((arr[i+1] & 0xFF) << 8) | ((arr[i+2] & 0xFF) << 16) | ((arr[i+3] & 0xFF) << 24)"
+)
+private external fun int8ArrayReadInt32LE(arr: JsAny, i: Int): Int
+
 private val log = Logger.withTag("PrismFlutterWeb")
 
 /** Per-canvas engine instance state. */
@@ -101,12 +107,26 @@ fun main() {
  * Fetches a binary resource via JS fetch and returns its bytes. Returns null on failure. Sensitive
  * to same-origin policy — relative URLs are resolved against the page origin.
  */
-private suspend fun fetchGlbBytes(url: String): ByteArray? = suspendCoroutine { cont ->
+private suspend fun fetchGlbBytes(url: String): ByteArray? = suspendCancellableCoroutine { cont ->
   fetchGlbJs(
     url,
     onSuccess = { jsArr ->
       val len = int8ArrayLength(jsArr)
-      val bytes = ByteArray(len) { i -> int8ArrayByte(jsArr, i) }
+      // Read in 4-byte (Int32) chunks to reduce JS–Kotlin boundary crossings by 4× vs byte reads.
+      val bytes = ByteArray(len)
+      val chunks = len / 4
+      for (c in 0 until chunks) {
+        val i = c * 4
+        val v = int8ArrayReadInt32LE(jsArr, i)
+        bytes[i] = (v and 0xFF).toByte()
+        bytes[i + 1] = ((v ushr 8) and 0xFF).toByte()
+        bytes[i + 2] = ((v ushr 16) and 0xFF).toByte()
+        bytes[i + 3] = ((v ushr 24) and 0xFF).toByte()
+      }
+      // Handle any trailing bytes (0–3 bytes when len is not a multiple of 4).
+      for (i in chunks * 4 until len) {
+        bytes[i] = int8ArrayByte(jsArr, i)
+      }
       cont.resume(bytes)
     },
     onError = { error ->
