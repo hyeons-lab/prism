@@ -101,7 +101,7 @@ class GltfLoader : AssetLoader<GltfAsset> {
         }
       bytes?.let {
         try {
-          ImageDecoder.decode(it)
+          ImageDecoder.decode(it, unpremultiply = true)
         } catch (e: Exception) {
           Logger.w(TAG) { "Failed to decode image: ${e.message}" }
           null

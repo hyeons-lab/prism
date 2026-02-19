@@ -21,13 +21,7 @@ import platform.ImageIO.CGImageSourceCreateImageAtIndex
 import platform.ImageIO.CGImageSourceCreateWithData
 
 actual object ImageDecoder {
-  /**
-   * Decodes PNG/JPEG/etc. bytes into RGBA8 pixel data using CoreGraphics.
-   *
-   * Alpha is premultiplied (kCGImageAlphaPremultipliedLast), which is identical to straight alpha
-   * for fully opaque textures.
-   */
-  actual fun decode(bytes: ByteArray): ImageData? {
+  actual fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
     // Wrap ByteArray in CFData
     val cfData =
       bytes.usePinned { pinned ->
@@ -77,6 +71,9 @@ actual object ImageDecoder {
     }
 
     CGImageRelease(cgImage)
+
+    // kCGImageAlphaPremultipliedLast produces premultiplied RGBA; un-premultiply if requested.
+    if (unpremultiply) pixels.unpremultiplyAlpha()
     return ImageData(width, height, pixels)
   }
 }
