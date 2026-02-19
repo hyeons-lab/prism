@@ -23,6 +23,7 @@ class _PrismRenderViewState extends State<PrismRenderView> {
   late final String _canvasId;
   late final String _viewType;
   bool _initialized = false;
+  bool _initializing = false;
   web.HTMLCanvasElement? _canvas;
 
   @override
@@ -44,8 +45,8 @@ class _PrismRenderViewState extends State<PrismRenderView> {
   }
 
   Future<void> _initEngine(int width, int height) async {
-    if (_initialized) return;
-    _initialized = true;
+    if (_initialized || _initializing) return;
+    _initializing = true;
 
     final canvas = _canvas;
     if (canvas != null) {
@@ -54,8 +55,16 @@ class _PrismRenderViewState extends State<PrismRenderView> {
     }
 
     widget.engine.attachCanvas(_canvasId);
-    await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
-    PrismWebEngine.init(_canvasId);
+    try {
+      await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
+      PrismWebEngine.init(_canvasId);
+      _initialized = true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Prism: WASM init failed for $_canvasId: $e');
+    } finally {
+      _initializing = false;
+    }
   }
 
   @override

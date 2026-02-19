@@ -36,6 +36,7 @@ external void _prismShutdown(String canvasId);
 class PrismWebEngine {
   static bool _wasmLoaded = false;
   static String? _loadedModuleUrl;
+  static Future<void>? _wasmLoadingFuture;
 
   /// Load the Kotlin/WASM module and expose its @JsExport functions globally.
   ///
@@ -43,9 +44,11 @@ class PrismWebEngine {
   /// (e.g., 'prism-flutter.mjs'). The WASM binary must be co-located.
   ///
   /// Only the first call triggers loading; subsequent calls with the same URL
-  /// return immediately. A call with a different URL logs a warning and returns
-  /// without re-loading (hot-swap is not supported).
-  static Future<void> ensureWasmLoaded(String moduleUrl) async {
+  /// return immediately. Concurrent callers before loading completes await the
+  /// same in-flight [Future] so the module is only imported once.
+  /// A call with a different URL logs a warning and returns without re-loading
+  /// (hot-swap is not supported).
+  static Future<void> ensureWasmLoaded(String moduleUrl) {
     if (_wasmLoaded) {
       if (_loadedModuleUrl != null && _loadedModuleUrl != moduleUrl) {
         web.console.warn(
@@ -53,10 +56,17 @@ class PrismWebEngine {
                     'ignoring request for $moduleUrl'
                 .toJS);
       }
-      return;
+      return Future.value();
+    }
+
+    // If a load is already in flight, return the same Future so concurrent
+    // callers all await the same operation rather than injecting duplicate scripts.
+    if (_wasmLoadingFuture != null) {
+      return _wasmLoadingFuture!;
     }
 
     final completer = Completer<void>();
+    _wasmLoadingFuture = completer.future;
 
     // Create an inline ES module script that:
     // 1. Dynamically imports the Kotlin/WASM entry point
@@ -102,6 +112,7 @@ class PrismWebEngine {
       if (!completer.isCompleted) completer.complete();
     }).toJS;
     errorListener = ((web.Event e) {
+      _wasmLoadingFuture = null; // allow retry on next call
       cleanup();
       if (!completer.isCompleted) {
         completer
@@ -113,7 +124,7 @@ class PrismWebEngine {
     web.window.addEventListener('prism-wasm-error', errorListener);
 
     web.document.head!.appendChild(script);
-    return completer.future;
+    return _wasmLoadingFuture!;
   }
 
   static void init(String canvasId) => _prismInit(canvasId);

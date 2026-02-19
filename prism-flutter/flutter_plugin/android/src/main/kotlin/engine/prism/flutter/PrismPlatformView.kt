@@ -157,8 +157,8 @@ class PrismPlatformView(
         angle = accumulatedAngle,
       )
     } catch (e: Exception) {
-      log.e(e) { "Render error on frame $frameCount" }
-      running = false
+      log.e(e) { "Render error on frame $frameCount — stopping render loop and releasing GPU resources" }
+      stopRendering()
       return
     }
 

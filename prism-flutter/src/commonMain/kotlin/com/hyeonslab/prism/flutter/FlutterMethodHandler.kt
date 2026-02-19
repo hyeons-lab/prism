@@ -35,9 +35,9 @@ class FlutterMethodHandler(private val bridge: PrismBridge) {
       "getState" -> {
         val state = bridge.state.value
         mapOf(
-          "rotationSpeed" to state.rotationSpeed,
+          "rotationSpeed" to state.rotationSpeed.toDouble(),
           "isPaused" to state.isPaused,
-          "fps" to state.fps,
+          "fps" to state.fps.toDouble(),
         )
       }
       "shutdown" -> {

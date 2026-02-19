@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prism_flutter/prism_flutter.dart';
 
@@ -35,7 +37,7 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
 
   @override
   void dispose() {
-    _engine.shutdown();
+    unawaited(_engine.shutdown());
     super.dispose();
   }
 

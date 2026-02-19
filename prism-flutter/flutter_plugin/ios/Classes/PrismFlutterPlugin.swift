@@ -57,8 +57,7 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
             result(true)
 
         case "isInitialized":
-            // The platform view manages its own initialization
-            result(true)
+            result(activePlatformView?.isReady ?? false)
 
         case "getState":
             let state = store.state.value

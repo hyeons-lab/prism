@@ -40,6 +40,9 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     private var isInitialized = false
     private let store: DemoStore
 
+    /// True once `configureDemo` has completed successfully and a render handle exists.
+    var isReady: Bool { demoHandle != nil }
+
     init(frame: CGRect, store: DemoStore) {
         self.store = store
         self.containerView = UIView(frame: frame)
@@ -86,17 +89,40 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
 
     private func initializeIfNeeded() {
         guard !isInitialized, let mtkView = mtkView else { return }
-        isInitialized = true
+        isInitialized = true // guard against re-entry while async init is in flight
 
         IosDemoControllerKt.configureDemo(view: mtkView, store: store) { [weak self] handle, error in
+            guard let self = self else { return }
+
             if let error = error {
                 NSLog("Prism Flutter: configureDemo failed: \(error.localizedDescription)")
+                self.isInitialized = false // allow retry on next layout pass
+                self.showErrorLabel(message: "Rendering failed: \(error.localizedDescription)")
                 return
             }
-            guard let self = self, let handle = handle else { return }
+
+            guard let handle = handle else {
+                NSLog("Prism Flutter: configureDemo returned nil handle")
+                self.isInitialized = false
+                self.showErrorLabel(message: "Rendering initialization failed.")
+                return
+            }
+
             self.demoHandle = handle
             self.mtkView?.isPaused = false
         }
+    }
+
+    private func showErrorLabel(message: String) {
+        containerView.subviews.forEach { $0.removeFromSuperview() }
+        let label = UILabel(frame: containerView.bounds)
+        label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        label.text = message
+        label.textAlignment = .center
+        label.textColor = .white
+        label.numberOfLines = 0
+        label.backgroundColor = .darkGray
+        containerView.addSubview(label)
     }
 
     deinit {
