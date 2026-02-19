@@ -9,15 +9,17 @@ import 'package:web/web.dart' as web;
 @JS('prismInit')
 external void _prismInit(String canvasId);
 
-@JS('prismSetRotationSpeed')
-external void _prismSetRotationSpeed(String canvasId, double speed);
-
 @JS('prismTogglePause')
 external void _prismTogglePause(String canvasId);
 
-@JS('prismSetCubeColor')
-external void _prismSetCubeColor(
-    String canvasId, double r, double g, double b);
+@JS('prismSetMetallic')
+external void _prismSetMetallic(String canvasId, double metallic);
+
+@JS('prismSetRoughness')
+external void _prismSetRoughness(String canvasId, double roughness);
+
+@JS('prismSetEnvIntensity')
+external void _prismSetEnvIntensity(String canvasId, double intensity);
 
 @JS('prismGetState')
 external String _prismGetState(String canvasId);
@@ -81,9 +83,9 @@ class PrismWebEngine {
         if (typeof mod.default === "function") {
           await mod.default();
         }
-        const names = ["prismInit", "prismSetRotationSpeed", "prismTogglePause",
-                        "prismSetCubeColor", "prismGetState", "prismIsInitialized",
-                        "prismShutdown"];
+        const names = ["prismInit", "prismTogglePause",
+                        "prismSetMetallic", "prismSetRoughness", "prismSetEnvIntensity",
+                        "prismGetState", "prismIsInitialized", "prismShutdown"];
         for (const name of names) {
           if (typeof mod[name] === "function") {
             window[name] = mod[name];
@@ -129,15 +131,18 @@ class PrismWebEngine {
 
   static void init(String canvasId) => _prismInit(canvasId);
 
-  static Future<void> setRotationSpeed(String canvasId, double speed) async =>
-      _prismSetRotationSpeed(canvasId, speed);
-
   static Future<void> togglePause(String canvasId) async =>
       _prismTogglePause(canvasId);
 
-  static Future<void> setCubeColor(
-          String canvasId, double r, double g, double b) async =>
-      _prismSetCubeColor(canvasId, r, g, b);
+  static Future<void> setMetallic(String canvasId, double metallic) async =>
+      _prismSetMetallic(canvasId, metallic);
+
+  static Future<void> setRoughness(String canvasId, double roughness) async =>
+      _prismSetRoughness(canvasId, roughness);
+
+  static Future<void> setEnvIntensity(
+          String canvasId, double intensity) async =>
+      _prismSetEnvIntensity(canvasId, intensity);
 
   static Future<Map<String, dynamic>> getState(String canvasId) async {
     final json = _prismGetState(canvasId);

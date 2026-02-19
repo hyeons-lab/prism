@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 /// Mobile implementation of PrismEngine using platform method channels.
 ///
 /// The render loop is driven natively (Choreographer on Android, MTKView on iOS).
-/// This class provides control methods to adjust the demo scene.
+/// This class provides control methods to adjust the PBR demo scene.
 class PrismEngine {
   static const MethodChannel _channel =
       MethodChannel('engine.prism.flutter/engine');
@@ -11,25 +11,24 @@ class PrismEngine {
   /// No-op on mobile — canvas binding is only needed for web multi-instance support.
   void attachCanvas(String canvasId) {}
 
-  /// Set the cube rotation speed in degrees per second.
-  Future<void> setRotationSpeed(double degreesPerSecond) async {
-    await _channel.invokeMethod('setRotationSpeed', {
-      'speed': degreesPerSecond,
-    });
-  }
-
-  /// Toggle pause/resume of the rotation animation.
+  /// Toggle pause/resume of the render loop.
   Future<void> togglePause() async {
     await _channel.invokeMethod('togglePause');
   }
 
-  /// Set the cube color (RGB, 0.0 to 1.0).
-  Future<void> setCubeColor(double r, double g, double b) async {
-    await _channel.invokeMethod('setCubeColor', {
-      'r': r,
-      'g': g,
-      'b': b,
-    });
+  /// Set the metallic factor for the PBR spheres (0.0 to 1.0).
+  Future<void> setMetallic(double metallic) async {
+    await _channel.invokeMethod('setMetallic', {'metallic': metallic});
+  }
+
+  /// Set the roughness factor for the PBR spheres (0.0 to 1.0).
+  Future<void> setRoughness(double roughness) async {
+    await _channel.invokeMethod('setRoughness', {'roughness': roughness});
+  }
+
+  /// Set the environment (IBL) intensity (0.0 to 2.0).
+  Future<void> setEnvIntensity(double intensity) async {
+    await _channel.invokeMethod('setEnvIntensity', {'intensity': intensity});
   }
 
   /// Check if the native engine is initialized and rendering.
@@ -38,7 +37,7 @@ class PrismEngine {
     return result ?? false;
   }
 
-  /// Get the current engine state (rotationSpeed, isPaused, fps).
+  /// Get the current engine state (metallic, roughness, envIntensity, isPaused, fps).
   Future<Map<String, dynamic>> getState() async {
     final result = await _channel.invokeMethod<Map>('getState');
     return Map<String, dynamic>.from(result ?? {});

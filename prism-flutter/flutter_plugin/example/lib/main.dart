@@ -32,7 +32,9 @@ class PrismDemoPage extends StatefulWidget {
 
 class _PrismDemoPageState extends State<PrismDemoPage> {
   final _engine = PrismEngine();
-  double _rotationSpeed = 45.0;
+  double _metallic = 0.0;
+  double _roughness = 0.5;
+  double _envIntensity = 1.0;
   bool _isPaused = false;
 
   @override
@@ -44,74 +46,86 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Prism 3D Demo')),
+      appBar: AppBar(title: const Text('Prism PBR Demo')),
       body: Column(
         children: [
-          // 3D render view
+          // 3D render view — PBR sphere grid
           Expanded(
             child: PrismRenderView(engine: _engine),
           ),
-          // Controls
+          // PBR controls
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Rotation speed slider
+                // Metallic slider
                 Row(
                   children: [
-                    const Text('Speed'),
+                    const SizedBox(width: 80, child: Text('Metallic')),
                     Expanded(
                       child: Slider(
-                        value: _rotationSpeed,
+                        value: _metallic,
                         min: 0,
-                        max: 360,
+                        max: 1,
                         onChanged: (value) {
-                          setState(() => _rotationSpeed = value);
-                          _engine.setRotationSpeed(value);
+                          setState(() => _metallic = value);
+                          _engine.setMetallic(value);
                         },
                       ),
                     ),
-                    Text('${_rotationSpeed.toInt()}°/s'),
+                    Text(_metallic.toStringAsFixed(2)),
                   ],
                 ),
-                // Color buttons + pause
+                // Roughness slider
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _colorButton('Blue', 0.3, 0.5, 0.9),
-                    _colorButton('Red', 0.9, 0.2, 0.2),
-                    _colorButton('Green', 0.2, 0.8, 0.3),
-                    _colorButton('Gold', 0.9, 0.7, 0.1),
-                    FilledButton.icon(
-                      onPressed: () {
-                        setState(() => _isPaused = !_isPaused);
-                        _engine.togglePause();
-                      },
-                      icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
-                      label: Text(_isPaused ? 'Resume' : 'Pause'),
+                    const SizedBox(width: 80, child: Text('Roughness')),
+                    Expanded(
+                      child: Slider(
+                        value: _roughness,
+                        min: 0,
+                        max: 1,
+                        onChanged: (value) {
+                          setState(() => _roughness = value);
+                          _engine.setRoughness(value);
+                        },
+                      ),
                     ),
+                    Text(_roughness.toStringAsFixed(2)),
                   ],
+                ),
+                // Environment intensity slider
+                Row(
+                  children: [
+                    const SizedBox(width: 80, child: Text('Env IBL')),
+                    Expanded(
+                      child: Slider(
+                        value: _envIntensity,
+                        min: 0,
+                        max: 2,
+                        onChanged: (value) {
+                          setState(() => _envIntensity = value);
+                          _engine.setEnvIntensity(value);
+                        },
+                      ),
+                    ),
+                    Text(_envIntensity.toStringAsFixed(2)),
+                  ],
+                ),
+                // Pause button
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() => _isPaused = !_isPaused);
+                    _engine.togglePause();
+                  },
+                  icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                  label: Text(_isPaused ? 'Resume' : 'Pause'),
                 ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _colorButton(String label, double r, double g, double b) {
-    return FilledButton(
-      onPressed: () => _engine.setCubeColor(r, g, b),
-      style: FilledButton.styleFrom(
-        backgroundColor: Color.fromRGBO(
-          (r * 255).toInt(),
-          (g * 255).toInt(),
-          (b * 255).toInt(),
-          1.0,
-        ),
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white)),
     );
   }
 }
