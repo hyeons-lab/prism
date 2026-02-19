@@ -8,6 +8,7 @@ import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGSize
@@ -124,7 +125,7 @@ suspend fun configureDemoWithGltf(view: MTKView, store: DemoStore): IosDemoHandl
 private fun loadBundleAssetBytes(relativePath: String): ByteArray? {
   val resourcePath = NSBundle.mainBundle.resourcePath ?: return null
   val fullPath = "$resourcePath/$relativePath"
-  val nsData = NSData.dataWithContentsOfFile(fullPath) ?: return null
+  val nsData = NSData(contentsOfFile = fullPath) ?: return null
   val length = nsData.length.toInt()
   if (length == 0) return null
   val bytes = ByteArray(length)

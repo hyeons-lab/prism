@@ -11,6 +11,7 @@ import com.hyeonslab.prism.demo.createGltfDemoScene
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlin.coroutines.resume
+import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -214,11 +215,11 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
           instance.store.dispatch(DemoIntent.UpdateFps(smoothedFps))
         }
 
-        demoScene.tick(
-          deltaTime = if (state.isPaused) 0f else deltaTime,
-          elapsed = elapsed,
-          frameCount = instance.frameCount,
-        )
+        val effectiveDt = if (state.isPaused) 0f else deltaTime
+        // Auto-orbit the camera at the configured speed when not paused.
+        val rotRadPerSec = state.rotationSpeed * (PI.toFloat() / 180f)
+        demoScene.orbitBy(rotRadPerSec * effectiveDt, 0f)
+        demoScene.tick(deltaTime = effectiveDt, elapsed = elapsed, frameCount = instance.frameCount)
 
         requestAnimationFrame(::renderFrame)
       } catch (e: Throwable) {
