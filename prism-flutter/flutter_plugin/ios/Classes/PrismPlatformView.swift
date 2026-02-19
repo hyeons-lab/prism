@@ -94,7 +94,7 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
         let translation = recognizer.translation(in: containerView)
         recognizer.setTranslation(.zero, in: containerView)
-        demoHandle?.orbitBy(dx: Float(translation.x) * 0.005, dy: Float(translation.y) * 0.005)
+        demoHandle?.orbitBy(dx: -Float(translation.x) * 0.005, dy: Float(translation.y) * 0.005)
     }
 
     private func initializeIfNeeded() {

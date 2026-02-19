@@ -187,7 +187,7 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
     // Drag-to-rotate: pointer drag on the canvas.
     // dx/dy are in CSS pixels; multiply by sensitivity (radians per pixel).
     addPointerDragListeners(canvas) { dx, dy ->
-      demoScene.orbitBy(dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
+      demoScene.orbitBy(-dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
     }
 
     instance.startTime = performanceNow()

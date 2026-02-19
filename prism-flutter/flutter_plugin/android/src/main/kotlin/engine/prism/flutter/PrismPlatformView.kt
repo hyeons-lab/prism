@@ -82,7 +82,7 @@ class PrismPlatformView(
           val dy = event.y - lastTouchY
           lastTouchX = event.x
           lastTouchY = event.y
-          scene?.orbitBy(dx * 0.005f, dy * 0.005f)
+          scene?.orbitBy(-dx * 0.005f, dy * 0.005f)
           true
         }
         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true

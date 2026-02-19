@@ -132,16 +132,21 @@ class PrismWebEngine {
   static void init(String canvasId) =>
       _prismInit(canvasId, 'DamagedHelmet.glb');
 
-  static Future<void> togglePause(String canvasId) async =>
-      _prismTogglePause(canvasId);
+  static Future<void> togglePause(String canvasId) async {
+    if (!_wasmLoaded) return;
+    _prismTogglePause(canvasId);
+  }
 
   static Future<Map<String, dynamic>> getState(String canvasId) async {
+    if (!_wasmLoaded) return {};
     final json = _prismGetState(canvasId);
     return jsonDecode(json) as Map<String, dynamic>;
   }
 
-  static Future<bool> isInitialized(String canvasId) async =>
-      _prismIsInitialized(canvasId);
+  static Future<bool> isInitialized(String canvasId) async {
+    if (!_wasmLoaded) return false;
+    return _prismIsInitialized(canvasId);
+  }
 
   static Future<void> shutdown(String canvasId) async =>
       _prismShutdown(canvasId);
