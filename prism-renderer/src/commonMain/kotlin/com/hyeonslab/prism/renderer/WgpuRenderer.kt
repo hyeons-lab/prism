@@ -72,6 +72,7 @@ import io.ygdrasil.webgpu.VertexBufferLayout
 import io.ygdrasil.webgpu.VertexState
 import io.ygdrasil.webgpu.WGPUContext
 import io.ygdrasil.webgpu.beginRenderPass
+import io.ygdrasil.webgpu.writeBuffer
 
 /**
  * WebGPU-based PBR renderer using wgpu4k.
@@ -149,6 +150,13 @@ class WgpuRenderer(
   // --- HDR render target ---
   /** When true, PBR renders to RGBA16Float then tone-maps to the swapchain each frame. */
   var hdrEnabled: Boolean = false
+
+  /**
+   * Snapshot of [hdrEnabled] taken at [beginRenderPass] — prevents a mid-frame toggle from causing
+   * a mismatch between the render target selected in beginRenderPass and the tone-map pass decision
+   * in endFrame (which would produce a black or garbled frame).
+   */
+  private var hdrEnabledForFrame: Boolean = false
 
   private var hdrTexture: WGPUTexture? = null
   private var hdrTextureView: WGPUTextureView? = null
@@ -259,7 +267,7 @@ class WgpuRenderer(
     val encoder = commandEncoder ?: error("No active command encoder")
     val ctx = frameContext ?: error("No active frame context")
 
-    if (hdrEnabled) {
+    if (hdrEnabledForFrame) {
       runToneMapPass(encoder)
     }
 
@@ -306,9 +314,12 @@ class WgpuRenderer(
     val surfaceView = with(ctx) { surfaceTexture.createView().bind() }
     currentSurfaceView = surfaceView // save for HDR tone map pass in endFrame
 
+    // Snapshot hdrEnabled once so beginRenderPass and endFrame agree on routing.
+    hdrEnabledForFrame = hdrEnabled
+
     val cc = descriptor.clearColor
     // HDR and sRGB targets both expect linear color values
-    val needsLinear = hdrEnabled || surfaceIsSrgb
+    val needsLinear = hdrEnabledForFrame || surfaceIsSrgb
     val clearColor =
       if (needsLinear) {
         val lc = cc.toLinear()
@@ -318,7 +329,8 @@ class WgpuRenderer(
       }
 
     // Route to HDR texture when enabled, otherwise directly to swapchain
-    val renderTarget = if (hdrEnabled && hdrTextureView != null) hdrTextureView!! else surfaceView
+    val renderTarget =
+      if (hdrEnabledForFrame && hdrTextureView != null) hdrTextureView!! else surfaceView
 
     val colorAttachment =
       RenderPassColorAttachment(
@@ -346,7 +358,7 @@ class WgpuRenderer(
     currentRenderPass = encoder.beginRenderPass(wgpuDescriptor)
 
     // Auto-bind appropriate PBR pipeline and scene/env bind groups
-    val pipeline = if (hdrEnabled) pbrPipelineHdr else pbrPipeline
+    val pipeline = if (hdrEnabledForFrame) pbrPipelineHdr else pbrPipeline
     val sceneBg = sceneBindGroup
     val envBg = envBindGroup
     if (pipeline != null && sceneBg != null && envBg != null) {
@@ -374,7 +386,7 @@ class WgpuRenderer(
     // This method allows updating just the position if needed.
     val buf = sceneUniformBuffer ?: return
     val posData = floatArrayOf(position.x, position.y, position.z)
-    device.queue.writeBuffer(buf, 64u, ArrayBuffer.of(posData))
+    device.queue.writeBuffer(buf, 64u, posData)
   }
 
   // ===== Lights =====
@@ -390,13 +402,13 @@ class WgpuRenderer(
         val lightFloats = lights[i].toFloatArray()
         lightFloats.copyInto(data, i * LightData.FLOAT_COUNT)
       }
-      device.queue.writeBuffer(buf, 0u, ArrayBuffer.of(data))
+      device.queue.writeBuffer(buf, 0u, data)
     }
 
     // Update numLights in scene uniforms (offset 76 = byte 76, u32)
     val sceneBuf = sceneUniformBuffer ?: return
     val numLightsData = floatArrayOf(Float.fromBits(count))
-    device.queue.writeBuffer(sceneBuf, 76u, ArrayBuffer.of(numLightsData))
+    device.queue.writeBuffer(sceneBuf, 76u, numLightsData)
   }
 
   // ===== Materials =====
@@ -553,7 +565,7 @@ class WgpuRenderer(
     // Enable IBL in env uniforms: envIntensity=1.0, maxMipLevel=mipLevels-1
     val maxMip = (ibl.prefilteredMipLevels - 1).toFloat()
     val envData = floatArrayOf(1f, maxMip, 0f, 0f)
-    device.queue.writeBuffer(envUniformBuffer!!, 0u, ArrayBuffer.of(envData))
+    device.queue.writeBuffer(envUniformBuffer!!, 0u, envData)
   }
 
   // ===== Resource creation =====
@@ -669,14 +681,17 @@ class WgpuRenderer(
     val vertexSizeBytes = (mesh.vertices.size * Float.SIZE_BYTES).toLong()
     val vertexBuffer = createBuffer(BufferUsage.VERTEX, vertexSizeBytes, "${mesh.label} Vertices")
     val gpuVertexBuffer = vertexBuffer.handle as WGPUBuffer
-    device.queue.writeBuffer(gpuVertexBuffer, 0u, ArrayBuffer.of(mesh.vertices))
+    device.queue.writeBuffer(gpuVertexBuffer, 0u, mesh.vertices)
     mesh.vertexBuffer = vertexBuffer
 
     if (mesh.isIndexed) {
       val indexSizeBytes = (mesh.indices.size * Int.SIZE_BYTES).toLong()
       val indexBuffer = createBuffer(BufferUsage.INDEX, indexSizeBytes, "${mesh.label} Indices")
       val gpuIndexBuffer = indexBuffer.handle as WGPUBuffer
-      device.queue.writeBuffer(gpuIndexBuffer, 0u, ArrayBuffer.of(mesh.indices))
+      // Reinterpret IntArray as FloatArray (same bit pattern) to use the byte-order-safe
+      // deprecated writeBuffer overload — avoids big-endian ByteBuffer on Android ARM64.
+      val indexAsFloats = FloatArray(mesh.indices.size) { Float.fromBits(mesh.indices[it]) }
+      device.queue.writeBuffer(gpuIndexBuffer, 0u, indexAsFloats)
       mesh.indexBuffer = indexBuffer
     }
   }
@@ -971,7 +986,7 @@ class WgpuRenderer(
 
     // Initialize env uniforms: envIntensity=0 (IBL disabled), maxMipLevel=0
     val envData = floatArrayOf(0f, 0f, 0f, 0f)
-    device.queue.writeBuffer(envUniformBuffer!!, 0u, ArrayBuffer.of(envData))
+    device.queue.writeBuffer(envUniformBuffer!!, 0u, envData)
 
     // Initialize scene ambient color
     val defaultScene = FloatArray(24) // 96 bytes / 4
@@ -979,7 +994,7 @@ class WgpuRenderer(
     defaultScene[20] = 0.15f
     defaultScene[21] = 0.15f
     defaultScene[22] = 0.15f
-    device.queue.writeBuffer(sceneUniformBuffer!!, 0u, ArrayBuffer.of(defaultScene))
+    device.queue.writeBuffer(sceneUniformBuffer!!, 0u, defaultScene)
 
     // Initialize material with white, metallic=0, roughness=0.5
     val defaultMat =
@@ -997,7 +1012,7 @@ class WgpuRenderer(
         0f,
         1f, // emissive (black)
       )
-    device.queue.writeBuffer(pbrMaterialUniformBuffer!!, 0u, ArrayBuffer.of(defaultMat))
+    device.queue.writeBuffer(pbrMaterialUniformBuffer!!, 0u, defaultMat)
   }
 
   private fun createDefaultBindGroups() {
@@ -1153,7 +1168,7 @@ class WgpuRenderer(
     device.queue.writeBuffer(
       toneMapParamsBuffer!!,
       0u,
-      ArrayBuffer.of(floatArrayOf(Float.fromBits(applySrgb), 0f, 0f, 0f)),
+      floatArrayOf(Float.fromBits(applySrgb), 0f, 0f, 0f),
     )
 
     val fragOnly = GPUShaderStage.Fragment
@@ -1257,7 +1272,7 @@ class WgpuRenderer(
     data[22] = 0.15f
     data[23] = 0f // pad
 
-    device.queue.writeBuffer(buf, 0u, ArrayBuffer.of(data))
+    device.queue.writeBuffer(buf, 0u, data)
   }
 
   private fun writeObjectUniforms(model: Mat4) {
@@ -1286,7 +1301,7 @@ class WgpuRenderer(
     data[26] = nm[2, 2]
     data[27] = 0f // padding
 
-    device.queue.writeBuffer(buf, 0u, ArrayBuffer.of(data))
+    device.queue.writeBuffer(buf, 0u, data)
   }
 
   private fun writePbrMaterialUniforms(material: Material) {
@@ -1300,9 +1315,9 @@ class WgpuRenderer(
     if (material.emissiveTexture != null) flags = flags or 16
 
     // HDR and sRGB surfaces both require linear-space color values for correct PBR math
-    val needsLinear = hdrEnabled || surfaceIsSrgb
+    val needsLinear = hdrEnabledForFrame || surfaceIsSrgb
     val bc = if (needsLinear) material.baseColor.toLinear() else material.baseColor
-    val em = if (needsLinear) material.emissive.toLinear() else material.emissive
+    val em = material.emissive // emissive is always linear HDR — never sRGB-encoded
 
     val data =
       floatArrayOf(
@@ -1320,7 +1335,7 @@ class WgpuRenderer(
         em.a, // emissive
       )
 
-    device.queue.writeBuffer(buf, 0u, ArrayBuffer.of(data))
+    device.queue.writeBuffer(buf, 0u, data)
   }
 
   // ===== Private: Format mapping =====

@@ -16,7 +16,9 @@ object Shaders {
   /** SceneUniforms: mat4x4f + vec3f + u32 + vec3f + pad = 96 bytes. */
   const val SCENE_UNIFORMS_SIZE = 96L
 
-  /** ObjectUniforms: mat4x4f(64) + mat3x3f padded(48) = 112 bytes. */
+  /**
+   * ObjectUniforms: mat4x4f(64) + 3×vec4f(48) = 112 bytes. mat3x3f is illegal in uniform buffers.
+   */
   const val OBJECT_UNIFORMS_SIZE = 112L
 
   /** PBR MaterialUniforms: vec4f + 4xf32 + vec4f = 48 bytes. */
@@ -33,14 +35,6 @@ object Shaders {
 
   /** EnvironmentUniforms: 2xf32 + 2xf32 pad = 16 bytes. */
   const val ENV_UNIFORMS_SIZE = 16L
-
-  // --- Legacy constants (kept for existing test compatibility) ---
-
-  /** @deprecated Use [SCENE_UNIFORMS_SIZE] and [OBJECT_UNIFORMS_SIZE] instead. */
-  const val UNIFORMS_SIZE = 128L
-
-  /** @deprecated Use [PBR_MATERIAL_UNIFORMS_SIZE] instead. */
-  const val MATERIAL_UNIFORMS_SIZE = 16L
 
   // --- PBR Shaders ---
 
@@ -78,9 +72,13 @@ object Shaders {
             _pad3 : f32,
         };
 
+        // mat3x3f is illegal in uniform address space (WGSL spec §13.4.1).
+        // Store each column as a vec4f with one padding float; reconstruct in the shader.
         struct ObjectUniforms {
             model : mat4x4f,
-            normalMatrix : mat3x3f,
+            normalMatC0 : vec4f,
+            normalMatC1 : vec4f,
+            normalMatC2 : vec4f,
         };
 
         struct MaterialUniforms {
@@ -163,11 +161,17 @@ object Shaders {
             let worldPos = objectData.model * vec4f(in.position, 1.0);
             out.clipPosition = scene.viewProjection * worldPos;
             out.worldPosition = worldPos.xyz;
-            out.worldNormal = objectData.normalMatrix * in.normal;
+            // Reconstruct mat3x3f from three padded vec4f columns.
+            let normalMatrix = mat3x3f(
+                objectData.normalMatC0.xyz,
+                objectData.normalMatC1.xyz,
+                objectData.normalMatC2.xyz,
+            );
+            out.worldNormal = normalMatrix * in.normal;
             out.uv = in.uv;
             // Tangents are co-vectors like normals: use normalMatrix so non-uniform
             // scale doesn't break TBN orthogonality.
-            out.worldTangent = objectData.normalMatrix * in.tangent.xyz;
+            out.worldTangent = normalMatrix * in.tangent.xyz;
             out.bitangentSign = in.tangent.w;
             return out;
         }
@@ -281,7 +285,7 @@ object Shaders {
                 ).rgb;
                 let tanN = ts * 2.0 - 1.0;
                 let T = normalize(worldTangent);
-                let B = cross(N, T) * bitangentSign;
+                let B = cross(T, N) * bitangentSign;
                 N = normalize(
                     T * tanN.x + B * tanN.y + N * tanN.z
                 );

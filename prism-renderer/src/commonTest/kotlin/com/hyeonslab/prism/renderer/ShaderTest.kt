@@ -35,18 +35,6 @@ class ShaderTest {
     Shaders.ENV_UNIFORMS_SIZE shouldBe 16L
   }
 
-  // --- Legacy constants ---
-
-  @Test
-  fun legacyUniformsSize() {
-    Shaders.UNIFORMS_SIZE shouldBe 128L
-  }
-
-  @Test
-  fun legacyMaterialUniformsSize() {
-    Shaders.MATERIAL_UNIFORMS_SIZE shouldBe 16L
-  }
-
   // --- PBR Vertex shader ---
 
   @Test

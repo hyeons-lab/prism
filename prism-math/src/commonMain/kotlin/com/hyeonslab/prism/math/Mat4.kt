@@ -1,5 +1,6 @@
 package com.hyeonslab.prism.math
 
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.tan
@@ -52,8 +53,14 @@ class Mat4(val data: FloatArray) {
       floatArrayOf(data[0], data[1], data[2], data[4], data[5], data[6], data[8], data[9], data[10])
     )
 
-  /** Compute the normal matrix: transpose(inverse(upperLeft3x3)). */
-  fun normalMatrix(): Mat3 = toMat3().inverse().transpose()
+  /**
+   * Compute the normal matrix: transpose(inverse(upperLeft3x3)). Returns identity if the upper-left
+   * 3x3 is singular (e.g. zero-scale transform).
+   */
+  fun normalMatrix(): Mat3 {
+    val m = toMat3()
+    return if (abs(m.determinant()) < 1e-6f) Mat3.identity() else m.inverse().transpose()
+  }
 
   fun transpose(): Mat4 {
     val result = FloatArray(16)
