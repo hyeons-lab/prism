@@ -86,8 +86,8 @@ class GltfLoader : AssetLoader<GltfAsset> {
     doc: GltfDocument,
     buffers: List<ByteArray?>,
     basePath: String,
-  ): List<ImageData?> =
-    (doc.images ?: emptyList()).map { image ->
+  ): List<ImageData?> = buildList {
+    for (image in doc.images ?: emptyList()) {
       val bytes: ByteArray? =
         when {
           image.uri != null && image.uri.startsWith("data:") -> decodeDataUri(image.uri)
@@ -107,15 +107,18 @@ class GltfLoader : AssetLoader<GltfAsset> {
           }
           else -> null
         }
-      bytes?.let {
-        try {
-          ImageDecoder.decode(it, unpremultiply = true)
-        } catch (e: Exception) {
-          Logger.w(TAG) { "Failed to decode image: ${e.message}" }
-          null
+      add(
+        bytes?.let {
+          try {
+            ImageDecoder.decode(it, unpremultiply = true)
+          } catch (e: Exception) {
+            Logger.w(TAG) { "Failed to decode image: ${e.message}" }
+            null
+          }
         }
-      }
+      )
     }
+  }
 
   // ===== Texture building =====
 

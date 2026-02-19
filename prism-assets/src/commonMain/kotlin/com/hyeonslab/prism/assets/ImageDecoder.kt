@@ -51,5 +51,5 @@ internal fun ByteArray.unpremultiplyAlpha() {
  * Returns `null` if decoding is unsupported on this platform or the bytes are invalid.
  */
 expect object ImageDecoder {
-  fun decode(bytes: ByteArray, unpremultiply: Boolean = false): ImageData?
+  suspend fun decode(bytes: ByteArray, unpremultiply: Boolean = false): ImageData?
 }

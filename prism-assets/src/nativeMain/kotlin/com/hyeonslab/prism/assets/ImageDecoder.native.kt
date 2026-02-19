@@ -21,7 +21,7 @@ import platform.ImageIO.CGImageSourceCreateImageAtIndex
 import platform.ImageIO.CGImageSourceCreateWithData
 
 actual object ImageDecoder {
-  actual fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
+  actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
     // Wrap ByteArray in CFData
     val cfData =
       bytes.usePinned { pinned ->

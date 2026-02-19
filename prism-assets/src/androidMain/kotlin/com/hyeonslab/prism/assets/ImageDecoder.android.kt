@@ -5,7 +5,7 @@ import android.graphics.BitmapFactory
 import java.nio.ByteBuffer
 
 actual object ImageDecoder {
-  actual fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
+  actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
     val width = bitmap.width
     val height = bitmap.height

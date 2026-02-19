@@ -6,7 +6,7 @@ import javax.imageio.ImageIO
 
 actual object ImageDecoder {
   // javax.imageio (TYPE_INT_ARGB) returns straight alpha — unpremultiply is a no-op on JVM.
-  actual fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
+  actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
     val src = ImageIO.read(ByteArrayInputStream(bytes)) ?: return null
     val width = src.width
     val height = src.height
