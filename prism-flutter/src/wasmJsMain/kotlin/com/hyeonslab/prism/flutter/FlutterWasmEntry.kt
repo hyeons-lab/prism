@@ -54,7 +54,7 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
 private external fun addOrbitPointerListeners(
   canvas: HTMLCanvasElement,
   onDelta: (Double, Double) -> Unit,
-): JsAny
+)
 
 @JsFun("(msg) => console.error('Prism Flutter Web: ' + msg)")
 private external fun logError(message: String)
