@@ -3,30 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prism Demo</title>
+    <title>Prism Demo — DamagedHelmet glTF</title>
     <style>
-        body {
-            margin: 0;
-            background: #1a1a2e;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-        canvas {
-            display: block;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+        canvas { display: block; width: 100%; height: 100%; }
         #fallback {
             color: #e0e0e0;
             font-family: sans-serif;
             text-align: center;
             padding: 2rem;
             display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
     </style>
 </head>
 <body>
-    <canvas id="prismCanvas" width="800" height="600" aria-label="Prism 3D Engine Demo — rotating cube visualization"></canvas>
+    <canvas id="prismCanvas" aria-label="Prism 3D Engine Demo — DamagedHelmet glTF"></canvas>
     <div id="fallback">
         <h2>WebGPU Not Supported</h2>
         <p>This demo requires a browser with WebGPU support (Chrome 113+, Edge 113+).</p>
