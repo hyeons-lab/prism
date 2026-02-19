@@ -56,9 +56,8 @@ kotlin {
 // `flutter run -d chrome` can serve them alongside the Dart-compiled output.
 tasks.register<Copy>("copyWasmToFlutterWeb") {
   dependsOn("compileProductionExecutableKotlinWasmJsOptimize")
-  val wasmOutput = layout.buildDirectory.dir(
-    "compileSync/wasmJs/main/productionExecutable/optimized"
-  )
+  val wasmOutput =
+    layout.buildDirectory.dir("compileSync/wasmJs/main/productionExecutable/optimized")
   from(wasmOutput) {
     include("prism-flutter.mjs")
     include("prism-flutter.uninstantiated.mjs")
