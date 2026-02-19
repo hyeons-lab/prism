@@ -44,7 +44,7 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 2026-02-19T08:41-08:00 prism-assets/src/.../ImageDecoder.kt — `unpremultiplyAlpha()` bounds check: `require(size % 4 == 0)`
 2026-02-19T08:41-08:00 prism-assets/src/.../GlbReader.kt — require totalLength >= 12; require chunkLength >= 0; `trimEnd(' ')` (spec-correct padding trim)
 2026-02-19T08:41-08:00 prism-assets/src/.../GltfLoader.kt — texture format assignment (sRGB for albedo/emissive, UNORM for normals/MR/occlusion); normalized int accessor support (UBYTE/USHORT/BYTE/SHORT); primitive mode check (skip non-TRIANGLES); scene graph cycle detection; bounds check for accessor reads; negative scale decompose (determinant check); separate minFilter/magFilter from sampler; imageData now parallel to textures (not images)
-2026-02-19T08:41-08:00 prism-assets/src/.../GltfAsset.kt — doc comment fix: imageData is parallel to textures, not images; default material for null node.material
+2026-02-19T08:41-08:00 prism-assets/src/.../GltfAsset.kt — doc comment fix: imageData is parallel to textures, not images; default Material(WHITE) fallback for null node.material (glTF nodes without materials are valid)
 2026-02-19T08:41-08:00 prism-demo-core/src/.../GltfDemoScene.kt — use `renderer.initializeTexture(assetTexture)` instead of createTexture + handle copy
 2026-02-19T08:41-08:00 prism-renderer/src/.../WgpuRenderer.kt — dynamic object UBO pool (lazy-growing array of buffer+bindgroup pairs, reset index per beginRenderPass); all materials routed through getOrCreateMaterialBindGroup(); per-frame material uniform refresh; sampler cache keyed by SamplerKey(min/mag/wrapU/wrapV); `initializeTexture()` override; `invalidateMaterial()` override; resize guard (width/height <= 0)
 2026-02-19T08:41-08:00 prism-flutter/flutter_plugin/ios/Classes/PrismPlatformView.swift — `showErrorLabel()` overlays label (tag 999) without removing mtkView
@@ -60,7 +60,7 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 2026-02-19T12:50-08:00 prism-demo-core/src/iosMain/.../IosDemoController.kt — fix NSData init call (use `dataWithBytes:length:` pattern); add auto-orbit during pause for visible pause effect
 2026-02-19T12:59-08:00 prism-assets/src/.../GltfLoader.kt — GltfLoadResult class; loadStructure() fast-path parses GLB structure without image decode; extractRawImageBytes() private helper extracts raw PNG/JPEG bytes per texture
 2026-02-19T12:59-08:00 prism-renderer/src/.../Renderer.kt — `invalidateMaterial(material)` default method (already added in review pass; confirmed present)
-2026-02-19T12:59-08:00 prism-renderer/src/.../WgpuRenderer.kt — `invalidateMaterial()` override: evicts from materialBindGroupCache + materialUniformBufferCache
+2026-02-19T12:59-08:00 prism-renderer/src/.../WgpuRenderer.kt — `invalidateMaterial()` override: evicts from materialBindGroupCache + materialUniformBufferCache; calls `.close()` on evicted resources to prevent GPU leaks
 2026-02-19T12:59-08:00 prism-demo-core/src/.../GltfDemoScene.kt — progressiveScope: CoroutineScope? param; when non-null uses loadStructure() + background decode loop with per-texture decode→initializeTexture→uploadTextureData→invalidateMaterial; buildTexToMaterialsMap() reverse index for targeted cache invalidation
 2026-02-19T12:59-08:00 prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt — pass GlobalScope as progressiveScope; `suspendCoroutine` → `suspendCancellableCoroutine`; 4-byte chunked GLB copy via `int8ArrayReadInt32LE` @JsFun helper (4× fewer JS boundary crossings)
 2026-02-19T13:15-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — full rewrite: DamagedHelmet GLB fetch + progressive loading (progressiveScope = GlobalScope); drag-to-orbit (pointer events); auto-orbit via DemoStore; full-screen canvas with ResizeObserver; falls back to sphere-grid if GLB unavailable
@@ -106,6 +106,10 @@ b26f287 — feat: add unpremultiply option to ImageDecoder (default: false)
 39bf082 — fix: iOS NSData init form, add auto-orbit for visible pause effect
 50139a2 — feat: progressive glTF texture loading on Flutter web
 c744dd9 — chore: update devlog with missing commits and progressive loading notes
+5d90533 — fix: apply remaining review fixes from glTF code review
+195475d — docs: make glTF demo section full-viewport with auto-orbit
+668d2a4 — chore: reconcile devlog conventions across AGENTS.md and CONVENTIONS.md
+258992e — feat: update WASM demo to load DamagedHelmet.glb with pointer-drag orbit
 
 ## Progress
 - [x] Build setup: add kotlinx-serialization to prism-assets
@@ -125,3 +129,5 @@ c744dd9 — chore: update devlog with missing commits and progressive loading no
 - [x] Progressive glTF texture loading (Flutter web: render geometry immediately, textures stream in)
 - [x] Update prism-demo-core WASM demo (full-screen DamagedHelmet, auto-orbit, ResizeObserver)
 - [x] Update docs/index.html (full-viewport glTF section, auto-orbit in gltf-demo.js)
+- [x] Remaining review fixes: GltfAsset null material default, WgpuRenderer.invalidateMaterial .close() GPU leak
+- [x] Reconcile devlog conventions (AGENTS.md, CONVENTIONS.md, global CLAUDE.md)
