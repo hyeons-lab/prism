@@ -29,6 +29,7 @@
         <ul class="nav-links">
           <li><a href="#demo">Demo</a></li>
           <li><a href="#features">Features</a></li>
+          <li><a href="#api">API</a></li>
           <li><a href="#architecture">Architecture</a></li>
           <li><a href="#platforms">Platforms</a></li>
           <li><a href="#milestones">Milestones</a></li>
@@ -218,13 +219,16 @@
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
 
+<span class="hl">prism-js</span>     <span class="dim">@JsExport bridge &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/WASM)</span>
+<span class="hl">prism-native</span> <span class="dim">@CName bridge &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native)</span>
+
 <span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid, glTF 2.0)</span></pre>
         </div>
       </div>
     </section>
 
-    <!-- API Examples — hidden until unified wrapper API is ready -->
-    <section id="api" style="display:none">
+    <!-- API Examples -->
+    <section id="api">
       <div class="container">
         <p class="section-label">API</p>
         <h2 class="section-title">Simple from every language</h2>
@@ -260,13 +264,35 @@ surface.startRenderLoop { dt, elapsed, _ in
     world.update(Time(dt: dt, elapsed: elapsed)) }</pre>
           </details>
 
-          <details class="lang-card">
-            <summary class="lang-label">JavaScript &middot; Web</summary>
-<pre class="code-block"><span class="comment">// Module loads DamagedHelmet.glb and starts rendering on import</span>
-await import('./prism-demo-core.mjs');
+          <details class="lang-card" open>
+            <summary class="lang-label">JavaScript &middot; Web (prism-js)</summary>
+<pre class="code-block"><span class="comment">// Load the Prism WASM module — auto-generated @JsExport bridge</span>
+const mod = await import('./prism.mjs');
+await mod.default(); <span class="comment">// instantiate WebAssembly</span>
 
-<span class="comment">// Switch scenes at runtime</span>
-window.prismNextScene = 'gltf'; <span class="comment">// 'gltf' | 'cornell' | 'hero'</span></pre>
+<span class="comment">// Pin @JsExport functions to window for global access</span>
+Object.keys(mod).forEach(n =&gt; {
+  if (typeof mod[n] === 'function') window[n] = mod[n];
+});
+
+<span class="comment">// Create engine + ECS world</span>
+const engine = prismCreateEngine('MyApp', 60);
+prismEngineInitialize(engine);
+const world  = prismCreateWorld();
+const entity = prismWorldCreateEntity(world);
+prismWorldAddTransformComponent(world, entity, 0, 0, -5.0);
+
+<span class="comment">// Scene graph</span>
+const scene = prismCreateScene('main');
+const mesh  = prismCreateMeshNode('helmet');
+const cam   = prismCreateCameraNode('cam');
+prismSceneAddNode(scene, mesh);
+prismSceneAddNode(scene, cam);
+prismSceneSetActiveCamera(scene, cam);
+
+<span class="comment">// Query state</span>
+console.log('dt:', prismEngineGetDeltaTime(engine),
+            'frames:', prismEngineGetFrameCount(engine));</pre>
           </details>
 
           <details class="lang-card">
@@ -276,9 +302,23 @@ window.prismNextScene = 'gltf'; <span class="comment">// 'gltf' | 'cornell' | 'h
 <span class="comment">// Embed the GPU surface — renders the glTF scene immediately</span>
 PrismRenderView(engine: engine)
 
-<span class="comment">// Control from Dart</span>
+<span class="comment">// Control from Dart (web: Kotlin/WASM; native: platform channel)</span>
 await engine.togglePause();
 final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span></pre>
+          </details>
+
+          <details class="lang-card">
+            <summary class="lang-label">Dart &middot; FFI (prism-native)</summary>
+<pre class="code-block">import 'package:prism_flutter/src/prism_engine_ffi.dart';
+
+<span class="comment">// Auto-generated dart:ffi bindings — loads libprism.dylib/.so/.dll</span>
+final engine = PrismEngine();
+await engine.initialize(appName: 'MyApp', targetFps: 60);
+
+final state = await engine.getState();
+<span class="comment">// { initialized: true, deltaTime: 0.016, totalTime: 1.234, frameCount: 74 }</span>
+
+await engine.shutdown();</pre>
           </details>
 
         </div>
@@ -468,6 +508,14 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
             <div class="milestone-text">
               <h4>Flutter integration</h4>
               <p>Platform channels, native rendering, and Flutter Web via Kotlin/WASM</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M12</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Auto-generated bindings</h4>
+              <p>prism-js: @JsExport &rarr; .d.mts &rarr; Dart @JS() bindings &middot; prism-native: @CName &rarr; libprism_api.h &rarr; dart:ffi bindings</p>
             </div>
           </div>
         </div>
