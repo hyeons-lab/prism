@@ -606,9 +606,17 @@ section {
   color: var(--text-secondary);
   background: var(--bg-secondary);
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.lang-label::-webkit-details-marker { display: none; }
+
+details[open] > .lang-label {
+  border-bottom: 1px solid var(--border);
 }
 
 .lang-card pre.code-block {
