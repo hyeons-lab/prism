@@ -97,24 +97,29 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
     }
 
     /**
-     * Creates a unit quad in the XY plane with position, normal, and UV data.
+     * Creates a unit quad in the XY plane with position, normal, UV, and tangent data.
      *
      * The quad spans [-0.5, 0.5] in both X and Y, centered at the origin. Composed of two triangles
-     * with counter-clockwise winding.
+     * with counter-clockwise winding. The tangent points in +X (direction of increasing U).
      *
-     * Layout: position (Vec3) + normal (Vec3) + uv (Vec2) = 32 bytes/vertex
+     * Layout: position (Vec3) + normal (Vec3) + uv (Vec2) + tangent (Vec4) = 48 bytes/vertex
      */
     fun quad(): Mesh {
-      val layout = VertexLayout.positionNormalUv()
+      val layout = VertexLayout.positionNormalUvTangent()
       val mesh = Mesh(layout, label = "Quad")
 
+      // Normal points toward viewer (+Z). Tangent = +X (increasing U direction). w = +1 (RH TBN).
       val nx = 0f
       val ny = 0f
       val nz = 1f
+      val tx = 1f
+      val ty = 0f
+      val tz = 0f
+      val tw = 1f
 
       mesh.vertices =
         floatArrayOf(
-          // position          // normal      // uv
+          // px     py     pz    nx  ny  nz   u    v    tx  ty  tz  tw
           -0.5f,
           0.5f,
           0.0f,
@@ -122,7 +127,11 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
           ny,
           nz,
           0.0f,
-          1.0f, // top-left
+          1.0f,
+          tx,
+          ty,
+          tz,
+          tw, // top-left
           -0.5f,
           -0.5f,
           0.0f,
@@ -130,7 +139,11 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
           ny,
           nz,
           0.0f,
-          0.0f, // bottom-left
+          0.0f,
+          tx,
+          ty,
+          tz,
+          tw, // bottom-left
           0.5f,
           -0.5f,
           0.0f,
@@ -138,7 +151,11 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
           ny,
           nz,
           1.0f,
-          0.0f, // bottom-right
+          0.0f,
+          tx,
+          ty,
+          tz,
+          tw, // bottom-right
           0.5f,
           0.5f,
           0.0f,
@@ -146,7 +163,11 @@ class Mesh(val vertexLayout: VertexLayout, val label: String = "") {
           ny,
           nz,
           1.0f,
-          1.0f, // top-right
+          1.0f,
+          tx,
+          ty,
+          tz,
+          tw, // top-right
         )
 
       mesh.indices =

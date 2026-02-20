@@ -117,6 +117,10 @@
 
         var activeScene = 'hero';
 
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
         function switchScene(name) {
             if (name === activeScene) return;
             activeScene = name;
@@ -125,20 +129,21 @@
             document.getElementById('btn-cornell').classList.toggle('active', name === 'cornell');
             document.getElementById('loading').style.display = 'flex';
 
+            // Re-register the pointer listener each time (the { once } version auto-removes).
+            document.getElementById('prismCanvas').addEventListener('pointerdown', hideLoading, { once: true });
+            // Fallback: auto-hide after 4s if the user doesn't interact.
+            setTimeout(hideLoading, 4000);
+
             // Signal Kotlin's PBR render loop to switch scenes. The render loop polls
             // window.prismNextScene each frame and restarts with the new scene.
             window.prismNextScene = name;
         }
 
         // Hide loading after first pointer interaction (engine is running).
-        document.getElementById('prismCanvas').addEventListener('pointerdown', function() {
-            document.getElementById('loading').style.display = 'none';
-        }, { once: true });
+        document.getElementById('prismCanvas').addEventListener('pointerdown', hideLoading, { once: true });
 
         // Fallback: hide loading after 8s.
-        setTimeout(function() {
-            document.getElementById('loading').style.display = 'none';
-        }, 8000);
+        setTimeout(hideLoading, 8000);
     </script>
 
     <!--

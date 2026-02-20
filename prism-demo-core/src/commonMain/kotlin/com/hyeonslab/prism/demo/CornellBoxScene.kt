@@ -27,12 +27,14 @@ private const val HALF = 2.5f
 private const val CORNELL_ORBIT_RADIUS = 7f
 
 /**
- * Creates a Cornell box scene: a 5×5×5 room with a red left wall, green right wall, white
- * back/floor/ceiling, and two PBR spheres inside. A point light near the ceiling illuminates the
- * scene from above.
+ * Creates a Cornell box scene closely matching the classic Cornell box reference image.
  *
- * The walls are quads (facing the room interior) using [CullMode.BACK] with outward normals. The
- * orbit camera starts in front of the open face at [CORNELL_ORBIT_RADIUS] units.
+ * Room: 5×5×5 (±2.5 units). Red left wall, green right wall, white floor/ceiling/back wall. A
+ * single bright point light on the ceiling simulates the characteristic rectangular area light. Two
+ * white matte boxes (a tall one on the left and a short one on the right) sit on the floor, each
+ * rotated ≈17° around Y, matching the Cornell box reference layout.
+ *
+ * The orbit camera starts outside the open front face at [CORNELL_ORBIT_RADIUS] units.
  */
 fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): DemoScene {
   val renderer = WgpuRenderer(wgpuContext)
@@ -40,13 +42,14 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
   engine.addSubsystem(renderer)
   engine.initialize()
 
+  // HDR tone mapping for accurate light response — IBL disabled (no environment map in a Cornell
+  // box), ambient set to near-zero so only direct lighting illuminates the scene.
   renderer.hdrEnabled = true
-  renderer.initializeIbl()
 
   val world = World()
   world.addSystem(RenderSystem(renderer))
 
-  // Camera — positioned outside the open front face, looking in
+  // Camera — outside the open front face, looking straight in.
   val cameraEntity = world.createEntity()
   val camera =
     Camera().apply {
@@ -60,38 +63,27 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
   world.addComponent(cameraEntity, TransformComponent(position = camera.position))
   world.addComponent(cameraEntity, CameraComponent(camera))
 
-  // Area light simulation — bright point light near the ceiling center
+  // Ceiling area-light simulation: single bright warm-white point light just below the ceiling
+  // center, matching the small rectangular light panel in the Cornell box reference image.
   val ceilingLight = world.createEntity()
-  world.addComponent(ceilingLight, TransformComponent(position = Vec3(0f, HALF - 0.3f, -0.5f)))
+  world.addComponent(ceilingLight, TransformComponent(position = Vec3(0f, HALF - 0.1f, 0f)))
   world.addComponent(
     ceilingLight,
     LightComponent(
       lightType = LightType.POINT,
       color = Color(1.0f, 0.98f, 0.9f),
-      intensity = 60f,
+      intensity = 150f,
       range = 15f,
     ),
   )
 
-  // Weak directional fill so the back wall doesn't go completely dark
-  val fillLight = world.createEntity()
-  world.addComponent(fillLight, TransformComponent())
-  world.addComponent(
-    fillLight,
-    LightComponent(
-      lightType = LightType.DIRECTIONAL,
-      color = Color(0.4f, 0.4f, 0.45f),
-      intensity = 0.3f,
-      direction = Vec3(0f, -1f, -1f),
-    ),
-  )
-
-  // Build walls from quads. A Mesh.quad() lies in the XY plane with normal +Z.
-  // We rotate each quad so its front face (normal side) points into the room interior.
+  // Walls — shared quad mesh, each rotated so its front face (normal) points into the room.
   val wallMesh = Mesh.quad()
   val wallScale = Vec3(HALF * 2f, HALF * 2f, 1f)
 
+  // Back wall: identity rotation — normal +Z faces the open front (toward camera). ✓
   addWall(world, wallMesh, wallScale, Vec3(0f, 0f, -HALF), Quaternion.identity(), Color.WHITE)
+  // Left wall: normal +X (into room) after Ry(+90°).
   addWall(
     world,
     wallMesh,
@@ -100,6 +92,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     Quaternion.fromAxisAngle(Vec3.UP, PI.toFloat() / 2f),
     Color.RED,
   )
+  // Right wall: normal -X (into room) after Ry(-90°).
   addWall(
     world,
     wallMesh,
@@ -108,6 +101,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     Quaternion.fromAxisAngle(Vec3.UP, -PI.toFloat() / 2f),
     Color.GREEN,
   )
+  // Floor: normal +Y (into room) after Rx(-90°).
   addWall(
     world,
     wallMesh,
@@ -116,6 +110,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     Quaternion.fromAxisAngle(Vec3.RIGHT, -PI.toFloat() / 2f),
     Color.WHITE,
   )
+  // Ceiling: normal -Y (into room) after Rx(+90°).
   addWall(
     world,
     wallMesh,
@@ -125,33 +120,40 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     Color.WHITE,
   )
 
-  // Two spheres: a dielectric (white) on the left and a metallic (copper) on the right
-  val sphereMesh = Mesh.sphere()
-  val sphereScale = Vec3(1.5f, 1.5f, 1.5f) // 0.5 base radius → 0.75 world radius
-
-  val leftSphere = world.createEntity()
+  // Cornell box boxes — two white matte rectangular prisms using Mesh.cube().
+  // Tall box: ~60% room height, 30% room width/depth, rotated -17° around Y.
+  val tallBox = world.createEntity()
   world.addComponent(
-    leftSphere,
-    TransformComponent(position = Vec3(-1f, -HALF + 0.75f, -0.8f), scale = sphereScale),
+    tallBox,
+    TransformComponent(
+      position = Vec3(-0.7f, -HALF + 1.5f, -0.6f),
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, -(17f * PI.toFloat() / 180f)),
+      scale = Vec3(1.5f, 3.0f, 1.5f),
+    ),
   )
-  world.addComponent(leftSphere, MeshComponent(mesh = sphereMesh))
+  world.addComponent(tallBox, MeshComponent(mesh = Mesh.cube()))
   world.addComponent(
-    leftSphere,
+    tallBox,
     MaterialComponent(
-      material = Material(baseColor = Color(0.92f, 0.9f, 0.88f), metallic = 0.0f, roughness = 0.4f)
+      material = Material(baseColor = Color(0.9f, 0.9f, 0.9f), metallic = 0.0f, roughness = 0.9f)
     ),
   )
 
-  val rightSphere = world.createEntity()
+  // Short box: ~33% room height, 30% room width/depth, rotated +17° around Y.
+  val shortBox = world.createEntity()
   world.addComponent(
-    rightSphere,
-    TransformComponent(position = Vec3(1f, -HALF + 0.75f, -0.8f), scale = sphereScale),
+    shortBox,
+    TransformComponent(
+      position = Vec3(0.85f, -HALF + 0.75f, -0.3f),
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, (17f * PI.toFloat() / 180f)),
+      scale = Vec3(1.5f, 1.5f, 1.5f),
+    ),
   )
-  world.addComponent(rightSphere, MeshComponent(mesh = sphereMesh))
+  world.addComponent(shortBox, MeshComponent(mesh = Mesh.cube()))
   world.addComponent(
-    rightSphere,
+    shortBox,
     MaterialComponent(
-      material = Material(baseColor = Color(0.95f, 0.64f, 0.54f), metallic = 1.0f, roughness = 0.2f)
+      material = Material(baseColor = Color(0.9f, 0.9f, 0.9f), metallic = 0.0f, roughness = 0.9f)
     ),
   )
 
