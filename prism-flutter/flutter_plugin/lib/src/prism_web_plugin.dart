@@ -1,25 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-/// JS interop bindings to the Prism WASM module's exported functions.
-/// All control functions take a canvasId to address the correct engine instance.
-@JS('prismInit')
-external void _prismInit(String canvasId, String glbUrl);
-
-@JS('prismTogglePause')
-external void _prismTogglePause(String canvasId);
-
-@JS('prismGetState')
-external String _prismGetState(String canvasId);
-
-@JS('prismIsInitialized')
-external bool _prismIsInitialized(String canvasId);
-
-@JS('prismShutdown')
-external void _prismShutdown(String canvasId);
+import 'generated/prism_js_bindings.dart';
 
 /// Web implementation of PrismEngine that calls WASM-exported JS functions
 /// instead of using platform method channels.
@@ -30,6 +14,9 @@ class PrismWebEngine {
   static bool _wasmLoaded = false;
   static String? _loadedModuleUrl;
   static Future<void>? _wasmLoadingFuture;
+
+  /// canvasId → engine handle returned by [prismCreateEngine].
+  static final Map<String, String> _handles = {};
 
   /// Load the Kotlin/WASM module and expose its @JsExport functions globally.
   ///
@@ -61,6 +48,10 @@ class PrismWebEngine {
     final completer = Completer<void>();
     _wasmLoadingFuture = completer.future;
 
+    // Build the names array from the generated list — Dart is the single
+    // source of truth; no hand-written names to keep in sync.
+    final namesJson = prismJsExportNames.map((n) => '"$n"').join(', ');
+
     // Create an inline ES module script that:
     // 1. Dynamically imports the Kotlin/WASM entry point
     // 2. Instantiates the WASM module
@@ -74,8 +65,7 @@ class PrismWebEngine {
         if (typeof mod.default === "function") {
           await mod.default();
         }
-        const names = ["prismInit", "prismTogglePause",
-                        "prismGetState", "prismIsInitialized", "prismShutdown"];
+        const names = [$namesJson];
         for (const name of names) {
           if (typeof mod[name] === "function") {
             window[name] = mod[name];
@@ -129,25 +119,37 @@ class PrismWebEngine {
     return _wasmLoadingFuture!;
   }
 
-  static void init(String canvasId) =>
-      _prismInit(canvasId, 'DamagedHelmet.glb');
+  /// Create and initialize an engine instance for [canvasId].
+  static void init(String canvasId) {
+    final handle = prismCreateEngine('Prism', 60.0);
+    prismEngineInitialize(handle);
+    _handles[canvasId] = handle;
+  }
 
   static Future<void> togglePause(String canvasId) async {
-    if (!_wasmLoaded) return;
-    _prismTogglePause(canvasId);
+    // No direct toggle-pause in the new API — no-op until added upstream.
   }
 
   static Future<Map<String, dynamic>> getState(String canvasId) async {
     if (!_wasmLoaded) return {};
-    final json = _prismGetState(canvasId);
-    return jsonDecode(json) as Map<String, dynamic>;
+    final h = _handles[canvasId];
+    if (h == null) return {};
+    return {
+      'initialized': prismEngineIsAlive(h),
+      'deltaTime': prismEngineGetDeltaTime(h),
+      'totalTime': prismEngineGetTotalTime(h),
+    };
   }
 
   static Future<bool> isInitialized(String canvasId) async {
     if (!_wasmLoaded) return false;
-    return _prismIsInitialized(canvasId);
+    final h = _handles[canvasId];
+    if (h == null) return false;
+    return prismEngineIsAlive(h);
   }
 
-  static Future<void> shutdown(String canvasId) async =>
-      _prismShutdown(canvasId);
+  static Future<void> shutdown(String canvasId) async {
+    final h = _handles.remove(canvasId);
+    if (h != null) prismDestroyEngine(h);
+  }
 }

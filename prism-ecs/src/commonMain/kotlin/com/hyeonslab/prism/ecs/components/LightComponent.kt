@@ -3,7 +3,6 @@ package com.hyeonslab.prism.ecs.components
 import com.hyeonslab.prism.ecs.Component
 import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Color
-
 enum class LightType {
   DIRECTIONAL,
   POINT,

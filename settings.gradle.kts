@@ -22,6 +22,8 @@ dependencyResolutionManagement {
 
 rootProject.name = "prism"
 
+include(":prism-js")
+include(":prism-native")
 include(":prism-math")
 include(":prism-core")
 include(":prism-renderer")
