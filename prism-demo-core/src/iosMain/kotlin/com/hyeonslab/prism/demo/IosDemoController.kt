@@ -126,7 +126,7 @@ suspend fun configureDemoWithGltf(view: MTKView, store: DemoStore): IosDemoHandl
 private fun loadBundleAssetBytes(relativePath: String): ByteArray? {
   val resourcePath = NSBundle.mainBundle.resourcePath ?: return null
   val fullPath = "$resourcePath/$relativePath"
-  val nsData = NSData(contentsOfFile = fullPath) ?: return null
+  val nsData = NSData.dataWithContentsOfFile(fullPath) ?: return null
   val length = nsData.length.toInt()
   if (length == 0) return null
   return nsData.bytes?.reinterpret<ByteVar>()?.readBytes(length)
