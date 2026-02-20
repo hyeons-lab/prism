@@ -134,7 +134,13 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
     when (sceneName) {
       "cornell" -> createCornellBoxScene(ctx, surface.width, surface.height)
       else -> {
-        val s = createMaterialPresetScene(ctx, surface.width, surface.height)
+        val s =
+          createMaterialPresetScene(
+            ctx,
+            surface.width,
+            surface.height,
+            progressiveScope = GlobalScope,
+          )
         // Override default orbit radius with a viewport-aware value so all 5 spheres are visible.
         s.setOrbitRadius(materialPresetOrbitRadius(surface.width, surface.height))
         s

@@ -41,10 +41,17 @@ class DemoScene(
   private var orbitElevation = 0f
 
   /**
-   * Advances the scene by one frame: runs the ECS world update. The PBR sphere grid is a static
-   * showcase — no per-frame rotation is applied to individual spheres.
+   * Work items to execute one per frame, used for progressive scene setup (e.g. adding spheres or
+   * entities one at a time so the render loop can display progress between additions).
+   */
+  internal val pendingSetup: ArrayDeque<() -> Unit> = ArrayDeque()
+
+  /**
+   * Advances the scene by one frame: executes the next pending setup item (if any), then runs the
+   * ECS world update. The PBR sphere grid is a static showcase — no per-frame rotation is applied.
    */
   fun tick(deltaTime: Float, elapsed: Float, frameCount: Long) {
+    pendingSetup.removeFirstOrNull()?.invoke()
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
     world.update(time)
   }
@@ -55,6 +62,7 @@ class DemoScene(
    * sphere grid scene.
    */
   fun tickWithAngle(deltaTime: Float, elapsed: Float, frameCount: Long, angle: Float) {
+    pendingSetup.removeFirstOrNull()?.invoke()
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
     world.update(time)
   }

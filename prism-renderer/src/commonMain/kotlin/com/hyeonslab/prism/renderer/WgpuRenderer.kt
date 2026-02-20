@@ -527,6 +527,8 @@ class WgpuRenderer(
    * @param prefilteredSize Specular prefiltered env cubemap face size.
    * @param prefilteredMipLevels Number of roughness mip levels in the prefiltered cubemap.
    * @param brdfLutSize BRDF LUT texture resolution.
+   * @param brdfLutSamples Monte Carlo samples per BRDF LUT texel. Lower values compute faster at a
+   *   slight accuracy cost; 32 is sufficient for small demos, 256 for production quality.
    */
   @Suppress("LongParameterList")
   fun initializeIbl(
@@ -535,6 +537,7 @@ class WgpuRenderer(
     prefilteredSize: Int = 32,
     prefilteredMipLevels: Int = 5,
     brdfLutSize: Int = 256,
+    brdfLutSamples: Int = 256,
   ) {
     // Release any previously generated IBL textures
     iblBrdfLutView?.close()
@@ -552,6 +555,7 @@ class WgpuRenderer(
         prefilteredSize = prefilteredSize,
         prefilteredMipLevels = prefilteredMipLevels,
         brdfLutSize = brdfLutSize,
+        brdfLutSamples = brdfLutSamples,
       )
 
     iblBrdfLutTexture = ibl.brdfLutTexture
