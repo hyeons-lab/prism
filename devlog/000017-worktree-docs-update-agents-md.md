@@ -9,6 +9,7 @@ Update AGENTS.md to reflect the current state of the project.
 ## What Changed
 
 2026-02-20T12:08-08:00 AGENTS.md — updated Current Project Status: phase header, test counts, added M10 glTF and mobile orbit drag to "What works", removed glTF from "What's next" (already done), added Flutter Desktop as next milestone
+2026-02-20T12:14-08:00 docs/index.html — added Flutter Desktop row to platform table (Planned); updated prism-demo-core arch description to include glTF 2.0; updated Asset Management feature card to mention glTF loader
 2026-02-20T12:08-08:00 AGENTS.md — fixed stale "WgpuRenderer (in progress)" label in Architecture section — it's been complete since M2
 2026-02-20T12:08-08:00 AGENTS.md — added PR Submission Checklist section under Contribution Guidelines; renamed "Random Notes" to "Agent Notes"
 
@@ -24,4 +25,5 @@ None.
 ## Commits
 
 b3b8553 — docs: add devlog and plan for AGENTS.md update
-HEAD — docs: update AGENTS.md with M10 status, PR checklist, and Flutter Desktop next step
+720a5c6 — docs: update AGENTS.md with M10 status, PR checklist, and Flutter Desktop next step
+HEAD — docs: update index.html with Flutter Desktop platform row and glTF asset info
