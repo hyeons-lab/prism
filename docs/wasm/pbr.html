@@ -17,6 +17,7 @@
         canvas {
             display: block;
             width: 100%; height: 100%;
+            background: #0d0d14;
         }
 
         /* Scene switcher tabs */
@@ -60,14 +61,16 @@
             color: #fff;
         }
 
-        /* Loading overlay */
+        /* Loading overlay — solid background so it covers the canvas before first frame
+           and immediately hides the previous scene when switching. */
         #loading {
             position: absolute;
             inset: 0;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: rgba(200, 200, 220, 0.5);
+            background: #0d0d14;
+            color: rgba(200, 200, 220, 0.45);
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             font-size: 13px;
             pointer-events: none;
@@ -119,10 +122,21 @@
         }
 
         var activeScene = 'hero';
+        var loadingFallbackTimer = null;
 
         function hideLoading() {
+            clearTimeout(loadingFallbackTimer);
             document.getElementById('loading').style.display = 'none';
         }
+
+        // Kotlin WASM calls window.prismHideLoading() after rendering the first frame of a new
+        // scene. This is the primary mechanism — the overlay disappears as soon as the scene is
+        // ready rather than waiting for an arbitrary timeout.
+        window.prismHideLoading = hideLoading;
+
+        // Safety fallback: if Kotlin never calls prismHideLoading (e.g. a crash before first
+        // frame) still dismiss the overlay after 15 s so the tabs remain usable.
+        loadingFallbackTimer = setTimeout(hideLoading, 15000);
 
         function switchScene(name) {
             if (name === activeScene) return;
@@ -131,12 +145,11 @@
             document.getElementById('btn-hero').classList.toggle('active', name === 'hero');
             document.getElementById('btn-cornell').classList.toggle('active', name === 'cornell');
             document.getElementById('btn-gltf').classList.toggle('active', name === 'gltf');
-            document.getElementById('loading').style.display = 'flex';
 
-            // Re-register the pointer listener each time (the { once } version auto-removes).
-            document.getElementById('prismCanvas').addEventListener('pointerdown', hideLoading, { once: true });
-            // glTF scene needs more time to fetch + parse the GLB.
-            setTimeout(hideLoading, name === 'gltf' ? 10000 : 4000);
+            // Show solid-background overlay immediately — clears the previous scene from view.
+            clearTimeout(loadingFallbackTimer);
+            document.getElementById('loading').style.display = 'flex';
+            loadingFallbackTimer = setTimeout(hideLoading, 15000);
 
             // Notify the parent page so it can update the section title and description.
             window.parent.postMessage({ type: 'prismSceneChange', scene: name }, '*');
@@ -145,12 +158,6 @@
             // window.prismNextScene each frame and restarts with the new scene.
             window.prismNextScene = name;
         }
-
-        // Hide loading after first pointer interaction (engine is running).
-        document.getElementById('prismCanvas').addEventListener('pointerdown', hideLoading, { once: true });
-
-        // Fallback: hide loading after 8s.
-        setTimeout(hideLoading, 8000);
     </script>
 
     <!--

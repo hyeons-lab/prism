@@ -31,6 +31,14 @@ private var cachedGlbData: ByteArray? = null
 @JsFun("() => { var s = window.prismNextScene || null; window.prismNextScene = null; return s; }")
 private external fun consumePendingSceneSwitch(): String?
 
+/**
+ * Notifies pbr.html that the first frame of a new scene has been rendered. pbr.html sets
+ * `window.prismHideLoading` to a callback that dismisses the loading overlay immediately, so the
+ * scene appears as soon as it is ready rather than after a fixed timeout.
+ */
+@JsFun("() => { var f = window.prismHideLoading; if (f) f(); }")
+private external fun notifyFirstFrameReady()
+
 @OptIn(DelicateCoroutinesApi::class)
 fun main() {
   // Pages that embed the PBR demo (pbr.html) set window.prismPbrScene to the initial scene name.
@@ -132,11 +140,18 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
     }
   }
 
+  var firstFrameNotified = false
   surface.startRenderLoop(onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } }) {
     dt,
     elapsed,
     frame ->
     scene.tick(dt, elapsed, frame)
+
+    // Hide the loading overlay on the first rendered frame.
+    if (!firstFrameNotified) {
+      firstFrameNotified = true
+      notifyFirstFrameReady()
+    }
 
     // Poll for a scene-switch request from pbr.html's switchScene() JS function.
     val next = consumePendingSceneSwitch()
@@ -185,11 +200,18 @@ private suspend fun startGltfScene(canvasId: String) {
     scene.updateAspectRatio(w, h)
   }
 
+  var firstFrameNotified = false
   surface.startRenderLoop(onError = { e -> log.e(e) { "glTF render loop error: ${e.message}" } }) {
     dt,
     elapsed,
     frame ->
     scene.tick(dt, elapsed, frame)
+
+    // Hide the loading overlay on the first rendered frame.
+    if (!firstFrameNotified) {
+      firstFrameNotified = true
+      notifyFirstFrameReady()
+    }
 
     // Poll for a scene-switch request from pbr.html's switchScene() JS function.
     val next = consumePendingSceneSwitch()
