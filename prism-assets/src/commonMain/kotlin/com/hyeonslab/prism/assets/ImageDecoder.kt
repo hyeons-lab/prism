@@ -2,6 +2,15 @@ package com.hyeonslab.prism.assets
 
 /** Raw RGBA8 pixel data decoded from an image file. Pixels are row-major, 4 bytes per pixel. */
 data class ImageData(val width: Int, val height: Int, val pixels: ByteArray) {
+  /**
+   * Pre-built GPU-ready buffer for zero-copy texture upload on WASM. Holds a wgpu4k `ArrayBuffer`
+   * wrapping the JS `ArrayBuffer` returned by `getImageData()`, avoiding the ~4 million JS interop
+   * calls that would otherwise be needed to copy pixels into Kotlin.
+   *
+   * `null` on all non-WASM platforms.
+   */
+  var nativePixelBuffer: Any? = null
+
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is ImageData) return false

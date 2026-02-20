@@ -649,12 +649,21 @@ class WgpuRenderer(
   }
 
   override fun uploadTextureData(texture: Texture, pixels: ByteArray) {
+    writeTextureFromArrayBuffer(texture, ArrayBuffer.of(pixels))
+  }
+
+  /**
+   * Uploads pixel data to [texture] from a pre-built wgpu4k [ArrayBuffer]. Used by the WASM
+   * zero-copy path where the pixel data lives in a JS `ArrayBuffer` and is wrapped via
+   * `ArrayBuffer.wrap()` without any Kotlin↔JS element-by-element copy.
+   */
+  fun writeTextureFromArrayBuffer(texture: Texture, data: ArrayBuffer) {
     val gpuTexture = texture.handle as? WGPUTexture ?: return
     val w = texture.descriptor.width.toUInt()
     val h = texture.descriptor.height.toUInt()
     device.queue.writeTexture(
       TexelCopyTextureInfo(texture = gpuTexture),
-      ArrayBuffer.of(pixels),
+      data,
       TexelCopyBufferLayout(bytesPerRow = w * 4u),
       Extent3D(w, h),
     )

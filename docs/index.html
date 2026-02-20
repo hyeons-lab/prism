@@ -31,6 +31,7 @@
           <li><a href="#gltf-demo">glTF</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#api">API</a></li>
           <li><a href="#platforms">Platforms</a></li>
           <li><a href="#milestones">Milestones</a></li>
           <li><a href="#quickstart">Quick Start</a></li>
@@ -56,40 +57,35 @@
       </div>
     </section>
 
-    <!-- Demo: PBR sphere grid -->
+    <!-- Demo: PBR interactive scene switcher (Kotlin/WASM) -->
     <section id="demo">
-      <div class="container">
-        <p class="section-label">Live Demo</p>
-        <h2 class="section-title">PBR rendering in your browser</h2>
-        <p class="section-desc">
-          A 5&times;5 sphere grid rendered with Cook-Torrance BRDF &mdash; metallic
-          increases left to right, roughness increases top to bottom. Same WebGPU
-          pipeline that runs on Metal, Vulkan, and DX12.
-        </p>
-        <div class="demo-wrapper">
-          <canvas id="demo-canvas" role="img" aria-label="PBR sphere grid rendered with WebGPU: 25 spheres varying metallic and roughness via Cook-Torrance BRDF"></canvas>
-          <div id="demo-fallback" class="demo-fallback" hidden>
-            <p>
-              Your browser doesn't support WebGPU yet.<br />
-              Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
-              <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
-            </p>
-          </div>
+      <iframe
+        src="wasm/pbr.html"
+        title="Interactive PBR demo: material presets and Cornell box rendered with Prism Engine (Kotlin/WASM + WebGPU)"
+        class="gltf-wasm-frame"
+      ></iframe>
+      <div class="gltf-demo-overlay">
+        <div class="container">
+          <p class="section-label">PBR Materials</p>
+          <h2 class="section-title">Material presets &amp; Cornell box</h2>
+          <p class="section-desc">
+            Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick
+            reflectance. Switch between five material presets (Gold, Chrome, Worn Metal,
+            Ceramic, Obsidian) or a classic Cornell box with two PBR spheres.
+          </p>
+          <p class="demo-caption">Drag to orbit &middot; Use the tabs to switch scenes.</p>
         </div>
-        <p class="demo-caption">Drag to orbit &mdash; Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick. Two point lights.</p>
       </div>
     </section>
 
-    <!-- Demo: glTF DamagedHelmet -->
+    <!-- Demo: glTF DamagedHelmet (Kotlin/WASM) -->
     <section id="gltf-demo">
-      <canvas id="gltf-canvas" role="img" aria-label="DamagedHelmet glTF model rendered with WebGPU PBR: base color, normal map, metallic-roughness, occlusion, and emissive textures"></canvas>
-      <div id="gltf-fallback" class="gltf-demo-fallback" hidden>
-        <p>
-          Your browser doesn't support WebGPU yet.<br />
-          Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
-          <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
-        </p>
-      </div>
+      <iframe
+        src="wasm/index.html"
+        title="DamagedHelmet glTF model rendered with Prism Engine (Kotlin/WASM + WebGPU)"
+        class="gltf-wasm-frame"
+        loading="lazy"
+      ></iframe>
       <div class="gltf-demo-overlay">
         <div class="container">
           <p class="section-label">glTF 2.0 Asset Loading</p>
@@ -221,6 +217,71 @@
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
 
 <span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid)</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- API Examples -->
+    <section id="api">
+      <div class="container">
+        <p class="section-label">API</p>
+        <h2 class="section-title">Simple from every language</h2>
+        <p class="section-desc">
+          Prism exposes a clean, idiomatic API in each platform's native language &mdash; no
+          boilerplate, no glue code, just the engine.
+        </p>
+        <div class="lang-grid">
+
+          <div class="lang-card">
+            <div class="lang-label">Kotlin &middot; WASM</div>
+<pre class="code-block">val surface = createPrismSurface("myCanvas")
+val bytes   = fetchBytes("scene.glb")
+val scene   = createGltfDemoScene(
+    surface.wgpuContext!!, surface.width, surface.height, bytes!!)
+
+surface.onPointerDrag  { dx, dy -&gt; scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
+surface.onResize       { w, h   -&gt; scene.renderer.resize(w, h) }
+surface.startRenderLoop { dt, elapsed, frame -&gt;
+    scene.tick(dt, elapsed, frame) }</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">Swift &middot; iOS</div>
+<pre class="code-block">import PrismDemo
+
+<span class="comment">// PBR renderer on any MTKView</span>
+IosDemoControllerKt.configureDemo(view: mtkView) { handle, _ in
+    self.handle = handle
+    mtkView.isPaused = false
+}
+
+<span class="comment">// Or embed the Compose Multiplatform UI</span>
+let vc = ComposeIosEntryKt.composeDemoViewController()
+addChild(vc)</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">JavaScript &middot; Web</div>
+<pre class="code-block">import { default as init, prismInit }
+    from './prism-flutter.mjs';
+
+await init();
+prismInit('myCanvas', 'scene.glb');</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">Dart &middot; Flutter</div>
+<pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
+
+<span class="comment">// Drop into any widget tree</span>
+PrismRenderView(engine: engine)
+
+<span class="comment">// Control from Dart</span>
+await engine.togglePause();
+final state = await engine.getState();
+<span class="comment">// {isPaused: false, fps: 60.0}</span></pre>
+          </div>
+
         </div>
       </div>
     </section>
@@ -457,19 +518,5 @@
       </ul>
       <p>Apache License 2.0 &mdash; Copyright 2025-2026 Hyeons' Lab</p>
     </footer>
-    <script type="module">
-      import { initDemo }     from "./demo.js";
-      import { initGltfDemo } from "./gltf-demo.js";
-
-      const canvas   = document.getElementById("demo-canvas");
-      const fallback = document.getElementById("demo-fallback");
-      const ok = await initDemo(canvas).catch(() => false);
-      if (!ok) { canvas.hidden = true; fallback.hidden = false; }
-
-      const gltfCanvas   = document.getElementById("gltf-canvas");
-      const gltfFallback = document.getElementById("gltf-fallback");
-      const ok2 = await initGltfDemo(gltfCanvas).catch(() => false);
-      if (!ok2) { gltfCanvas.style.display = "none"; gltfFallback.hidden = false; }
-    </script>
   </body>
 </html>

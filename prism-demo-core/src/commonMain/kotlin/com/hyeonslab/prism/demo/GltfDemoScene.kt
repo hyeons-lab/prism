@@ -21,6 +21,7 @@ import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 private val log = Logger.withTag("GltfDemoScene")
 
@@ -86,9 +87,11 @@ suspend fun createGltfDemoScene(
         texture.descriptor =
           texture.descriptor.copy(width = imageData.width, height = imageData.height)
         renderer.initializeTexture(texture)
-        renderer.uploadTextureData(texture, imageData.pixels)
+        uploadDecodedImage(renderer, texture, imageData)
         // Evict cached bind groups so the next draw call rebuilds them with the real texture.
         texToMaterials[texture]?.forEach { renderer.invalidateMaterial(it) }
+        // Yield to the render loop so the next texture upload starts on a clean frame boundary.
+        yield()
       }
       log.i { "Progressive texture loading complete ($nodeCount primitives)" }
     }
@@ -151,7 +154,7 @@ private fun uploadGltfTextures(renderer: Renderer, asset: GltfAsset) {
   for ((assetTexture, imageData) in asset.textures.zip(asset.imageData)) {
     if (imageData == null) continue
     renderer.initializeTexture(assetTexture)
-    renderer.uploadTextureData(assetTexture, imageData.pixels)
+    uploadDecodedImage(renderer, assetTexture, imageData)
   }
 }
 

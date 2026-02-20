@@ -21,8 +21,11 @@ private external fun int8ArraySetByte(arr: JsAny, i: Int, b: Byte)
 
 /**
  * Decodes [bytes] (PNG/JPEG/etc.) via the browser's `createImageBitmap` and `OffscreenCanvas` APIs.
- * Calls [onSuccess] with (width, height, Uint8ClampedArray of straight-alpha RGBA pixels) or
- * [onError] with an error message if decoding fails.
+ * Calls [onSuccess] with (width, height, underlying `ArrayBuffer` of the pixel data as a JS object)
+ * or [onError] with an error message if decoding fails.
+ *
+ * The pixel data is returned as a sliced JS `ArrayBuffer` so callers can wrap it with zero copy via
+ * `ArrayBuffer.wrap()`. Using `.slice()` ensures byteOffset=0 in the returned buffer.
  */
 @JsFun(
   """(bytes, onSuccess, onError) => {
@@ -35,7 +38,11 @@ private external fun int8ArraySetByte(arr: JsAny, i: Int, b: Byte)
       ctx.drawImage(bmp, 0, 0);
       bmp.close();
       const imgData = ctx.getImageData(0, 0, w, h);
-      onSuccess(w, h, imgData.data);
+      // Return the underlying ArrayBuffer directly (zero-copy to wgpu4k ArrayBuffer.wrap).
+      // Use .slice() to ensure byteOffset=0 in case the UA returns a non-zero-offset view.
+      const clamped = imgData.data;
+      const buf = clamped.buffer.slice(clamped.byteOffset, clamped.byteOffset + clamped.byteLength);
+      onSuccess(w, h, buf);
     })
     .catch(e => onError(String(e)));
 }"""
@@ -46,25 +53,15 @@ private external fun decodeImageBitmapJs(
   onError: (String) -> Unit,
 )
 
-/** Returns the length of a JS typed array. */
-@JsFun("(arr) => arr.length") private external fun jsTypedArrayLength(arr: JsAny): Int
-
-/**
- * Reads 4 bytes from [arr] starting at [i] as a little-endian signed Int32. 4× fewer JS boundary
- * crossings compared to reading individual bytes.
- */
-@JsFun(
-  "(arr, i) => (arr[i] & 0xFF) | ((arr[i+1] & 0xFF) << 8) | ((arr[i+2] & 0xFF) << 16) | ((arr[i+3] & 0xFF) << 24)"
-)
-private external fun jsReadInt32LE(arr: JsAny, i: Int): Int
-
-/** Reads a single byte from a JS typed array at index [i]. */
-@JsFun("(arr, i) => arr[i]") private external fun jsReadByte(arr: JsAny, i: Int): Byte
-
 actual object ImageDecoder {
   /**
    * Decodes [bytes] (PNG, JPEG, or any format supported by the browser) into RGBA8 pixel data using
    * the browser's `createImageBitmap` + `OffscreenCanvas` APIs.
+   *
+   * On WASM, pixel data stays on the JS side: the returned [ImageData] has an empty [pixels] array
+   * and [ImageData.nativePixelBuffer] set to the raw JS `ArrayBuffer` object (`JsAny`). Callers in
+   * `prism-demo-core` wrap it via `ArrayBuffer.wrap()` with zero Kotlin↔JS element-by-element copy,
+   * avoiding ~4 million interop calls per 2K texture.
    *
    * The [unpremultiply] parameter is ignored on WASM: `createImageBitmap` is invoked with
    * `premultiplyAlpha: 'none'`, so the returned pixels are already straight alpha.
@@ -72,7 +69,8 @@ actual object ImageDecoder {
    * Returns `null` if the browser cannot decode the image.
    */
   actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
-    // Copy ByteArray → JS Int8Array (4 bytes at a time to reduce boundary crossings)
+    // Copy compressed image bytes ByteArray → JS Int8Array (4 bytes at a time).
+    // This is ~500KB for a typical texture — unavoidable, but much smaller than 16MB pixels.
     val jsBytes = createInt8Array(bytes.size)
     val chunks = bytes.size / 4
     for (c in 0 until chunks) {
@@ -86,23 +84,12 @@ actual object ImageDecoder {
     return suspendCancellableCoroutine { cont ->
       decodeImageBitmapJs(
         jsBytes,
-        onSuccess = { width, height, pixelData ->
-          val len = jsTypedArrayLength(pixelData)
-          val pixels = ByteArray(len)
-          // Copy Uint8ClampedArray → ByteArray (4 bytes at a time)
-          val c = len / 4
-          for (ci in 0 until c) {
-            val i = ci * 4
-            val v = jsReadInt32LE(pixelData, i)
-            pixels[i] = (v and 0xFF).toByte()
-            pixels[i + 1] = ((v ushr 8) and 0xFF).toByte()
-            pixels[i + 2] = ((v ushr 16) and 0xFF).toByte()
-            pixels[i + 3] = ((v ushr 24) and 0xFF).toByte()
-          }
-          for (i in c * 4 until len) {
-            pixels[i] = jsReadByte(pixelData, i)
-          }
-          cont.resume(ImageData(width, height, pixels))
+        onSuccess = { width, height, jsArrayBuffer ->
+          // Store the raw JS ArrayBuffer as nativePixelBuffer (Any?). Callers in prism-demo-core
+          // (which has wgpu4k on its classpath) wrap it via ArrayBuffer.wrap() — zero copy.
+          val imageData = ImageData(width, height, ByteArray(0))
+          imageData.nativePixelBuffer = jsArrayBuffer
+          cont.resume(imageData)
         },
         onError = { error ->
           log.w { "createImageBitmap failed: $error" }

@@ -10,13 +10,12 @@ import com.hyeonslab.prism.demo.createDemoScene
 import com.hyeonslab.prism.demo.createGltfDemoScene
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
-import kotlin.coroutines.resume
+import com.hyeonslab.prism.widget.fetchBytes
 import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import web.html.HTMLCanvasElement
 
 @JsFun(
@@ -63,26 +62,6 @@ private external fun addPointerDragListeners(
 @JsFun("(msg) => console.error('Prism Flutter Web: ' + msg)")
 private external fun logError(message: String)
 
-@JsFun(
-  """(url, onSuccess, onError) => {
-  fetch(url)
-    .then(r => r.arrayBuffer())
-    .then(buf => onSuccess(new Int8Array(buf)))
-    .catch(e => onError(String(e)));
-}"""
-)
-private external fun fetchGlbJs(url: String, onSuccess: (JsAny) -> Unit, onError: (String) -> Unit)
-
-@JsFun("(arr) => arr.length") private external fun int8ArrayLength(arr: JsAny): Int
-
-@JsFun("(arr, i) => arr[i]") private external fun int8ArrayByte(arr: JsAny, i: Int): Byte
-
-/** Reads 4 bytes as a little-endian signed Int32 — 4× fewer JS boundary crossings vs byte reads. */
-@JsFun(
-  "(arr, i) => (arr[i] & 0xFF) | ((arr[i+1] & 0xFF) << 8) | ((arr[i+2] & 0xFF) << 16) | ((arr[i+3] & 0xFF) << 24)"
-)
-private external fun int8ArrayReadInt32LE(arr: JsAny, i: Int): Int
-
 private val log = Logger.withTag("PrismFlutterWeb")
 
 /** Per-canvas engine instance state. */
@@ -102,39 +81,6 @@ private val instances = mutableMapOf<String, EngineInstance>()
 /** WASM entry point — module is loaded, @JsExport functions become available. */
 fun main() {
   log.i { "Prism Flutter WASM module loaded" }
-}
-
-/**
- * Fetches a binary resource via JS fetch and returns its bytes. Returns null on failure. Sensitive
- * to same-origin policy — relative URLs are resolved against the page origin.
- */
-private suspend fun fetchGlbBytes(url: String): ByteArray? = suspendCancellableCoroutine { cont ->
-  fetchGlbJs(
-    url,
-    onSuccess = { jsArr ->
-      val len = int8ArrayLength(jsArr)
-      // Read in 4-byte (Int32) chunks to reduce JS–Kotlin boundary crossings by 4× vs byte reads.
-      val bytes = ByteArray(len)
-      val chunks = len / 4
-      for (c in 0 until chunks) {
-        val i = c * 4
-        val v = int8ArrayReadInt32LE(jsArr, i)
-        bytes[i] = (v and 0xFF).toByte()
-        bytes[i + 1] = ((v ushr 8) and 0xFF).toByte()
-        bytes[i + 2] = ((v ushr 16) and 0xFF).toByte()
-        bytes[i + 3] = ((v ushr 24) and 0xFF).toByte()
-      }
-      // Handle any trailing bytes (0–3 bytes when len is not a multiple of 4).
-      for (i in chunks * 4 until len) {
-        bytes[i] = int8ArrayByte(jsArr, i)
-      }
-      cont.resume(bytes)
-    },
-    onError = { error ->
-      log.w { "GLB fetch failed: $error" }
-      cont.resume(null)
-    },
-  )
 }
 
 /**
@@ -174,7 +120,7 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
     val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
 
     // Fetch the GLB and build the glTF scene; fall back to sphere-grid on failure.
-    val glbData = fetchGlbBytes(glbUrl)
+    val glbData = fetchBytes(glbUrl)
     val demoScene =
       if (glbData != null) {
         log.i { "Loaded GLB (${glbData.size} bytes) — initializing glTF scene" }

@@ -70,6 +70,27 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 2026-02-19T13:30-08:00 docs/style.css — #gltf-demo becomes full-viewport section (min-height:100vh, position:relative, padding:0, flex align-end); canvas absolutely fills section; .gltf-demo-overlay gradient text overlay at bottom
 2026-02-19T13:30-08:00 docs/index.html — #gltf-demo restructured: canvas + fallback are direct children of section (position:absolute); .gltf-demo-overlay wraps all text content at bottom of viewport
 
+2026-02-19T20:30-08:00 prism-assets/src/commonMain/.../ImageDecoder.kt — add public `nativePixelBuffer: Any?` field to ImageData for zero-copy WASM GPU upload
+2026-02-19T20:30-08:00 prism-assets/src/wasmJsMain/.../ImageDecoder.wasmJs.kt — zero-copy WASM decoder: return JS ArrayBuffer directly via ArrayBuffer.wrap() instead of copying 16MB pixel-by-pixel into Kotlin; eliminates ~4M JS interop calls per 2K texture
+2026-02-19T20:30-08:00 prism-renderer/src/commonMain/.../WgpuRenderer.kt — add internal writeTextureFromArrayBuffer(); refactor uploadTextureData() to delegate to it
+2026-02-19T20:30-08:00 prism-demo-core/src/commonMain/.../TextureUploadHelper.kt (NEW) — expect uploadDecodedImage() helper
+2026-02-19T20:30-08:00 prism-demo-core/src/{jvm,ios,android,macos}Main/.../TextureUploadHelper.*.kt (NEW) — actual impls: all delegate to renderer.uploadTextureData() with pixels
+2026-02-19T20:30-08:00 prism-demo-core/src/wasmJsMain/.../TextureUploadHelper.wasmJs.kt (NEW) — actual impl: zero-copy path via writeTextureFromArrayBuffer() when nativePixelBuffer is available
+2026-02-19T20:30-08:00 prism-demo-core/src/commonMain/.../GltfDemoScene.kt — use uploadDecodedImage() in both progressive and non-progressive paths; add yield() between progressive texture uploads
+2026-02-19T20:30-08:00 devlog/plans/000013-02-flutter-desktop-support.md — zero-copy WASM texture upload plan (Steps 1–8)
+
+2026-02-19T17:45-08:00 prism-native-widgets/src/wasmJsMain/.../WasmInterop.kt (NEW) — internal @JsFun JS interop primitives (jsGetCanvasById, jsSetCanvasSize, jsWindowWidth/Height, jsNow, jsNextFrame, jsOnBeforeUnload, jsInstallPointerDrag, jsInstallResizeObserver) moved from demo PlatformBridge.kt
+2026-02-19T17:45-08:00 prism-native-widgets/src/wasmJsMain/.../WasmUtils.kt (NEW) — public suspend fun fetchBytes(url): ByteArray? moved into SDK so consumers don't reimplement it
+2026-02-19T17:45-08:00 prism-native-widgets/src/wasmJsMain/.../PrismSurface.wasmJs.kt — added canvas param, onPointerDrag/onResize/startRenderLoop methods, createPrismSurface(canvasId) overload; SDK handles all RAF/ResizeObserver/beforeunload boilerplate
+2026-02-19T17:45-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — simplified to 5-step showcase; removed DemoStore/auto-orbit; added isAutoStartDisabled() check (pbr.html sets window.prismSkipAutoStart = true to opt out)
+2026-02-19T17:45-08:00 prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt — removed fetchGlbBytes + 4 @JsFun helpers; now imports fetchBytes from prism-native-widgets
+2026-02-19T19:30-08:00 prism-demo-core/src/commonMain/.../MaterialPresetScene.kt (NEW) — createMaterialPresetScene(): 5 spheres in a row (Gold, Chrome, Worn Metal, Ceramic, Obsidian); orbit radius 5f
+2026-02-19T19:30-08:00 prism-demo-core/src/commonMain/.../CornellBoxScene.kt (NEW) — createCornellBoxScene(): 5 Mesh.quad() walls (red left, green right, white back/floor/ceiling) + 2 spheres; orbit radius 7f; point light near ceiling simulates area light
+2026-02-19T19:30-08:00 prism-demo-core/src/wasmJsMain/.../DemoExports.kt (NEW) — @JsExport prismStartPbr(canvasId, sceneName) and prismSetScene(sceneName); module-level pbrCanvas/pbrSurface/pbrScene state; scene switch calls surface.detach() to stop old render loop and release GPU before reinitializing
+2026-02-19T19:30-08:00 docs/wasm/pbr.html (NEW) — standalone PBR demo page: 2-tab UI (Material Presets / Cornell Box), sets window.prismSkipAutoStart=true, polls for WASM exports, sizes canvas to window.innerWidth/Height before calling prismStartPbr
+2026-02-19T19:30-08:00 docs/index.html — #demo section replaced with pbr.html iframe (full-viewport, same layout as #gltf-demo); glTF section renamed #gltf-demo; removed demo.js import
+2026-02-19T19:30-08:00 docs/style.css — #demo added to #gltf-demo selector (full-viewport min-height:100vh, position:relative, flex align-end)
+
 ## Decisions
 2026-02-18T23:49-08:00 GltfAsset stores renderableNodes (flat list of GltfNodeData) rather than a scene tree — simpler for ECS which has no hierarchy
 2026-02-18T23:49-08:00 Used expect/actual for ImageDecoder rather than Coil — prism-assets is a low-level engine module; a UI-focused image loading library is a heavyweight dep for raw pixel extraction
@@ -83,6 +104,9 @@ Implement glTF 2.0 (.gltf + .glb) asset loading in prism-assets per issue #11. F
 2026-02-19T12:59-08:00 No Material field mutability needed for progressive loading — WgpuRenderer already checks `it.handle != null` in getOrCreateMaterialBindGroup, so placeholder (handle=null) textures fall through to default views; invalidateMaterial() evicts the bind group so next setMaterial() call rebuilds with real texture views
 2026-02-19T12:59-08:00 texture.descriptor updated to real dimensions before initializeTexture() — avoids allocating a 1×1 GPU texture that can't receive writeTexture with the full image pixels
 2026-02-19T12:59-08:00 buildTexToMaterialsMap() scans renderableNodes to build texture→materials reverse map — allows targeted invalidation without scanning all materials every frame
+2026-02-19T20:30-08:00 nativePixelBuffer made public (not @PublishedApi internal) — @PublishedApi only allows cross-module access from inline functions; TextureUploadHelper.wasmJs.kt needs direct access from a non-inline function, so public is required
+2026-02-19T20:30-08:00 Used as? ArrayBuffer (safe cast) in WASM actual to avoid detekt UnsafeCast rule — if cast fails (shouldn't happen), falls back to slow pixels path
+2026-02-19T20:30-08:00 yield() added after each progressive texture upload — gives render loop a frame boundary between uploads, prevents multi-second jank mid-progressive-load
 
 ## Issues
 2026-02-19T00:13-08:00 GlbReader.read() returned JSON with trailing space padding — fixed by .trimEnd() on decoded string
@@ -111,7 +135,19 @@ c744dd9 — chore: update devlog with missing commits and progressive loading no
 668d2a4 — chore: reconcile devlog conventions across AGENTS.md and CONVENTIONS.md
 258992e — feat: update WASM demo to load DamagedHelmet.glb with pointer-drag orbit
 
+2026-02-19T22:10-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — rewrite: replace isAutoStartDisabled() / @JsExport polling approach with window.prismPbrScene routing; add getPbrSceneName() / consumePendingSceneSwitch() @JsFun helpers; add startPbrScene() private suspend fun; main() routes to PBR or glTF based on prismPbrScene global
+2026-02-19T22:10-08:00 docs/wasm/pbr.html — rewrite startup: set window.prismPbrScene='hero' instead of prismSkipAutoStart; remove polling block; switchScene() sets window.prismNextScene instead of calling prismSetScene export
+2026-02-19T22:10-08:00 prism-demo-core/src/wasmJsMain/.../DemoExports.kt — deleted; logic absorbed into Main.kt startPbrScene()
+
+## Decisions
+2026-02-19T22:10-08:00 Abandoned @JsExport polling for PBR demo — webpack's async module wrapping (t.a() with lazy getters) captures const i before the await resolves, so the getter always returns undefined from JS even after WASM loads; switching to window.prismPbrScene global read inside main() bypasses webpack's module system entirely
+2026-02-19T22:10-08:00 Scene switching via window.prismNextScene polled each frame — simpler than passing a Kotlin lambda reference to JS; render loop calls consumePendingSceneSwitch() each frame, detaches old surface, and launches new coroutine for next scene
+
+## Issues
+2026-02-19T22:10-08:00 @JsExport + webpack async module = undefined getters — DemoExports.kt exported prismStartPbr/prismSetScene via @JsExport @JsName; webpack module 525 wraps the Kotlin-generated .mjs (which uses top-level await) in t.a() with lazy getters `()=>i`; these getters capture `const i` from inside the try block but the getter is defined before the await, so i is in TDZ or captures undefined; pbr.html polling typeof mod.prismStartPbr always saw 'undefined' even after WASM loaded; confirmed via Python binary inspection that prismStartPbr IS in the WASM export section — the issue is purely webpack's module export wrapping, not the WASM binary
+
 ## Progress
+- [x] Zero-copy WASM texture upload: nativePixelBuffer on ImageData, ArrayBuffer.wrap() in decoder, writeTextureFromArrayBuffer() in WgpuRenderer, uploadDecodedImage() expect/actual in prism-demo-core, yield() between uploads
 - [x] Build setup: add kotlinx-serialization to prism-assets
 - [x] GltfTypes.kt — internal serializable JSON schema types
 - [x] GlbReader.kt — GLB binary container parser
@@ -131,3 +167,5 @@ c744dd9 — chore: update devlog with missing commits and progressive loading no
 - [x] Update docs/index.html (full-viewport glTF section, auto-orbit in gltf-demo.js)
 - [x] Remaining review fixes: GltfAsset null material default, WgpuRenderer.invalidateMaterial .close() GPU leak
 - [x] Reconcile devlog conventions (AGENTS.md, CONVENTIONS.md, global CLAUDE.md)
+- [x] MaterialPresetScene + CornellBoxScene (5-sphere row, Cornell box walls + spheres)
+- [x] PBR scene switcher on docs landing page (pbr.html iframe, window.prismPbrScene routing, window.prismNextScene switching)

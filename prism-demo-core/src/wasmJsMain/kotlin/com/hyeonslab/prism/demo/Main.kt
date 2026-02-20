@@ -4,30 +4,122 @@ package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.createPrismSurface
-import kotlin.coroutines.resume
-import kotlin.math.PI
+import com.hyeonslab.prism.widget.fetchBytes
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
-import web.html.HTMLCanvasElement
 
-@JsFun(
-  """(id) => {
-  var el = document.getElementById(id);
-  if (el && !(el instanceof HTMLCanvasElement)) {
-    throw new Error('Element "' + id + '" is not a canvas element');
+private val log = Logger.withTag("Prism")
+
+/**
+ * Returns the initial PBR scene name when a page sets `window.prismPbrScene` before loading this
+ * module (e.g. pbr.html sets it to "hero" or "cornell"). Null when the page hasn't set it.
+ */
+@JsFun("() => window.prismPbrScene || null") private external fun getPbrSceneName(): String?
+
+/**
+ * Consumes and clears `window.prismNextScene`. The PBR render loop calls this each frame to detect
+ * scene-switch requests set by pbr.html's `switchScene()` JS function.
+ */
+@JsFun("() => { var s = window.prismNextScene || null; window.prismNextScene = null; return s; }")
+private external fun consumePendingSceneSwitch(): String?
+
+@OptIn(DelicateCoroutinesApi::class)
+fun main() {
+  // Pages that embed the PBR demo (pbr.html) set window.prismPbrScene to the initial scene name.
+  // Route to the PBR path instead of the glTF demo path.
+  val pbrScene = getPbrSceneName()
+  if (pbrScene != null) {
+    val handler = CoroutineExceptionHandler { _, e -> log.e(e) { "PBR fatal: ${e.message}" } }
+    GlobalScope.launch(handler) { startPbrScene("prismCanvas", pbrScene) }
+    return
   }
-  return el;
-}"""
-)
-private external fun getCanvasById(id: String): HTMLCanvasElement?
 
-@JsFun("(callback) => requestAnimationFrame((timestamp) => callback(timestamp))")
-private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
+  val handler = CoroutineExceptionHandler { _, throwable ->
+    log.e(throwable) { "Fatal error: ${throwable.message}" }
+    showFatalError(throwable.message ?: "Unknown error")
+  }
 
-@JsFun("() => performance.now()") private external fun performanceNow(): Double
+  GlobalScope.launch(handler) {
+    // 1. Create a WebGPU surface from the HTML canvas element.
+    val surface = createPrismSurface("prismCanvas")
+
+    // 2. Load the glTF model (falls back to PBR sphere-grid if unavailable).
+    val glbData = fetchBytes("DamagedHelmet.glb")
+    val scene =
+      if (glbData != null) {
+        createGltfDemoScene(
+          surface.wgpuContext!!,
+          surface.width,
+          surface.height,
+          glbData,
+          progressiveScope = GlobalScope,
+        )
+      } else {
+        createDemoScene(surface.wgpuContext!!, surface.width, surface.height)
+      }
+
+    // 3. Drag to orbit the camera.
+    surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
+
+    // 4. Keep rendering resolution in sync with CSS layout.
+    surface.onResize { w, h ->
+      scene.renderer.resize(w, h)
+      scene.updateAspectRatio(w, h)
+    }
+
+    // 5. Start the render loop (auto-stops on page unload via surface.detach()).
+    surface.startRenderLoop(onError = { e -> showFatalError(e.message ?: "Render loop error") }) {
+      dt,
+      elapsed,
+      frame ->
+      scene.tick(dt, elapsed, frame)
+    }
+  }
+}
+
+/**
+ * Starts a PBR demo scene on [canvasId]. Each frame, checks `window.prismNextScene` for a
+ * scene-switch request. When one is detected the current surface is torn down and a new coroutine
+ * restarts this function with the requested scene name.
+ */
+@OptIn(DelicateCoroutinesApi::class)
+private suspend fun startPbrScene(canvasId: String, sceneName: String) {
+  log.i { "Starting PBR scene '$sceneName'" }
+  val surface = createPrismSurface(canvasId)
+  val ctx = checkNotNull(surface.wgpuContext) { "WebGPU context not available" }
+
+  val scene =
+    when (sceneName) {
+      "cornell" -> createCornellBoxScene(ctx, surface.width, surface.height)
+      else -> createMaterialPresetScene(ctx, surface.width, surface.height)
+    }
+
+  surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
+  surface.onResize { nw, nh ->
+    scene.renderer.resize(nw, nh)
+    scene.updateAspectRatio(nw, nh)
+  }
+
+  surface.startRenderLoop(onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } }) {
+    dt,
+    elapsed,
+    frame ->
+    scene.tick(dt, elapsed, frame)
+
+    // Poll for a scene-switch request from pbr.html's switchScene() JS function.
+    val next = consumePendingSceneSwitch()
+    if (next != null) {
+      surface.detach()
+      val handler = CoroutineExceptionHandler { _, e ->
+        log.e(e) { "PBR scene switch error: ${e.message}" }
+      }
+      GlobalScope.launch(handler) { startPbrScene(canvasId, next) }
+    }
+  }
+}
 
 @JsFun(
   """(msg) => {
@@ -35,193 +127,7 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
   var canvas = document.getElementById('prismCanvas');
   if (canvas) canvas.style.display = 'none';
   var fallback = document.getElementById('fallback');
-  if (fallback) {
-    fallback.style.display = 'block';
-    fallback.textContent = 'Error: ' + msg;
-  }
+  if (fallback) { fallback.style.display = 'block'; fallback.textContent = 'Error: ' + msg; }
 }"""
 )
-private external fun showError(message: String)
-
-@JsFun("(callback) => window.addEventListener('beforeunload', callback)")
-private external fun onBeforeUnload(callback: () -> Unit)
-
-@JsFun("() => window.innerWidth") private external fun windowInnerWidth(): Int
-
-@JsFun("() => window.innerHeight") private external fun windowInnerHeight(): Int
-
-@JsFun("(canvas, w, h) => { canvas.width = w; canvas.height = h; }")
-private external fun setCanvasSize(canvas: HTMLCanvasElement, w: Int, h: Int)
-
-/**
- * Installs a ResizeObserver on [canvas]. When the canvas's CSS size changes, updates
- * [canvas.width]/[canvas.height] to match and calls [callback] with the new pixel dimensions.
- */
-@JsFun(
-  """(canvas, callback) => {
-  const ro = new ResizeObserver(() => {
-    const w = Math.floor(canvas.clientWidth);
-    const h = Math.floor(canvas.clientHeight);
-    if (w > 0 && h > 0) { canvas.width = w; canvas.height = h; callback(w, h); }
-  });
-  ro.observe(canvas);
-}"""
-)
-private external fun observeCanvasResize(canvas: HTMLCanvasElement, callback: (Int, Int) -> Unit)
-
-@JsFun(
-  """(url, onSuccess, onError) => {
-  fetch(url)
-    .then(r => r.arrayBuffer())
-    .then(buf => onSuccess(new Int8Array(buf)))
-    .catch(e => onError(String(e)));
-}"""
-)
-private external fun fetchGlbJs(url: String, onSuccess: (JsAny) -> Unit, onError: (String) -> Unit)
-
-@JsFun("(arr) => arr.length") private external fun int8ArrayLength(arr: JsAny): Int
-
-@JsFun("(arr, i) => arr[i]") private external fun int8ArrayByte(arr: JsAny, i: Int): Byte
-
-@JsFun(
-  "(arr, i) => (arr[i] & 0xFF) | ((arr[i+1] & 0xFF) << 8) | ((arr[i+2] & 0xFF) << 16) | ((arr[i+3] & 0xFF) << 24)"
-)
-private external fun int8ArrayReadInt32LE(arr: JsAny, i: Int): Int
-
-@JsFun(
-  """(canvas, onDelta) => {
-  let active = false, lastX = 0, lastY = 0;
-  canvas.addEventListener('pointerdown', e => {
-    active = true; lastX = e.clientX; lastY = e.clientY;
-    canvas.setPointerCapture(e.pointerId); e.preventDefault();
-  }, { passive: false });
-  canvas.addEventListener('pointermove', e => {
-    if (!active) return;
-    onDelta(e.clientX - lastX, e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY; e.preventDefault();
-  }, { passive: false });
-  canvas.addEventListener('pointerup',     () => { active = false; });
-  canvas.addEventListener('pointercancel', () => { active = false; });
-}"""
-)
-private external fun addPointerDragListeners(
-  canvas: HTMLCanvasElement,
-  onDelta: (Double, Double) -> Unit,
-)
-
-private val log = Logger.withTag("Prism")
-
-private suspend fun fetchGlbBytes(url: String): ByteArray? = suspendCancellableCoroutine { cont ->
-  fetchGlbJs(
-    url,
-    onSuccess = { jsArr ->
-      val len = int8ArrayLength(jsArr)
-      val bytes = ByteArray(len)
-      val chunks = len / 4
-      for (c in 0 until chunks) {
-        val i = c * 4
-        val v = int8ArrayReadInt32LE(jsArr, i)
-        bytes[i] = (v and 0xFF).toByte()
-        bytes[i + 1] = ((v ushr 8) and 0xFF).toByte()
-        bytes[i + 2] = ((v ushr 16) and 0xFF).toByte()
-        bytes[i + 3] = ((v ushr 24) and 0xFF).toByte()
-      }
-      for (i in chunks * 4 until len) {
-        bytes[i] = int8ArrayByte(jsArr, i)
-      }
-      cont.resume(bytes)
-    },
-    onError = { error ->
-      log.w { "GLB fetch failed: $error" }
-      cont.resume(null)
-    },
-  )
-}
-
-@OptIn(DelicateCoroutinesApi::class)
-fun main() {
-  log.i { "Starting Prism WebGPU Demo..." }
-
-  val store = DemoStore()
-
-  val handler = CoroutineExceptionHandler { _, throwable ->
-    log.e(throwable) { "Fatal error: ${throwable.message}" }
-    showError(throwable.message ?: "Unknown error")
-  }
-
-  GlobalScope.launch(handler) {
-    val canvas = getCanvasById("prismCanvas") ?: error("Canvas element 'prismCanvas' not found")
-    // Size the canvas to fill the window before creating the WebGPU surface.
-    val width = windowInnerWidth().coerceAtLeast(1)
-    val height = windowInnerHeight().coerceAtLeast(1)
-    setCanvasSize(canvas, width, height)
-
-    val surface = createPrismSurface(canvas, width = width, height = height)
-    val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
-
-    val glbData = fetchGlbBytes("DamagedHelmet.glb")
-    val scene =
-      if (glbData != null) {
-        log.i { "Loaded GLB (${glbData.size} bytes) — initializing glTF scene" }
-        createGltfDemoScene(
-          wgpuContext,
-          width = width,
-          height = height,
-          glbData = glbData,
-          progressiveScope = GlobalScope,
-        )
-      } else {
-        log.w { "GLB not available — falling back to sphere-grid demo" }
-        createDemoScene(wgpuContext, width = width, height = height)
-      }
-
-    addPointerDragListeners(canvas) { dx, dy ->
-      scene.orbitBy(-dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
-    }
-
-    observeCanvasResize(canvas) { newWidth, newHeight ->
-      scene.renderer.resize(newWidth, newHeight)
-      scene.updateAspectRatio(newWidth, newHeight)
-    }
-
-    var running = true
-    onBeforeUnload {
-      if (!running) return@onBeforeUnload
-      running = false
-      scene.shutdown()
-      surface.detach()
-    }
-
-    log.i { "WebGPU initialized — starting render loop" }
-
-    val startTime = performanceNow()
-    var lastFrameTime = startTime
-    var frameCount = 0L
-
-    fun renderFrame(timestamp: Double) {
-      if (!running) return
-      try {
-        val deltaTime = ((timestamp - lastFrameTime) / 1000.0).toFloat()
-        lastFrameTime = timestamp
-        val elapsed = ((timestamp - startTime) / 1000.0).toFloat()
-        frameCount++
-
-        val state = store.state.value
-        val effectiveDt = if (state.isPaused) 0f else deltaTime
-        val rotRadPerSec = state.rotationSpeed * (PI.toFloat() / 180f)
-        scene.orbitBy(rotRadPerSec * effectiveDt, 0f)
-        scene.tick(deltaTime = effectiveDt, elapsed = elapsed, frameCount = frameCount)
-
-        requestAnimationFrame(::renderFrame)
-      } catch (e: Throwable) {
-        running = false
-        scene.shutdown()
-        surface.detach()
-        log.e(e) { "Render loop error: ${e.message}" }
-        showError(e.message ?: "Render loop error")
-      }
-    }
-
-    requestAnimationFrame(::renderFrame)
-  }
-}
+private external fun showFatalError(message: String)
