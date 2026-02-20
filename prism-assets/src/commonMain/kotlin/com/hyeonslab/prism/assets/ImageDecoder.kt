@@ -61,4 +61,16 @@ internal fun ByteArray.unpremultiplyAlpha() {
  */
 expect object ImageDecoder {
   suspend fun decode(bytes: ByteArray, unpremultiply: Boolean = false): ImageData?
+
+  /**
+   * Decodes a byte range from a platform-native source buffer into RGBA8 pixel data without copying
+   * the compressed bytes through Kotlin. On WASM, [nativeBuffer] is the JS `ArrayBuffer` retained
+   * from a [com.hyeonslab.prism.widget.fetchBytesWithNativeBuffer] call; the slice `[offset,
+   * offset+length)` is passed directly to `createImageBitmap`, eliminating ~125K JS interop calls
+   * per texture.
+   *
+   * Returns `null` on platforms that have no native buffer concept (JVM, Android, native) or if
+   * decoding fails.
+   */
+  suspend fun decodeFromNativeBuffer(nativeBuffer: Any, offset: Int, length: Int): ImageData?
 }

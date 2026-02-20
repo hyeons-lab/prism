@@ -24,4 +24,10 @@ actual object ImageDecoder {
     if (unpremultiply) pixels.unpremultiplyAlpha()
     return ImageData(width, height, pixels)
   }
+
+  actual suspend fun decodeFromNativeBuffer(
+    nativeBuffer: Any,
+    offset: Int,
+    length: Int,
+  ): ImageData? = null
 }

@@ -159,4 +159,11 @@ actual object ImageDecoder {
         },
       )
     }
+
+  @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+  actual suspend fun decodeFromNativeBuffer(
+    nativeBuffer: Any,
+    offset: Int,
+    length: Int,
+  ): ImageData? = decodeFromJsBuffer(nativeBuffer as JsAny, offset, length)
 }

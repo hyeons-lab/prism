@@ -85,7 +85,7 @@ suspend fun createGltfDemoScene(
         val imageData =
           try {
             if (nativeGlbBuffer != null && range != null) {
-              decodeTextureFromNativeBuffer(nativeGlbBuffer, range.first, range.second)
+              ImageDecoder.decodeFromNativeBuffer(nativeGlbBuffer, range.first, range.second)
             } else {
               val rawBytes = result.rawTextureImageBytes[i] ?: continue
               ImageDecoder.decode(rawBytes, unpremultiply = true)

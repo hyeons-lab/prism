@@ -217,3 +217,10 @@ f39e668 — fix: match loading overlay to scene background color; add FPS counte
 2026-02-19T23:59-08:00 IBL async at reduced resolution for glTF scene — matches MaterialPresetScene pattern; 64×32 BRDF LUT is visually indistinguishable at demo quality; eliminates 1-2s blocking before first frame
 2026-02-19T23:59-08:00 decodeTextureFromNativeBuffer placed in prism-demo-core not prism-assets — bridge depends on WASM-specific ImageDecoder.decodeFromJsBuffer; keeping it in demo avoids adding platform-specific SDK surface area; could be promoted to SDK (into ImageDecoder expect/actual) if consumers need it
 2026-02-19T23:59-08:00 rawTextureByteRanges defaults to emptyList() — backward-compatible; callers on non-WASM paths get null ranges for all textures and fall back to rawTextureImageBytes copy path unchanged
+
+2026-02-19T23:59-08:00 prism-assets/.../ImageDecoder.kt — promote decodeFromNativeBuffer into expect object ImageDecoder SDK surface; add actual suspend fun decodeFromNativeBuffer(nativeBuffer, offset, length) to all platforms: wasmJs delegates to decodeFromJsBuffer; jvmMain, androidMain, nativeMain return null
+2026-02-19T23:59-08:00 prism-demo-core/src/{common,wasmJs,jvm,android,ios,macos}Main/.../NativeTextureDecode.*.kt — deleted; expect/actual bridge no longer needed in demo layer now that SDK provides it
+2026-02-19T23:59-08:00 prism-demo-core/.../GltfDemoScene.kt — updated zero-copy decode call from decodeTextureFromNativeBuffer() to ImageDecoder.decodeFromNativeBuffer() directly
+
+## Decisions
+2026-02-19T23:59-08:00 Promoted decodeFromNativeBuffer into ImageDecoder SDK — eliminates the NativeTextureDecode expect/actual boilerplate from prism-demo-core; any future consumer of prism-assets gets the zero-copy path without writing their own bridge; null-returning actuals on JVM/Android/native have zero cost on those platforms
