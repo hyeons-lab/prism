@@ -167,16 +167,17 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
   // Positions derived from the Cornell box glTF node translations (mm), converted to our units
   // (multiply by MM_TO_UNITS = 5/555; Y values offset by -277.5mm to re-center vertically).
   //
-  //   Tall block:  glTF ( 85, 165, -75) mm → our ( 0.77, -1.01, -0.68) units
-  //   Short block: glTF (-80, 82.5, 75) mm → our (-0.72, -1.75,  0.68) units
+  // Positions from glTF dataset, X-mirrored to place the tall block on the LEFT (red wall side)
+  // and the short block on the RIGHT (green wall side), matching the reference render.
   //
-  // Rotations (glTF quaternion x,y,z,w in Y-axis-only form):
-  //   Tall:  [0, 0.195, 0, 0.981] → +0.3925 rad (~22.5°) around Y
-  //   Short: [0, -0.156, 0, 0.987] → -0.314 rad (~-18°) around Y
+  //   Tall block:  glTF X=+85 → mirrored to -0.77 (left), Y=-1.01, Z=-0.68
+  //   Short block: glTF X=-80 → mirrored to +0.72 (right), Y=-1.75, Z=+0.68
+  //
+  // Rotations are also mirrored (sign flipped) so block faces align with the reference.
 
   val tallBoxPos =
     Vec3(
-      x = 85f * MM_TO_UNITS, // 0.766
+      x = -85f * MM_TO_UNITS, // -0.766 (left, toward red wall)
       y = (165f - 277.5f) * MM_TO_UNITS, // -1.014
       z = -75f * MM_TO_UNITS, // -0.676
     )
@@ -185,7 +186,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     tallBox,
     TransformComponent(
       position = tallBoxPos,
-      rotation = Quaternion.fromAxisAngle(Vec3.UP, 0.3925f),
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, -0.3925f),
       scale = Vec3(1.5f, 3.0f, 1.5f), // 165×330×165mm proportional
     ),
   )
@@ -197,7 +198,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
 
   val shortBoxPos =
     Vec3(
-      x = -80f * MM_TO_UNITS, // -0.721
+      x = 80f * MM_TO_UNITS, // +0.721 (right, toward green wall)
       y = (82.5f - 277.5f) * MM_TO_UNITS, // -1.757
       z = 75f * MM_TO_UNITS, // 0.676
     )
@@ -206,7 +207,7 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
     shortBox,
     TransformComponent(
       position = shortBoxPos,
-      rotation = Quaternion.fromAxisAngle(Vec3.UP, -0.314f),
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, 0.314f),
       scale = Vec3(1.5f, 1.5f, 1.5f), // 165×165×165mm proportional
     ),
   )
