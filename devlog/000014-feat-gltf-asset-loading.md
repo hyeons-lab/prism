@@ -178,3 +178,28 @@ c744dd9 — chore: update devlog with missing commits and progressive loading no
 
 ## Commits (continued)
 ab56feb — fix: fix Cornell box rendering and redesign to match Wikipedia reference
+f39e668 — fix: match loading overlay to scene background color; add FPS counter
+1951fe6 — fix: dismiss loading overlay on first rendered frame, clear canvas on scene switch
+3e6e7e1 — refactor: replace per-frame JS polling with event-driven scene switcher
+845d670 — refactor: move first-frame callback into PrismSurface, eliminating demo @JsFun glue
+4706459 — perf: progressive material presets — async IBL + one sphere per frame
+61e785b — fix: guard async IBL coroutine against scene-switch device close
+
+2026-02-19T23:15-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — replace consumePendingSceneSwitch() @JsFun (polled 60×/sec) with @JsExport fun prismSwitchScene(name); zero JS interop per frame for scene checking
+2026-02-19T23:15-08:00 docs/wasm/pbr.html — switchScene() calls globalThis['prism-demo-core'].prismSwitchScene(name) instead of window.prismNextScene
+2026-02-19T23:30-08:00 prism-native-widgets/src/wasmJsMain/.../WasmInterop.kt — add jsNotifyFirstFrameReady() @JsFun (calls window.prismHideLoading if set)
+2026-02-19T23:30-08:00 prism-native-widgets/src/wasmJsMain/.../PrismSurface.wasmJs.kt — add onFirstFrame: (() -> Unit)? param to startRenderLoop; fires after first frame + unconditionally calls jsNotifyFirstFrameReady()
+2026-02-19T23:30-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — remove @JsFun notifyFirstFrameReady() and firstFrameNotified boilerplate; use onFirstFrame= lambda instead
+2026-02-19T23:45-08:00 prism-demo-core/src/commonMain/.../DemoScene.kt — add pendingSetup: ArrayDeque<() -> Unit>; tick() and tickWithAngle() process one item per call before world.update()
+2026-02-19T23:45-08:00 prism-demo-core/src/commonMain/.../MaterialPresetScene.kt — add progressiveScope: CoroutineScope? param; when non-null queues spheres in pendingSetup and launches async IBL at 64×32 samples (128× less work); when null sync (existing behavior)
+2026-02-19T23:45-08:00 prism-renderer/src/commonMain/.../WgpuRenderer.kt — add brdfLutSamples: Int = 256 param to initializeIbl(), passed to IblGenerator.generate()
+2026-02-19T23:45-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — pass progressiveScope = GlobalScope to createMaterialPresetScene()
+2026-02-19T23:50-08:00 prism-demo-core/src/commonMain/.../MaterialPresetScene.kt — wrap initializeIbl() in try-catch(Throwable): prevents unhandled exception from crashing WASM runtime when user switches scenes before IBL completes
+
+## Decisions
+2026-02-19T23:50-08:00 Catch Throwable (not Exception) in async IBL guard — GPU exceptions in wgpu4k may not be Exception subclasses; Throwable covers all failure modes including Error
+2026-02-19T23:15-08:00 @JsExport over window global for scene switch — @JsExport places function directly in the UMD bundle's exports object; JS calls it once per button click instead of Kotlin polling a window global 60×/sec
+2026-02-19T23:30-08:00 jsNotifyFirstFrameReady() placed in PrismSurface (not demo code) — embed pages need a standard hook to dismiss loading overlays; making it first-class in the SDK means consumers never need to write @JsFun glue for this pattern
+
+## Issues
+2026-02-19T23:50-08:00 Cornell Box and Damaged Helmet tabs failed to load after progressive materials change — root cause: async IBL coroutine in GlobalScope had no exception handler; when surface.detach() closed the device mid-computation, initializeIbl() threw; unhandled GlobalScope exception in WASM can terminate the coroutine dispatcher, preventing the new scene coroutine from running; fixed by try-catch(Throwable)
