@@ -119,15 +119,22 @@ fun createMaterialPresetScene(
     }
     // Compute IBL asynchronously at reduced resolution — completes in < one frame (~25ms) so the
     // render loop runs immediately with the default env bind group until IBL is ready.
+    // Wrapped in try-catch: if the user switches scenes before IBL finishes, surface.detach()
+    // closes the device and initializeIbl() will throw. Without a handler the unhandled exception
+    // would terminate the WASM coroutine runtime, preventing the new scene from launching.
     progressiveScope.launch {
-      renderer.initializeIbl(
-        brdfLutSize = 64,
-        brdfLutSamples = 32,
-        irradianceSize = 8,
-        prefilteredSize = 16,
-        prefilteredMipLevels = 4,
-      )
-      log.i { "Async IBL ready" }
+      try {
+        renderer.initializeIbl(
+          brdfLutSize = 64,
+          brdfLutSamples = 32,
+          irradianceSize = 8,
+          prefilteredSize = 16,
+          prefilteredMipLevels = 4,
+        )
+        log.i { "Async IBL ready" }
+      } catch (e: Throwable) {
+        log.d { "Async IBL aborted (scene switched before completion): ${e.message}" }
+      }
     }
   } else {
     // Non-progressive: full-quality IBL + all spheres before returning.
