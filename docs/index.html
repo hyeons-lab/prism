@@ -254,40 +254,41 @@ surface.startRenderLoop { dt, elapsed, _ -&gt;
             <div class="lang-label">Swift &middot; iOS</div>
 <pre class="code-block">import PrismDemo
 
-<span class="comment">// PBR renderer on any MTKView</span>
+<span class="comment">// Initialize PBR renderer on any MTKView</span>
 IosDemoControllerKt.configureDemo(view: mtkView) { handle, _ in
     self.handle = handle
     mtkView.isPaused = false
 }
 
-<span class="comment">// Or embed the Compose Multiplatform UI</span>
-let vc = ComposeIosEntryKt.composeDemoViewController()
-addChild(vc)</pre>
+<span class="comment">// Orbit the camera from a pan gesture</span>
+self.handle?.orbitBy(dx: -Float(dx) * 0.005,
+                     dy:  Float(dy) * 0.005)</pre>
           </div>
 
           <div class="lang-card">
             <div class="lang-label">JavaScript &middot; Web</div>
-<pre class="code-block">import { prismSwitchScene }
-    from './prism-demo-core.js';
+<pre class="code-block">import { prismSwitchScene } from './prism-demo-core.js';
 
 <span class="comment">// Canvas starts rendering on module load.</span>
-<span class="comment">// Switch scenes at any time:</span>
-prismSwitchScene('gltf');      <span class="comment">// Damaged Helmet</span>
-prismSwitchScene('cornell');   <span class="comment">// Cornell Box</span>
-prismSwitchScene('hero');      <span class="comment">// PBR presets</span></pre>
+<span class="comment">// Wire scene buttons to the exported switcher:</span>
+document.querySelectorAll('[data-scene]').forEach(btn =>
+    btn.onclick = () => prismSwitchScene(btn.dataset.scene)
+);
+
+<span class="comment">// 'gltf' | 'cornell' | 'hero'</span></pre>
           </div>
 
           <div class="lang-card">
             <div class="lang-label">Dart &middot; Flutter</div>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
-<span class="comment">// Drop into any widget tree</span>
+<span class="comment">// Drop the 3D surface into any widget tree</span>
 PrismRenderView(engine: engine)
 
-<span class="comment">// Control from Dart</span>
+<span class="comment">// Control the renderer from Dart</span>
 await engine.togglePause();
 final state = await engine.getState();
-<span class="comment">// {isPaused: false, fps: 60.0}</span></pre>
+<span class="comment">// { isPaused: false, fps: 60.0 }</span></pre>
           </div>
 
         </div>
