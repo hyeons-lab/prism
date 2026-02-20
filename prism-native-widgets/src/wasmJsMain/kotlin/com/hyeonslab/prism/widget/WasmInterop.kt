@@ -45,23 +45,68 @@ internal external fun jsNotifyFirstFrameReady()
 
 /**
  * Installs pointer-capture drag listeners on [canvas]. Calls [onDelta] with (dx, dy) in CSS pixels
- * for each pointermove while a button is held.
+ * on each drag movement.
+ *
+ * On touch devices, single-finger touch scrolls the page normally (touch-action: pan-x pan-y). A
+ * second finger activates orbit — [onDelta] is called only when 2+ touch pointers are active. Mouse
+ * and pen input always orbit on any single pointer.
+ *
+ * A "Use two fingers to rotate" hint fades in briefly on first single touch.
  */
 @JsFun(
   """(canvas, onDelta) => {
-  canvas.style.touchAction = 'none';
-  let active = false, lastX = 0, lastY = 0;
+  canvas.style.touchAction = 'pan-x pan-y'; // single finger scrolls; 2 fingers orbit
+
+  const hint = document.createElement('div');
+  hint.textContent = 'Use two fingers to rotate';
+  hint.style.cssText =
+    'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+    'background:rgba(0,0,0,0.52);color:#fff;font:13px/1 -apple-system,sans-serif;' +
+    'padding:8px 16px;border-radius:20px;pointer-events:none;' +
+    'opacity:0;transition:opacity 0.2s;white-space:nowrap;z-index:20;';
+  (canvas.parentElement || document.body).appendChild(hint);
+  let hintTimer = null;
+  const showHint = () => {
+    clearTimeout(hintTimer);
+    hint.style.opacity = '1';
+    hintTimer = setTimeout(() => { hint.style.opacity = '0'; }, 1400);
+  };
+
+  const touches = new Set(); // active touch pointer IDs
+  let orbitId = null, lastX = 0, lastY = 0;
+
   canvas.addEventListener('pointerdown', e => {
-    active = true; lastX = e.clientX; lastY = e.clientY;
-    canvas.setPointerCapture(e.pointerId); e.preventDefault();
+    if (e.pointerType === 'touch') {
+      touches.add(e.pointerId);
+      if (touches.size === 1) { showHint(); return; } // single finger — let browser scroll
+      if (touches.size >= 2 && orbitId === null) {    // second finger — start orbit
+        orbitId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
+        canvas.setPointerCapture(e.pointerId); e.preventDefault();
+      }
+    } else {
+      orbitId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId); e.preventDefault();
+    }
   }, { passive: false });
+
   canvas.addEventListener('pointermove', e => {
-    if (!active) return;
+    if (e.pointerId !== orbitId) return;
     onDelta(e.clientX - lastX, e.clientY - lastY);
-    lastX = e.clientX; lastY = e.clientY; e.preventDefault();
+    lastX = e.clientX; lastY = e.clientY;
+    e.preventDefault();
   }, { passive: false });
-  canvas.addEventListener('pointerup',     () => { active = false; });
-  canvas.addEventListener('pointercancel', () => { active = false; });
+
+  canvas.addEventListener('pointerup', e => {
+    if (e.pointerType === 'touch') touches.delete(e.pointerId);
+    if (e.pointerId === orbitId) {
+      orbitId = null;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+  });
+  canvas.addEventListener('pointercancel', e => {
+    if (e.pointerType === 'touch') touches.delete(e.pointerId);
+    if (e.pointerId === orbitId) orbitId = null;
+  });
 }"""
 )
 internal external fun jsInstallPointerDrag(
