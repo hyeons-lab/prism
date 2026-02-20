@@ -167,9 +167,11 @@
             // Notify the parent page so it can update the section title and description.
             window.parent.postMessage({ type: 'prismSceneChange', scene: name }, '*');
 
-            // Signal Kotlin's render loop via the @JsExport entry point — no polling needed.
-            var mod = globalThis['prism-demo-core'];
-            if (mod && mod.prismSwitchScene) mod.prismSwitchScene(name);
+            // Signal Kotlin's render loop via a window global. Kotlin reads this each frame via
+            // consumePendingSceneSwitch(). Using window global (Kotlin reads JS) rather than
+            // @JsExport (JS calls Kotlin) avoids webpack's UMD lazy-getter issue where WASM
+            // exports appear undefined even after the async module resolves.
+            window.prismNextScene = name;
         }
     </script>
 
