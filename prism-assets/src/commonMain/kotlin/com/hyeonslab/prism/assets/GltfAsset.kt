@@ -9,6 +9,7 @@ import com.hyeonslab.prism.math.Transform
 import com.hyeonslab.prism.renderer.Color
 import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.renderer.Mesh
+import com.hyeonslab.prism.renderer.Renderer
 import com.hyeonslab.prism.renderer.Texture
 
 /**
@@ -43,6 +44,27 @@ class GltfAsset(
   /** Renderable nodes from the default scene, with pre-multiplied world-space transforms. */
   val renderableNodes: List<GltfNodeData>,
 ) {
+  /**
+   * Uploads all mesh and texture data in this asset to the GPU in a single call.
+   *
+   * Equivalent to calling [Renderer.uploadMesh] for every renderable node, then
+   * [Renderer.initializeTexture] + [Renderer.uploadTextureData] for every texture whose pixel data
+   * was decoded. Textures with empty pixel data (e.g. when using the WASM progressive path) are
+   * skipped silently.
+   *
+   * @param renderer The renderer to upload resources into.
+   */
+  fun uploadToGpu(renderer: Renderer) {
+    for (node in renderableNodes) {
+      renderer.uploadMesh(node.mesh)
+    }
+    for ((texture, imageData) in textures.zip(imageData)) {
+      if (imageData == null || imageData.pixels.isEmpty()) continue
+      renderer.initializeTexture(texture)
+      renderer.uploadTextureData(texture, imageData.pixels)
+    }
+  }
+
   /**
    * Creates ECS entities for every renderable node in the asset.
    *

@@ -240,11 +240,8 @@
 <pre class="code-block"><span class="comment">// Parse glTF — mesh geometry, PBR materials, textures</span>
 val asset = GltfLoader().load("model.glb", glb)
 
-<span class="comment">// Upload GPU resources</span>
-for (node in asset.renderableNodes)
-    renderer.uploadMesh(node.mesh)
-for ((tex, img) in asset.textures.zip(asset.imageData))
-    if (img != null) renderer.uploadTextureData(tex, img.pixels)
+<span class="comment">// Upload all meshes and textures to the GPU</span>
+asset.uploadToGpu(renderer)
 
 <span class="comment">// Create ECS entities (Transform + Mesh + Material each)</span>
 asset.instantiateInWorld(world)

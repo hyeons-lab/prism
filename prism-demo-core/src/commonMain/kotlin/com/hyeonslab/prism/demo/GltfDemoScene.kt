@@ -15,7 +15,6 @@ import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Camera
 import com.hyeonslab.prism.renderer.Color
 import com.hyeonslab.prism.renderer.Material
-import com.hyeonslab.prism.renderer.Renderer
 import com.hyeonslab.prism.renderer.Texture
 import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
@@ -129,11 +128,8 @@ suspend fun createGltfDemoScene(
     // Non-progressive: block on full image decode and IBL before returning.
     renderer.initializeIbl()
     val asset = GltfLoader().load("model.glb", glbData)
-    uploadGltfTextures(renderer, asset)
     nodeCount = asset.renderableNodes.size
-    for (node in asset.renderableNodes) {
-      renderer.uploadMesh(node.mesh)
-    }
+    asset.uploadToGpu(renderer)
     asset.instantiateInWorld(world)
   }
 
@@ -178,15 +174,6 @@ suspend fun createGltfDemoScene(
   world.initialize()
   log.i { "glTF demo scene initialized: $nodeCount primitives (${width}x${height})" }
   return DemoScene(engine, world, renderer, cameraEntity, orbitRadius = GLTF_ORBIT_RADIUS)
-}
-
-/** Uploads all textures in a [GltfAsset] to the GPU via the given [Renderer]. */
-private fun uploadGltfTextures(renderer: Renderer, asset: GltfAsset) {
-  for ((assetTexture, imageData) in asset.textures.zip(asset.imageData)) {
-    if (imageData == null) continue
-    renderer.initializeTexture(assetTexture)
-    uploadDecodedImage(renderer, assetTexture, imageData)
-  }
 }
 
 /**
