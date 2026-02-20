@@ -7,8 +7,11 @@ import com.hyeonslab.prism.demo.DemoIntent
 import com.hyeonslab.prism.demo.DemoScene
 import com.hyeonslab.prism.demo.DemoStore
 import com.hyeonslab.prism.demo.createDemoScene
+import com.hyeonslab.prism.demo.createGltfDemoScene
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
+import com.hyeonslab.prism.widget.fetchBytes
+import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -32,7 +35,7 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
 @JsFun("() => performance.now()") private external fun performanceNow(): Double
 
 /**
- * Attaches pointer-drag listeners to [canvas] for orbit camera control. Calls [onDelta] with
+ * Attaches pointer-drag listeners to [canvas] for rotate-camera control. Calls [onDelta] with
  * (deltaX, deltaY) in CSS pixels on each pointermove while a pointer button is held.
  */
 @JsFun(
@@ -51,7 +54,7 @@ private external fun requestAnimationFrame(callback: (Double) -> Unit): JsAny
   canvas.addEventListener('pointercancel', () => { active = false; });
 }"""
 )
-private external fun addOrbitPointerListeners(
+private external fun addPointerDragListeners(
   canvas: HTMLCanvasElement,
   onDelta: (Double, Double) -> Unit,
 )
@@ -83,12 +86,12 @@ fun main() {
 /**
  * Initialize the Prism engine on the given canvas element by ID. Called from Dart via JS interop.
  *
- * Each canvas ID gets its own independent engine instance with its own DemoStore, DemoScene, and
- * render loop. Multiple canvases can run simultaneously without conflicting.
+ * Fetches [glbUrl] (relative to the page root) and renders the glTF model; falls back to the PBR
+ * sphere-grid demo if loading fails.
  */
 @OptIn(DelicateCoroutinesApi::class)
 @JsExport
-fun prismInit(canvasId: String) {
+fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
   log.i { "Initializing on canvas '$canvasId'" }
 
   // Shut down any existing instance on this canvas before re-initializing.
@@ -116,13 +119,28 @@ fun prismInit(canvasId: String) {
     instance.surface = surface
     val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
 
-    val demoScene = createDemoScene(wgpuContext, width = width, height = height)
+    // Fetch the GLB and build the glTF scene; fall back to sphere-grid on failure.
+    val glbData = fetchBytes(glbUrl)
+    val demoScene =
+      if (glbData != null) {
+        log.i { "Loaded GLB (${glbData.size} bytes) — initializing glTF scene" }
+        createGltfDemoScene(
+          wgpuContext,
+          width = width,
+          height = height,
+          glbData = glbData,
+          progressiveScope = GlobalScope,
+        )
+      } else {
+        log.w { "GLB not available — falling back to sphere-grid demo" }
+        createDemoScene(wgpuContext, width = width, height = height)
+      }
     instance.scene = demoScene
 
-    // Orbit camera via pointer drag on the canvas.
+    // Drag-to-rotate: pointer drag on the canvas.
     // dx/dy are in CSS pixels; multiply by sensitivity (radians per pixel).
-    addOrbitPointerListeners(canvas) { dx, dy ->
-      demoScene.orbitBy(dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
+    addPointerDragListeners(canvas) { dx, dy ->
+      demoScene.orbitBy(-dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
     }
 
     instance.startTime = performanceNow()
@@ -149,15 +167,11 @@ fun prismInit(canvasId: String) {
           instance.store.dispatch(DemoIntent.UpdateFps(smoothedFps))
         }
 
-        // Apply PBR slider values to sphere materials each frame.
-        demoScene.setMaterialOverride(state.metallic, state.roughness)
-        demoScene.setEnvIntensity(state.envIntensity)
-
-        demoScene.tick(
-          deltaTime = if (state.isPaused) 0f else deltaTime,
-          elapsed = elapsed,
-          frameCount = instance.frameCount,
-        )
+        val effectiveDt = if (state.isPaused) 0f else deltaTime
+        // Auto-orbit the camera at the configured speed when not paused.
+        val rotRadPerSec = state.rotationSpeed * (PI.toFloat() / 180f)
+        demoScene.orbitBy(rotRadPerSec * effectiveDt, 0f)
+        demoScene.tick(deltaTime = effectiveDt, elapsed = elapsed, frameCount = instance.frameCount)
 
         requestAnimationFrame(::renderFrame)
       } catch (e: Throwable) {
@@ -180,33 +194,12 @@ fun prismTogglePause(canvasId: String) {
   instances[canvasId]?.store?.dispatch(DemoIntent.TogglePause)
 }
 
-/** Set metallic factor (0.0 to 1.0). */
-@JsExport
-fun prismSetMetallic(canvasId: String, metallic: Float) {
-  instances[canvasId]?.store?.dispatch(DemoIntent.SetMetallic(metallic))
-}
-
-/** Set roughness factor (0.0 to 1.0). */
-@JsExport
-fun prismSetRoughness(canvasId: String, roughness: Float) {
-  instances[canvasId]?.store?.dispatch(DemoIntent.SetRoughness(roughness))
-}
-
-/** Set environment (IBL) intensity (0.0 to 2.0). */
-@JsExport
-fun prismSetEnvIntensity(canvasId: String, intensity: Float) {
-  instances[canvasId]?.store?.dispatch(DemoIntent.SetEnvIntensity(intensity))
-}
-
 /** Get current state as a JSON string. */
 @JsExport
 fun prismGetState(canvasId: String): String {
   val state = instances[canvasId]?.store?.state?.value ?: return "{}"
   val fps = state.fps.let { if (it.isFinite()) it else 0f }
-  val metallic = state.metallic.let { if (it.isFinite()) it else 0f }
-  val roughness = state.roughness.let { if (it.isFinite()) it else 0.5f }
-  val envIntensity = state.envIntensity.let { if (it.isFinite()) it else 1f }
-  return """{"isPaused":${state.isPaused},"metallic":$metallic,"roughness":$roughness,"envIntensity":$envIntensity,"fps":$fps}"""
+  return """{"isPaused":${state.isPaused},"fps":$fps}"""
 }
 
 /** Check if engine is initialized for the given canvas. */

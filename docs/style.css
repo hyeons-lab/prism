@@ -315,6 +315,64 @@ section {
   color: var(--text-secondary);
 }
 
+/* ── Demo sections (full-viewport iframes) ──────────── */
+
+#gltf-demo,
+#demo {
+  padding: 0;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.gltf-wasm-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.gltf-demo-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  background: var(--bg-secondary);
+}
+
+.gltf-demo-overlay {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 8rem 2rem 3rem;
+  background: linear-gradient(
+    to top,
+    rgba(13, 17, 23, 0.92) 0%,
+    rgba(13, 17, 23, 0.4) 60%,
+    transparent 100%
+  );
+  /* Pass pointer events through to the iframe canvas below. Links inside remain clickable. */
+  pointer-events: none;
+}
+
+.gltf-demo-overlay a {
+  pointer-events: auto;
+}
+
+.gltf-demo-overlay .section-desc {
+  margin-bottom: 1.5rem;
+}
+
 /* ── Features ───────────────────────────────────────── */
 
 .features-grid {
@@ -520,6 +578,49 @@ section {
 .milestone-text p {
   font-size: 0.8125rem;
   color: var(--text-secondary);
+}
+
+/* ── API Examples ───────────────────────────────────── */
+
+#api {
+  background: var(--bg-secondary);
+}
+
+.lang-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.lang-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.lang-label {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lang-card pre.code-block {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+@media (max-width: 720px) {
+  .lang-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Quick Start ────────────────────────────────────── */

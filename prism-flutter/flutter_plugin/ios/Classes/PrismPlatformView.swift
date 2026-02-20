@@ -31,7 +31,7 @@ class PrismPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
 }
 
 /// iOS platform view that hosts an MTKView with wgpu4k rendering via the PrismDemo framework.
-/// Mirrors the pattern from ViewController.swift: MTKView + configureDemo + IosDemoHandle.
+/// Loads the DamagedHelmet.glb glTF model. Drag to rotate the model.
 class PrismPlatformView: NSObject, FlutterPlatformView {
 
     private let containerView: UIView
@@ -40,7 +40,7 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     private var isInitialized = false
     private let store: DemoStore
 
-    /// True once `configureDemo` has completed successfully and a render handle exists.
+    /// True once `configureDemoWithGltf` has completed successfully and a render handle exists.
     var isReady: Bool { demoHandle != nil }
 
     init(frame: CGRect, store: DemoStore) {
@@ -70,6 +70,10 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
 
         super.init()
 
+        // Drag-to-rotate via pan gesture on the container view.
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        containerView.addGestureRecognizer(panGesture)
+
         // Defer wgpu init to next layout pass so the view has real dimensions
         DispatchQueue.main.async { [weak self] in
             self?.initializeIfNeeded()
@@ -87,22 +91,28 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
         demoHandle = nil
     }
 
+    @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+        let translation = recognizer.translation(in: containerView)
+        recognizer.setTranslation(.zero, in: containerView)
+        demoHandle?.orbitBy(dx: -Float(translation.x) * 0.005, dy: Float(translation.y) * 0.005)
+    }
+
     private func initializeIfNeeded() {
         guard !isInitialized, let mtkView = mtkView else { return }
         isInitialized = true // guard against re-entry while async init is in flight
 
-        IosDemoControllerKt.configureDemo(view: mtkView, store: store) { [weak self] handle, error in
+        IosDemoControllerKt.configureDemoWithGltf(view: mtkView, store: store) { [weak self] handle, error in
             guard let self = self else { return }
 
             if let error = error {
-                NSLog("Prism Flutter: configureDemo failed: \(error.localizedDescription)")
+                NSLog("Prism Flutter: configureDemoWithGltf failed: \(error.localizedDescription)")
                 self.isInitialized = false // allow retry on next layout pass
                 self.showErrorLabel(message: "Rendering failed: \(error.localizedDescription)")
                 return
             }
 
             guard let handle = handle else {
-                NSLog("Prism Flutter: configureDemo returned nil handle")
+                NSLog("Prism Flutter: configureDemoWithGltf returned nil handle")
                 self.isInitialized = false
                 self.showErrorLabel(message: "Rendering initialization failed.")
                 return
@@ -114,14 +124,17 @@ class PrismPlatformView: NSObject, FlutterPlatformView {
     }
 
     private func showErrorLabel(message: String) {
-        containerView.subviews.forEach { $0.removeFromSuperview() }
+        // Remove any previous error label but keep the mtkView intact so Metal resources are not
+        // unnecessarily torn down. Error is displayed as an overlay on top of the metal view.
+        containerView.viewWithTag(999)?.removeFromSuperview()
         let label = UILabel(frame: containerView.bounds)
+        label.tag = 999
         label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         label.text = message
         label.textAlignment = .center
         label.textColor = .white
         label.numberOfLines = 0
-        label.backgroundColor = .darkGray
+        label.backgroundColor = UIColor.darkGray.withAlphaComponent(0.85)
         containerView.addSubview(label)
     }
 

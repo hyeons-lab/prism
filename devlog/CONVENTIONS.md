@@ -4,7 +4,7 @@
 
 ## Formats
 
-**Timestamps:** ISO 8601 with UTC offset — e.g. `2026-02-14T10:30-08:00`. Be consistent within a file.
+**Timestamps:** ISO 8601 with UTC offset — e.g. `2026-02-14T10:30-08:00`. Always include time, not just date. Be consistent within a file.
 
 **Devlog file:** `devlog/NNNNNN-<branch-name>.md` — one file per branch.
 - `NNNNNN`: zero-padded 6-digit sequence number (check highest in `devlog/` and increment)
@@ -29,6 +29,7 @@ Each devlog file should have:
 - **Commits:** `hash — message`
 
 Optional sections (omit if empty):
+- **Progress:** Checklist of tasks
 - **Research & Discoveries:** Findings, links — so future agents don't re-discover them
 - **Lessons Learned:** Reusable insights, pitfalls, API quirks
 - **Next Steps:** What's left to do

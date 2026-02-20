@@ -30,6 +30,7 @@
           <li><a href="#demo">Demo</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#architecture">Architecture</a></li>
+          <li><a href="#api">API</a></li>
           <li><a href="#platforms">Platforms</a></li>
           <li><a href="#milestones">Milestones</a></li>
           <li><a href="#quickstart">Quick Start</a></li>
@@ -55,29 +56,57 @@
       </div>
     </section>
 
-    <!-- Demo -->
+    <!-- Demo: unified interactive scene switcher (Kotlin/WASM) — PBR presets, Cornell box, glTF -->
     <section id="demo">
-      <div class="container">
-        <p class="section-label">Live Demo</p>
-        <h2 class="section-title">PBR rendering in your browser</h2>
-        <p class="section-desc">
-          A 5&times;5 sphere grid rendered with Cook-Torrance BRDF &mdash; metallic
-          increases left to right, roughness increases top to bottom. Same WebGPU
-          pipeline that runs on Metal, Vulkan, and DX12.
-        </p>
-        <div class="demo-wrapper">
-          <canvas id="demo-canvas" role="img" aria-label="PBR sphere grid rendered with WebGPU: 25 spheres varying metallic and roughness via Cook-Torrance BRDF"></canvas>
-          <div id="demo-fallback" class="demo-fallback" hidden>
-            <p>
-              Your browser doesn't support WebGPU yet.<br />
-              Try <a href="https://www.google.com/chrome/">Chrome 113+</a> or
-              <a href="https://www.google.com/chrome/canary/">Chrome Canary</a>.
-            </p>
-          </div>
+      <iframe
+        src="wasm/pbr.html"
+        title="Interactive 3D demo: PBR material presets, Cornell box, and DamagedHelmet glTF model rendered with Prism Engine (Kotlin/WASM + WebGPU)"
+        class="gltf-wasm-frame"
+      ></iframe>
+      <div class="gltf-demo-overlay">
+        <div class="container">
+          <p class="section-label" id="demo-label">PBR Materials</p>
+          <h2 class="section-title" id="demo-title">Material Presets</h2>
+          <p class="section-desc" id="demo-desc">
+            Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick
+            reflectance. Five material presets &mdash; Gold, Chrome, Worn Metal, Ceramic,
+            and Obsidian &mdash; each with distinct metallic and roughness properties.
+          </p>
+          <p class="demo-caption" id="demo-caption">Drag to orbit &middot; Use the tabs to switch scenes.</p>
         </div>
-        <p class="demo-caption">Drag to orbit &mdash; Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick. Two point lights.</p>
       </div>
     </section>
+    <script>
+      var demoSceneInfo = {
+        hero: {
+          label: 'PBR Materials',
+          title: 'Material Presets',
+          desc: 'Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick reflectance. Five material presets \u2014 Gold, Chrome, Worn Metal, Ceramic, and Obsidian \u2014 each with distinct metallic and roughness properties.',
+          caption: 'Drag to orbit \u00b7 Use the tabs to switch scenes.'
+        },
+        cornell: {
+          label: 'PBR Materials',
+          title: 'Cornell Box',
+          desc: 'Classic Cornell box reference render \u2014 PBR-shaded walls with historically accurate muted pigments and a ceiling area light. Geometry from the standard glTF dataset (555\u00d7555\u00d7559 mm room).',
+          caption: 'Drag to orbit \u00b7 Use the tabs to switch scenes.'
+        },
+        gltf: {
+          label: 'glTF 2.0 Asset Loading',
+          title: 'Damaged Helmet',
+          desc: 'Real-time glTF 2.0 rendering with all five PBR textures: base color, metallic-roughness, normal map, ambient occlusion, and emissive. GLB binary parsed at runtime \u2014 no external libraries.',
+          caption: 'Drag to orbit \u00b7 Cook-Torrance BRDF + Khronos PBR Neutral tone mapping. Model: <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" style="color:inherit;text-decoration:underline">DamagedHelmet</a> \u00a9 Khronos Group, CC BY 4.0.'
+        }
+      };
+      window.addEventListener('message', function(e) {
+        if (!e.data || e.data.type !== 'prismSceneChange') return;
+        var info = demoSceneInfo[e.data.scene];
+        if (!info) return;
+        document.getElementById('demo-label').textContent = info.label;
+        document.getElementById('demo-title').textContent = info.title;
+        document.getElementById('demo-desc').textContent = info.desc;
+        document.getElementById('demo-caption').innerHTML = info.caption;
+      });
+    </script>
 
     <!-- Features -->
     <section id="features">
@@ -191,6 +220,68 @@
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
 
 <span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid)</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- API Examples -->
+    <section id="api">
+      <div class="container">
+        <p class="section-label">API</p>
+        <h2 class="section-title">Simple from every language</h2>
+        <p class="section-desc">
+          Prism exposes a clean, idiomatic API in each platform's native language &mdash; no
+          boilerplate, no glue code, just the engine.
+        </p>
+        <div class="lang-grid">
+
+          <div class="lang-card">
+            <div class="lang-label">Kotlin &middot; Android</div>
+<pre class="code-block"><span class="comment">// Parse glTF — geometry, PBR materials, textures</span>
+val asset = GltfLoader().load("model.glb", glb)
+renderer.upload(asset)
+asset.instantiateInWorld(world)
+
+<span class="comment">// Drive the render loop</span>
+surface.startRenderLoop { dt, elapsed, _ -&gt;
+    world.update(Time(dt, elapsed)) }</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">Swift &middot; iOS</div>
+<pre class="code-block">import PrismDemo
+
+<span class="comment">// Parse glTF — suspend fun → async via SKIE</span>
+let asset = try await GltfLoader().load(path: "model.glb", data: glb)
+renderer.upload(asset: asset)
+asset.instantiateInWorld(world: world)
+
+<span class="comment">// Drive the render loop</span>
+surface.startRenderLoop { dt, elapsed, _ in
+    world.update(Time(dt: dt, elapsed: elapsed)) }</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">JavaScript &middot; Web</div>
+<pre class="code-block"><span class="comment">// Module loads DamagedHelmet.glb and starts rendering on import</span>
+await import('./prism-demo-core.mjs');
+
+<span class="comment">// Switch scenes at runtime</span>
+window.prismNextScene = 'gltf'; <span class="comment">// 'gltf' | 'cornell' | 'hero'</span></pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">Dart &middot; Flutter</div>
+<pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
+
+<span class="comment">// Embed the GPU surface — renders the glTF scene immediately</span>
+PrismRenderView(engine: engine)
+
+<span class="comment">// Control from Dart</span>
+await engine.togglePause();
+final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span></pre>
+          </div>
+
         </div>
       </div>
     </section>
@@ -359,12 +450,12 @@
               <p>Cook-Torrance BRDF, IBL, HDR tone mapping</p>
             </div>
           </div>
-          <div class="milestone planned">
+          <div class="milestone done">
             <span class="milestone-tag">M10</span>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>glTF asset loading</h4>
-              <p>glTF 2.0 meshes, textures, animations</p>
+              <p>glTF 2.0 meshes, materials, textures, ECS instantiation</p>
             </div>
           </div>
           <div class="milestone done">
@@ -427,15 +518,5 @@
       </ul>
       <p>Apache License 2.0 &mdash; Copyright 2025-2026 Hyeons' Lab</p>
     </footer>
-    <script type="module">
-      import { initDemo } from "./demo.js";
-      const canvas = document.getElementById("demo-canvas");
-      const fallback = document.getElementById("demo-fallback");
-      const ok = await initDemo(canvas).catch(() => false);
-      if (!ok) {
-        canvas.hidden = true;
-        fallback.hidden = false;
-      }
-    </script>
   </body>
 </html>

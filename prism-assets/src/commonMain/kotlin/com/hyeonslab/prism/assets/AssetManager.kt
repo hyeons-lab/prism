@@ -51,6 +51,7 @@ class AssetManager : Subsystem {
     registerLoader(TextureLoader())
     registerLoader(MeshLoader())
     registerLoader(ShaderLoader())
+    registerLoader(GltfLoader())
   }
 
   override fun update(time: Time) {

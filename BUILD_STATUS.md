@@ -142,7 +142,20 @@
 - [x] Compose PBR controls: env intensity, metallic, roughness sliders
 - **Status:** Complete — `./gradlew :prism-demo-core:jvmRun` renders PBR sphere grid with IBL + HDR
 
-### M10: glTF Asset Loading ⏳
+### M10: glTF Asset Loading ✅
+
+- [x] GltfTypes.kt — @Serializable schema for glTF 2.0 JSON (nodes, meshes, accessors, materials, textures, images, samplers)
+- [x] GlbReader.kt — GLB binary container parser (magic/version/length validation, JSON + BIN chunks)
+- [x] ImageDecoder.kt — expect/actual RGBA8 pixel decoder (JVM/WASM: AWT/Canvas API; iOS/macOS: CGImage; Android: BitmapFactory; native: stub)
+- [x] GltfAsset.kt — public Prism asset type: meshes, materials, textures, renderableNodes; `instantiateInWorld()` ECS factory
+- [x] GltfLoader.kt — full loader: GLB/glTF parsing, accessor reads (float + normalized int types), texture format assignment (sRGB vs linear), scene graph traversal with cycle detection, negative scale decomposition
+- [x] GltfDemoScene.kt — demo integration: load DamagedHelmet.glb, upload textures, instantiate ECS entities, orbit camera
+- [x] WgpuRenderer fixes: dynamic object UBO pool, all materials through cache, per-frame uniform refresh, sampler cache, `initializeTexture()`, resize guard
+- [x] Flutter integration: GLB fetch + rendering on Android, iOS, and Web; drag-to-rotate on all platforms
+- [x] docs/gltf-demo.js — standalone WebGPU JS demo with DamagedHelmet on landing page
+- [x] Tests: GlbReaderTest (10), GltfLoaderTest (14), UnpremultiplyTest (8)
+- **Status:** Complete — `./gradlew :prism-demo-core:jvmRun` renders DamagedHelmet glTF model with PBR materials
+
 ### M11: Flutter Integration ✅
 
 - [x] Build system: prism-flutter module with Android, iOS, wasmJs targets, prism-demo-core dependency
@@ -161,7 +174,8 @@
 | prism-math | 80 | Vec3 (26), Mat4 (29), Quaternion (25) |
 | prism-renderer | 146 | Color (24), Mesh (35), VertexLayout (22), Camera (19), Shader (29), IblGenerator (8), LightData (6), Material (3) |
 | prism-demo-core | 10 | DemoStore (MVI reducer, 10) |
-| **Total** | **236** | |
+| prism-assets | 32 | GlbReader (10), GltfLoader (14), UnpremultiplyAlpha (8) |
+| **Total** | **268** | |
 
 Run tests: `./gradlew jvmTest` (JVM) or `./gradlew macosArm64Test iosSimulatorArm64Test` (Apple native)
 

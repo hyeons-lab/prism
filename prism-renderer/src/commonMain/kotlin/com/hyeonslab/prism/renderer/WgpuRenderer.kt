@@ -121,10 +121,16 @@ class WgpuRenderer(
 
   // --- PBR Uniform Buffers ---
   private var sceneUniformBuffer: WGPUBuffer? = null
-  private var objectUniformBuffer: WGPUBuffer? = null
   private var pbrMaterialUniformBuffer: WGPUBuffer? = null
   private var lightStorageBuffer: WGPUBuffer? = null
   private var envUniformBuffer: WGPUBuffer? = null
+
+  // --- Per-draw object UBO pool ---
+  // A pool of (buffer, bind-group) pairs, one per draw call per frame. The pool grows on demand.
+  // Using a pool instead of a single buffer prevents all draw calls from seeing the last transform.
+  private val objectUboPool = mutableListOf<WGPUBuffer>()
+  private val objectBindGroupPool = mutableListOf<GPUBindGroup>()
+  private var currentObjectIndex = 0
 
   // --- Default Textures & Sampler ---
   private var defaultWhiteTexture: WGPUTexture? = null
@@ -140,9 +146,14 @@ class WgpuRenderer(
 
   // --- PBR Bind Groups ---
   private var sceneBindGroup: GPUBindGroup? = null
-  private var objectBindGroup: GPUBindGroup? = null
   private var defaultMaterialBindGroup: GPUBindGroup? = null
   private var envBindGroup: GPUBindGroup? = null
+
+  // --- Per-material bind group / texture view / sampler caches (keyed by identity) ---
+  private val textureViewCache = mutableMapOf<Texture, WGPUTextureView>()
+  private val materialBindGroupCache = mutableMapOf<Material, GPUBindGroup>()
+  private val materialUniformBufferCache = mutableMapOf<Material, WGPUBuffer>()
+  private val samplerCache = mutableMapOf<SamplerKey, GPUSampler>()
 
   // --- PBR Pipeline ---
   private var pbrPipeline: GPURenderPipeline? = null
@@ -230,11 +241,13 @@ class WgpuRenderer(
     iblPrefilteredView?.close()
     iblPrefilteredTexture?.close()
     sceneBindGroup?.close()
-    objectBindGroup?.close()
     defaultMaterialBindGroup?.close()
     envBindGroup?.close()
+    objectBindGroupPool.forEach { it.close() }
+    objectBindGroupPool.clear()
+    objectUboPool.forEach { it.close() }
+    objectUboPool.clear()
     sceneUniformBuffer?.close()
-    objectUniformBuffer?.close()
     pbrMaterialUniformBuffer?.close()
     lightStorageBuffer?.close()
     envUniformBuffer?.close()
@@ -250,6 +263,14 @@ class WgpuRenderer(
     defaultClampSampler?.close()
     depthTextureView?.close()
     depthTexture?.close()
+    textureViewCache.values.forEach { it.close() }
+    textureViewCache.clear()
+    materialBindGroupCache.values.forEach { it.close() }
+    materialBindGroupCache.clear()
+    materialUniformBufferCache.values.forEach { it.close() }
+    materialUniformBufferCache.clear()
+    samplerCache.values.forEach { it.close() }
+    samplerCache.clear()
     if (!surfacePreConfigured) {
       wgpuContext.close()
     }
@@ -356,6 +377,7 @@ class WgpuRenderer(
       )
 
     currentRenderPass = encoder.beginRenderPass(wgpuDescriptor)
+    currentObjectIndex = 0 // reset per-draw object UBO index each render pass
 
     // Auto-bind appropriate PBR pipeline and scene/env bind groups
     val pipeline = if (hdrEnabledForFrame) pbrPipelineHdr else pbrPipeline
@@ -421,14 +443,10 @@ class WgpuRenderer(
 
   override fun setMaterial(material: Material) {
     val renderPass = currentRenderPass ?: return
-    writePbrMaterialUniforms(material)
-
-    // Bind material bind group with default textures
-    // (Real texture binding will be added when texture loading is implemented)
-    val matBg = defaultMaterialBindGroup
-    if (matBg != null) {
-      renderPass.setBindGroup(2u, matBg)
-    }
+    val matBg = getOrCreateMaterialBindGroup(material)
+    // Always refresh uniforms to pick up current hdrEnabledForFrame / sRGB color-space state.
+    materialUniformBufferCache[material]?.let { writePbrMaterialUniformsToBuffer(material, it) }
+    renderPass.setBindGroup(2u, matBg)
   }
 
   override fun setMaterialColor(color: Color) {
@@ -436,19 +454,23 @@ class WgpuRenderer(
     setMaterial(Material(baseColor = color))
   }
 
+  override fun invalidateMaterial(material: Material) {
+    materialBindGroupCache.remove(material)?.close()
+    materialUniformBufferCache.remove(material)?.close()
+  }
+
   // ===== Drawing =====
 
   override fun drawMesh(mesh: Mesh, transform: Mat4) {
     val renderPass = currentRenderPass ?: error("No active render pass")
 
-    // Write object uniforms (model + padded normalMatrix)
-    writeObjectUniforms(transform)
-
-    // Bind object bind group
-    val objBg = objectBindGroup
-    if (objBg != null) {
-      renderPass.setBindGroup(1u, objBg)
-    }
+    // Get a dedicated buffer from the per-draw pool (growing it if needed), write transform,
+    // and bind it. Each draw gets its own buffer so all draws see the correct transform when the
+    // GPU executes the commands after submit().
+    val objIdx = currentObjectIndex++
+    ensureObjectPoolCapacity(objIdx)
+    writeObjectUniformsToBuffer(objectUboPool[objIdx], transform)
+    renderPass.setBindGroup(1u, objectBindGroupPool[objIdx])
 
     val vertexBuffer =
       mesh.vertexBuffer?.handle as? WGPUBuffer
@@ -481,6 +503,7 @@ class WgpuRenderer(
   var onResize: ((width: Int, height: Int) -> Unit)? = null
 
   override fun resize(width: Int, height: Int) {
+    if (width <= 0 || height <= 0) return
     this.width = width
     this.height = height
     onResize?.invoke(width, height)
@@ -504,6 +527,8 @@ class WgpuRenderer(
    * @param prefilteredSize Specular prefiltered env cubemap face size.
    * @param prefilteredMipLevels Number of roughness mip levels in the prefiltered cubemap.
    * @param brdfLutSize BRDF LUT texture resolution.
+   * @param brdfLutSamples Monte Carlo samples per BRDF LUT texel. Lower values compute faster at a
+   *   slight accuracy cost; 32 is sufficient for small demos, 256 for production quality.
    */
   @Suppress("LongParameterList")
   fun initializeIbl(
@@ -512,6 +537,7 @@ class WgpuRenderer(
     prefilteredSize: Int = 32,
     prefilteredMipLevels: Int = 5,
     brdfLutSize: Int = 256,
+    brdfLutSamples: Int = 256,
   ) {
     // Release any previously generated IBL textures
     iblBrdfLutView?.close()
@@ -529,6 +555,7 @@ class WgpuRenderer(
         prefilteredSize = prefilteredSize,
         prefilteredMipLevels = prefilteredMipLevels,
         brdfLutSize = brdfLutSize,
+        brdfLutSamples = brdfLutSamples,
       )
 
     iblBrdfLutTexture = ibl.brdfLutTexture
@@ -610,6 +637,40 @@ class WgpuRenderer(
     val texture = Texture(descriptor)
     texture.handle = gpuTexture
     return texture
+  }
+
+  override fun initializeTexture(texture: Texture) {
+    val d = texture.descriptor
+    texture.handle =
+      device.createTexture(
+        WGPUTextureDescriptor(
+          size = Extent3D(d.width.toUInt(), d.height.toUInt()),
+          format = mapTextureFormat(d.format),
+          usage = GPUTextureUsage.TextureBinding or GPUTextureUsage.CopyDst,
+          label = d.label,
+        )
+      )
+  }
+
+  override fun uploadTextureData(texture: Texture, pixels: ByteArray) {
+    writeTextureFromArrayBuffer(texture, ArrayBuffer.of(pixels))
+  }
+
+  /**
+   * Uploads pixel data to [texture] from a pre-built wgpu4k [ArrayBuffer]. Used by the WASM
+   * zero-copy path where the pixel data lives in a JS `ArrayBuffer` and is wrapped via
+   * `ArrayBuffer.wrap()` without any Kotlin↔JS element-by-element copy.
+   */
+  fun writeTextureFromArrayBuffer(texture: Texture, data: ArrayBuffer) {
+    val gpuTexture = texture.handle as? WGPUTexture ?: return
+    val w = texture.descriptor.width.toUInt()
+    val h = texture.descriptor.height.toUInt()
+    device.queue.writeTexture(
+      TexelCopyTextureInfo(texture = gpuTexture),
+      data,
+      TexelCopyBufferLayout(bytesPerRow = w * 4u),
+      Extent3D(w, h),
+    )
   }
 
   override fun createShaderModule(
@@ -954,15 +1015,6 @@ class WgpuRenderer(
         )
       )
 
-    objectUniformBuffer =
-      device.createBuffer(
-        BufferDescriptor(
-          size = Shaders.OBJECT_UNIFORMS_SIZE.toULong(),
-          usage = GPUBufferUsage.Uniform or GPUBufferUsage.CopyDst,
-          label = "Object Uniforms",
-        )
-      )
-
     pbrMaterialUniformBuffer =
       device.createBuffer(
         BufferDescriptor(
@@ -1033,19 +1085,6 @@ class WgpuRenderer(
               BindGroupEntry(binding = 1u, resource = BufferBinding(buffer = lightStorageBuffer!!)),
             ),
           label = "Scene Bind Group",
-        )
-      )
-
-    // Object bind group
-    objectBindGroup =
-      device.createBindGroup(
-        BindGroupDescriptor(
-          layout = objectBindGroupLayout!!,
-          entries =
-            listOf(
-              BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = objectUniformBuffer!!))
-            ),
-          label = "Object Bind Group",
         )
       )
 
@@ -1281,9 +1320,34 @@ class WgpuRenderer(
     device.queue.writeBuffer(buf, 0u, data)
   }
 
-  private fun writeObjectUniforms(model: Mat4) {
-    val buf = objectUniformBuffer ?: return
+  /**
+   * Ensures the per-draw object UBO pool has at least [index + 1] entries. New buffer+bind-group
+   * pairs are allocated on demand so the pool grows with the scene's draw call count.
+   */
+  private fun ensureObjectPoolCapacity(index: Int) {
+    while (objectUboPool.size <= index) {
+      val buf =
+        device.createBuffer(
+          BufferDescriptor(
+            size = Shaders.OBJECT_UNIFORMS_SIZE.toULong(),
+            usage = GPUBufferUsage.Uniform or GPUBufferUsage.CopyDst,
+            label = "Object Uniforms [${objectUboPool.size}]",
+          )
+        )
+      val bg =
+        device.createBindGroup(
+          BindGroupDescriptor(
+            layout = objectBindGroupLayout!!,
+            entries = listOf(BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = buf))),
+            label = "Object Bind Group [${objectBindGroupPool.size}]",
+          )
+        )
+      objectUboPool.add(buf)
+      objectBindGroupPool.add(bg)
+    }
+  }
 
+  private fun writeObjectUniformsToBuffer(buf: WGPUBuffer, model: Mat4) {
     // Pack: mat4x4f(16 floats) + mat3x3f padded(12 floats) = 28 floats
     val data = FloatArray(28) // 112 bytes
     model.data.copyInto(data, 0) // model at offset 0
@@ -1310,9 +1374,7 @@ class WgpuRenderer(
     device.queue.writeBuffer(buf, 0u, data)
   }
 
-  private fun writePbrMaterialUniforms(material: Material) {
-    val buf = pbrMaterialUniformBuffer ?: return
-
+  private fun writePbrMaterialUniformsToBuffer(material: Material, buf: WGPUBuffer) {
     var flags = 0
     if (material.albedoTexture != null) flags = flags or 1
     if (material.metallicRoughnessTexture != null) flags = flags or 2
@@ -1343,6 +1405,110 @@ class WgpuRenderer(
 
     device.queue.writeBuffer(buf, 0u, data)
   }
+
+  private fun getOrCreateTextureView(texture: Texture): WGPUTextureView =
+    textureViewCache.getOrPut(texture) {
+      val gpuTexture =
+        texture.handle as? WGPUTexture
+          ?: error("Texture '${texture}' has no GPU handle — call uploadTextureData first")
+      gpuTexture.createView()
+    }
+
+  @Suppress("LongMethod")
+  private fun getOrCreateMaterialBindGroup(material: Material): GPUBindGroup =
+    materialBindGroupCache.getOrPut(material) {
+      val matBuffer =
+        device.createBuffer(
+          BufferDescriptor(
+            size = Shaders.PBR_MATERIAL_UNIFORMS_SIZE.toULong(),
+            usage = GPUBufferUsage.Uniform or GPUBufferUsage.CopyDst,
+            label = "Material Uniforms (${material.label})",
+          )
+        )
+      materialUniformBufferCache[material] = matBuffer
+      writePbrMaterialUniformsToBuffer(material, matBuffer)
+
+      val albedoView =
+        material.albedoTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultWhiteTextureView!!
+      val mrView =
+        material.metallicRoughnessTexture
+          ?.takeIf { it.handle != null }
+          ?.let { getOrCreateTextureView(it) } ?: defaultWhiteTextureView!!
+      val normalView =
+        material.normalTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultNormalTextureView!!
+      val occlusionView =
+        material.occlusionTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultWhiteTextureView!!
+      val emissiveView =
+        material.emissiveTexture?.takeIf { it.handle != null }?.let { getOrCreateTextureView(it) }
+          ?: defaultBlackTextureView!!
+
+      // Use a sampler matching the primary texture's descriptor; fall back to the default linear
+      // repeat sampler when no textures are present.
+      val primaryDescriptor =
+        (material.albedoTexture ?: material.normalTexture ?: material.metallicRoughnessTexture)
+          ?.descriptor
+      val sampler =
+        if (primaryDescriptor != null) getOrCreateSampler(primaryDescriptor) else defaultSampler!!
+
+      device.createBindGroup(
+        BindGroupDescriptor(
+          layout = materialBindGroupLayout!!,
+          entries =
+            listOf(
+              BindGroupEntry(binding = 0u, resource = BufferBinding(buffer = matBuffer)),
+              BindGroupEntry(binding = 1u, resource = sampler),
+              BindGroupEntry(binding = 2u, resource = albedoView),
+              BindGroupEntry(binding = 3u, resource = mrView),
+              BindGroupEntry(binding = 4u, resource = normalView),
+              BindGroupEntry(binding = 5u, resource = occlusionView),
+              BindGroupEntry(binding = 6u, resource = emissiveView),
+            ),
+          label = "Material Bind Group (${material.label})",
+        )
+      )
+    }
+
+  // ===== Private: Sampler cache =====
+
+  private data class SamplerKey(
+    val minFilter: TextureFilter,
+    val magFilter: TextureFilter,
+    val wrapU: TextureWrap,
+    val wrapV: TextureWrap,
+  )
+
+  private fun getOrCreateSampler(descriptor: TextureDescriptor): GPUSampler =
+    samplerCache.getOrPut(
+      SamplerKey(descriptor.minFilter, descriptor.magFilter, descriptor.wrapU, descriptor.wrapV)
+    ) {
+      device.createSampler(
+        SamplerDescriptor(
+          minFilter =
+            if (descriptor.minFilter == TextureFilter.NEAREST) GPUFilterMode.Nearest
+            else GPUFilterMode.Linear,
+          magFilter =
+            if (descriptor.magFilter == TextureFilter.NEAREST) GPUFilterMode.Nearest
+            else GPUFilterMode.Linear,
+          mipmapFilter = GPUMipmapFilterMode.Linear,
+          addressModeU = mapWrapMode(descriptor.wrapU),
+          addressModeV = mapWrapMode(descriptor.wrapV),
+          addressModeW = GPUAddressMode.Repeat,
+          label =
+            "Sampler(${descriptor.minFilter}/${descriptor.magFilter}/" +
+              "${descriptor.wrapU}/${descriptor.wrapV})",
+        )
+      )
+    }
+
+  private fun mapWrapMode(wrap: TextureWrap): GPUAddressMode =
+    when (wrap) {
+      TextureWrap.REPEAT -> GPUAddressMode.Repeat
+      TextureWrap.CLAMP_TO_EDGE -> GPUAddressMode.ClampToEdge
+      TextureWrap.MIRRORED_REPEAT -> GPUAddressMode.MirrorRepeat
+    }
 
   // ===== Private: Format mapping =====
 

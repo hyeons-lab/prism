@@ -631,4 +631,4 @@ fun main() {
 5. ✅ Wire ECS RenderSystem, render multiple entities
 6. ✅ Embed in Compose window with FPS overlay
 7. ✅ PBR sphere grid demo (varying metallic/roughness) renders correctly
-8. Load Khronos glTF sample model (e.g., DamagedHelmet) and render with PBR materials
+8. ✅ Load Khronos glTF sample model (e.g., DamagedHelmet) and render with PBR materials

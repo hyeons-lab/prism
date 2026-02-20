@@ -142,4 +142,35 @@ interface Renderer : Subsystem {
 
   /** Sets the camera world-space position for PBR specular calculations. */
   fun setCameraPosition(position: Vec3) {}
+
+  /**
+   * Initializes a GPU texture from the [Texture]'s descriptor and assigns its [Texture.handle].
+   *
+   * This is an in-place alternative to [createTexture]: rather than returning a new [Texture], it
+   * populates the handle on an existing one. Callers own the [Texture] object and can use it
+   * immediately in [uploadTextureData] after this call.
+   *
+   * @param texture The texture to initialize. Its [Texture.descriptor] determines GPU format and
+   *   dimensions.
+   */
+  fun initializeTexture(texture: Texture) {}
+
+  /**
+   * Uploads raw RGBA8 pixel data to a previously created [Texture].
+   *
+   * Must be called after [createTexture] (or [initializeTexture]) and before the texture is used in
+   * a draw call.
+   *
+   * @param texture The texture to populate. Must have a valid [Texture.handle].
+   * @param pixels Raw RGBA8 pixel data in row-major order (4 bytes per pixel).
+   */
+  fun uploadTextureData(texture: Texture, pixels: ByteArray) {}
+
+  /**
+   * Evicts [material] from the bind group cache so the next [setMaterial] call rebuilds it.
+   *
+   * Call this after updating a material's texture handles (e.g., progressive texture loading) to
+   * ensure the renderer picks up the new texture views on the next draw call.
+   */
+  fun invalidateMaterial(material: Material) {}
 }

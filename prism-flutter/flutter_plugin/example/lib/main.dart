@@ -33,27 +33,40 @@ class PrismDemoPage extends StatefulWidget {
 
 class _PrismDemoPageState extends State<PrismDemoPage> {
   final _engine = PrismEngine();
-  double _metallic = 0.0;
-  double _roughness = 0.5;
-  double _envIntensity = 1.0;
+  bool _isInitialized = false;
   bool _isPaused = false;
   double _fps = 0.0;
-  Timer? _fpsTimer;
+  Timer? _pollTimer;
+  DateTime? _lastPauseToggle;
 
   @override
   void initState() {
     super.initState();
-    _fpsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      if (!_isInitialized) {
+        final ready = await _engine.isInitialized();
+        if (ready && mounted) setState(() => _isInitialized = true);
+      }
       final state = await _engine.getState();
       if (mounted) {
-        setState(() => _fps = (state['fps'] as num?)?.toDouble() ?? 0.0);
+        setState(() {
+          _fps = (state['fps'] as num?)?.toDouble() ?? 0.0;
+          // Debounce: don't overwrite _isPaused from poll within 750 ms of a user toggle to
+          // prevent the UI from flickering back to the pre-toggle state before the engine catches up.
+          final sinceToggle = _lastPauseToggle != null
+              ? DateTime.now().difference(_lastPauseToggle!)
+              : const Duration(seconds: 999);
+          if (sinceToggle > const Duration(milliseconds: 750)) {
+            _isPaused = (state['isPaused'] as bool?) ?? false;
+          }
+        });
       }
     });
   }
 
   @override
   void dispose() {
-    _fpsTimer?.cancel();
+    _pollTimer?.cancel();
     unawaited(_engine.shutdown());
     super.dispose();
   }
@@ -61,7 +74,6 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Full-screen: no AppBar, body fills the viewport.
       body: Stack(
         children: [
           // 3D render view fills the entire screen.
@@ -74,34 +86,35 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
             right: 16,
             child: _FpsChip(fps: _fps),
           ),
-          // PBR controls — semi-transparent panel at the bottom.
+          // Pause/resume button — bottom center.
           Positioned(
-            bottom: 0,
+            bottom: 32,
             left: 0,
             right: 0,
-            child: _ControlPanel(
-              metallic: _metallic,
-              roughness: _roughness,
-              envIntensity: _envIntensity,
-              isPaused: _isPaused,
-              onMetallic: (v) {
-                setState(() => _metallic = v);
-                _engine.setMetallic(v);
-              },
-              onRoughness: (v) {
-                setState(() => _roughness = v);
-                _engine.setRoughness(v);
-              },
-              onEnvIntensity: (v) {
-                setState(() => _envIntensity = v);
-                _engine.setEnvIntensity(v);
-              },
-              onTogglePause: () {
-                setState(() => _isPaused = !_isPaused);
-                _engine.togglePause();
-              },
+            child: Center(
+              child: FilledButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _isPaused = !_isPaused;
+                    _lastPauseToggle = DateTime.now();
+                  });
+                  _engine.togglePause();
+                },
+                icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
+                label: Text(_isPaused ? 'Resume' : 'Pause'),
+              ),
             ),
           ),
+          // Loading overlay — shown while the engine initializes.
+          if (!_isInitialized)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black,
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -128,118 +141,6 @@ class _FpsChip extends StatelessWidget {
           fontWeight: FontWeight.w600,
         ),
       ),
-    );
-  }
-}
-
-class _ControlPanel extends StatelessWidget {
-  final double metallic;
-  final double roughness;
-  final double envIntensity;
-  final bool isPaused;
-  final ValueChanged<double> onMetallic;
-  final ValueChanged<double> onRoughness;
-  final ValueChanged<double> onEnvIntensity;
-  final VoidCallback onTogglePause;
-
-  const _ControlPanel({
-    required this.metallic,
-    required this.roughness,
-    required this.envIntensity,
-    required this.isPaused,
-    required this.onMetallic,
-    required this.onRoughness,
-    required this.onEnvIntensity,
-    required this.onTogglePause,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black54,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _PbrSlider(
-            label: 'Metallic',
-            value: metallic,
-            min: 0,
-            max: 1,
-            onChanged: onMetallic,
-          ),
-          _PbrSlider(
-            label: 'Roughness',
-            value: roughness,
-            min: 0,
-            max: 1,
-            onChanged: onRoughness,
-          ),
-          _PbrSlider(
-            label: 'Env IBL',
-            value: envIntensity,
-            min: 0,
-            max: 2,
-            onChanged: onEnvIntensity,
-          ),
-          const SizedBox(height: 4),
-          FilledButton.icon(
-            onPressed: onTogglePause,
-            icon: Icon(isPaused ? Icons.play_arrow : Icons.pause),
-            label: Text(isPaused ? 'Resume' : 'Pause'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PbrSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double min;
-  final double max;
-  final ValueChanged<double> onChanged;
-
-  const _PbrSlider({
-    required this.label,
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
-          ),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: Colors.white70,
-              thumbColor: Colors.white,
-              inactiveTrackColor: Colors.white24,
-              overlayColor: Colors.white24,
-            ),
-            child: Slider(value: value, min: min, max: max, onChanged: onChanged),
-          ),
-        ),
-        SizedBox(
-          width: 36,
-          child: Text(
-            value.toStringAsFixed(2),
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
     );
   }
 }
