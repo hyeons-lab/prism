@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.assets.GltfAsset
 import com.hyeonslab.prism.assets.GltfLoader
 import com.hyeonslab.prism.assets.ImageDecoder
+import com.hyeonslab.prism.assets.upload
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.ecs.World
 import com.hyeonslab.prism.ecs.components.CameraComponent
@@ -129,7 +130,7 @@ suspend fun createGltfDemoScene(
     renderer.initializeIbl()
     val asset = GltfLoader().load("model.glb", glbData)
     nodeCount = asset.renderableNodes.size
-    asset.uploadToGpu(renderer)
+    renderer.upload(asset)
     asset.instantiateInWorld(world)
   }
 

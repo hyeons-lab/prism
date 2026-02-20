@@ -45,27 +45,6 @@ class GltfAsset(
   val renderableNodes: List<GltfNodeData>,
 ) {
   /**
-   * Uploads all mesh and texture data in this asset to the GPU in a single call.
-   *
-   * Equivalent to calling [Renderer.uploadMesh] for every renderable node, then
-   * [Renderer.initializeTexture] + [Renderer.uploadTextureData] for every texture whose pixel data
-   * was decoded. Textures with empty pixel data (e.g. when using the WASM progressive path) are
-   * skipped silently.
-   *
-   * @param renderer The renderer to upload resources into.
-   */
-  fun uploadToGpu(renderer: Renderer) {
-    for (node in renderableNodes) {
-      renderer.uploadMesh(node.mesh)
-    }
-    for ((texture, imageData) in textures.zip(imageData)) {
-      if (imageData == null || imageData.pixels.isEmpty()) continue
-      renderer.initializeTexture(texture)
-      renderer.uploadTextureData(texture, imageData.pixels)
-    }
-  }
-
-  /**
    * Creates ECS entities for every renderable node in the asset.
    *
    * Each entity gets [TransformComponent], [MeshComponent], and [MaterialComponent].
@@ -88,4 +67,22 @@ class GltfAsset(
       world.addComponent(entity, MaterialComponent(material = material))
       entity
     }
+}
+
+/**
+ * Uploads all mesh and texture data from [asset] to this renderer in a single call.
+ *
+ * Equivalent to calling [Renderer.uploadMesh] for every renderable node, then
+ * [Renderer.initializeTexture] + [Renderer.uploadTextureData] for every texture that has decoded
+ * pixel data. Textures without pixel data (e.g. whose image failed to decode) are skipped.
+ */
+fun Renderer.upload(asset: GltfAsset) {
+  for (node in asset.renderableNodes) {
+    uploadMesh(node.mesh)
+  }
+  for ((texture, imageData) in asset.textures.zip(asset.imageData)) {
+    if (imageData == null || imageData.pixels.isEmpty()) continue
+    initializeTexture(texture)
+    uploadTextureData(texture, imageData.pixels)
+  }
 }

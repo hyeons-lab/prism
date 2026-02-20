@@ -241,7 +241,7 @@
 val asset = GltfLoader().load("model.glb", glb)
 
 <span class="comment">// Upload all meshes and textures to the GPU</span>
-asset.uploadToGpu(renderer)
+renderer.upload(asset)
 
 <span class="comment">// Create ECS entities (Transform + Mesh + Material each)</span>
 asset.instantiateInWorld(world)
@@ -258,7 +258,7 @@ surface.startRenderLoop { dt, elapsed, _ -&gt;
 let asset = try await GltfLoader().load(path: "model.glb", data: glb)
 
 <span class="comment">// Upload all meshes and textures to the GPU</span>
-asset.uploadToGpu(renderer: renderer)
+renderer.upload(asset: asset)
 
 <span class="comment">// Create ECS entities (Transform + Mesh + Material each)</span>
 asset.instantiateInWorld(world: world)</pre>
