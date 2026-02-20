@@ -23,18 +23,32 @@ import kotlin.math.PI
 
 private val log = Logger.withTag("CornellBoxScene")
 
+// Room half-extent (5×5×5 units total, proportional to original 555×555×559mm Cornell box).
 private const val HALF = 2.5f
+
+// Camera outside the open front face, looking straight in.
 private const val CORNELL_ORBIT_RADIUS = 7f
 
+// Scale factor: 555mm (original Cornell box side) → 5 units → 1mm = 5/555 ≈ 0.009009 units.
+private const val MM_TO_UNITS = 5f / 555f
+
+// Cornell box reference colors (from PBR base-color factors in the standard glTF dataset).
+// These are the historically accurate muted pigment colors, not pure primaries.
+private val CORNELL_WHITE = Color(0.8f, 0.8f, 0.8f)
+private val CORNELL_RED = Color(0.63f, 0.065f, 0.05f) // left wall
+private val CORNELL_GREEN = Color(0.14f, 0.45f, 0.091f) // right wall
+
 /**
- * Creates a Cornell box scene closely matching the classic Cornell box reference image.
+ * Creates a Cornell box scene matching the standard reference geometry.
  *
- * Room: 5×5×5 (±2.5 units). Red left wall, green right wall, white floor/ceiling/back wall. A
- * single bright point light on the ceiling simulates the characteristic rectangular area light. Two
- * white matte boxes (a tall one on the left and a short one on the right) sit on the floor, each
- * rotated ≈17° around Y, matching the Cornell box reference layout.
+ * Geometry derived from the Cornell box glTF dataset (555mm room):
+ * - Left wall: red, right wall: green, back/floor/ceiling: white (all Lambertian)
+ * - Tall block: 165×330×165mm, right side (toward green wall), rotated +22.5° around Y
+ * - Short block: 165×165×165mm, left side (toward red wall), rotated −18° around Y
+ * - Ceiling light panel: emissive white rectangle at ceiling center (~130mm proportional opening)
  *
- * The orbit camera starts outside the open front face at [CORNELL_ORBIT_RADIUS] units.
+ * A point light at the panel position provides actual illumination (closest approximation to the
+ * rectangular area light of the original). Color bleeding (GI) is not simulated.
  */
 fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): DemoScene {
   val renderer = WgpuRenderer(wgpuContext)
@@ -42,14 +56,13 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
   engine.addSubsystem(renderer)
   engine.initialize()
 
-  // HDR tone mapping for accurate light response — IBL disabled (no environment map in a Cornell
-  // box), ambient set to near-zero so only direct lighting illuminates the scene.
+  // HDR + tone mapping; IBL disabled — Cornell box is a closed environment, no sky.
   renderer.hdrEnabled = true
 
   val world = World()
   world.addSystem(RenderSystem(renderer))
 
-  // Camera — outside the open front face, looking straight in.
+  // Camera — outside the open front face, looking straight in at room center.
   val cameraEntity = world.createEntity()
   val camera =
     Camera().apply {
@@ -63,98 +76,144 @@ fun createCornellBoxScene(wgpuContext: WGPUContext, width: Int, height: Int): De
   world.addComponent(cameraEntity, TransformComponent(position = camera.position))
   world.addComponent(cameraEntity, CameraComponent(camera))
 
-  // Ceiling area-light simulation: single bright warm-white point light just below the ceiling
-  // center, matching the small rectangular light panel in the Cornell box reference image.
+  // Point light at ceiling panel (glTF LightSource node: (0, 554, 0) mm → (0, ~2.49, 0) units).
+  // Simulates the rectangular area light; high intensity compensates for point vs area light.
   val ceilingLight = world.createEntity()
-  world.addComponent(ceilingLight, TransformComponent(position = Vec3(0f, HALF - 0.1f, 0f)))
+  world.addComponent(ceilingLight, TransformComponent(position = Vec3(0f, HALF - 0.05f, 0f)))
   world.addComponent(
     ceilingLight,
     LightComponent(
       lightType = LightType.POINT,
-      color = Color(1.0f, 0.98f, 0.9f),
-      intensity = 150f,
-      range = 15f,
+      color = Color(1.0f, 0.97f, 0.88f),
+      intensity = 200f,
+      range = 20f,
     ),
   )
 
-  // Walls — shared quad mesh, each rotated so its front face (normal) points into the room.
+  // ---- Walls ----------------------------------------------------------------
+  // Mesh.quad() lies in the XY plane with normal +Z. Each wall is rotated so its front face
+  // (normal side) faces into the room interior.
+
   val wallMesh = Mesh.quad()
   val wallScale = Vec3(HALF * 2f, HALF * 2f, 1f)
 
-  // Back wall: identity rotation — normal +Z faces the open front (toward camera). ✓
-  addWall(world, wallMesh, wallScale, Vec3(0f, 0f, -HALF), Quaternion.identity(), Color.WHITE)
-  // Left wall: normal +X (into room) after Ry(+90°).
+  // Back wall — normal +Z (toward open front/camera). Identity rotation.
+  addWall(world, wallMesh, wallScale, Vec3(0f, 0f, -HALF), Quaternion.identity(), CORNELL_WHITE)
+  // Left wall — red. Normal +X (into room) after Ry(+90°).
   addWall(
     world,
     wallMesh,
     wallScale,
     Vec3(-HALF, 0f, 0f),
     Quaternion.fromAxisAngle(Vec3.UP, PI.toFloat() / 2f),
-    Color.RED,
+    CORNELL_RED,
   )
-  // Right wall: normal -X (into room) after Ry(-90°).
+  // Right wall — green. Normal -X (into room) after Ry(-90°).
   addWall(
     world,
     wallMesh,
     wallScale,
     Vec3(HALF, 0f, 0f),
     Quaternion.fromAxisAngle(Vec3.UP, -PI.toFloat() / 2f),
-    Color.GREEN,
+    CORNELL_GREEN,
   )
-  // Floor: normal +Y (into room) after Rx(-90°).
+  // Floor — normal +Y (into room) after Rx(-90°).
   addWall(
     world,
     wallMesh,
     wallScale,
     Vec3(0f, -HALF, 0f),
     Quaternion.fromAxisAngle(Vec3.RIGHT, -PI.toFloat() / 2f),
-    Color.WHITE,
+    CORNELL_WHITE,
   )
-  // Ceiling: normal -Y (into room) after Rx(+90°).
+  // Ceiling — normal -Y (into room) after Rx(+90°).
   addWall(
     world,
     wallMesh,
     wallScale,
     Vec3(0f, HALF, 0f),
     Quaternion.fromAxisAngle(Vec3.RIGHT, PI.toFloat() / 2f),
-    Color.WHITE,
+    CORNELL_WHITE,
   )
 
-  // Cornell box boxes — two white matte rectangular prisms using Mesh.cube().
-  // Tall box: ~60% room height, 30% room width/depth, rotated -17° around Y.
+  // ---- Ceiling light panel --------------------------------------------------
+  // Emissive quad at the ceiling, representing the ~130mm area-light opening.
+  // Rx(+90°) rotates the +Z normal to -Y so the panel faces downward (visible from below).
+  // Panel scale (1.2 × 0.9 units) is proportional to the original ~130×105mm opening.
+  val lightPanel = world.createEntity()
+  world.addComponent(
+    lightPanel,
+    TransformComponent(
+      position = Vec3(0f, HALF - 0.02f, 0f),
+      rotation = Quaternion.fromAxisAngle(Vec3.RIGHT, PI.toFloat() / 2f),
+      scale = Vec3(1.2f, 0.9f, 1f),
+    ),
+  )
+  world.addComponent(lightPanel, MeshComponent(mesh = Mesh.quad()))
+  world.addComponent(
+    lightPanel,
+    MaterialComponent(
+      material =
+        Material(
+          baseColor = Color.WHITE,
+          metallic = 0f,
+          roughness = 1f,
+          emissive = Color(10f, 9.5f, 8f), // warm-white HDR; tone-maps to near overexposed white
+        )
+    ),
+  )
+
+  // ---- Blocks ---------------------------------------------------------------
+  // Positions derived from the Cornell box glTF node translations (mm), converted to our units
+  // (multiply by MM_TO_UNITS = 5/555; Y values offset by -277.5mm to re-center vertically).
+  //
+  //   Tall block:  glTF ( 85, 165, -75) mm → our ( 0.77, -1.01, -0.68) units
+  //   Short block: glTF (-80, 82.5, 75) mm → our (-0.72, -1.75,  0.68) units
+  //
+  // Rotations (glTF quaternion x,y,z,w in Y-axis-only form):
+  //   Tall:  [0, 0.195, 0, 0.981] → +0.3925 rad (~22.5°) around Y
+  //   Short: [0, -0.156, 0, 0.987] → -0.314 rad (~-18°) around Y
+
+  val tallBoxPos =
+    Vec3(
+      x = 85f * MM_TO_UNITS, // 0.766
+      y = (165f - 277.5f) * MM_TO_UNITS, // -1.014
+      z = -75f * MM_TO_UNITS, // -0.676
+    )
   val tallBox = world.createEntity()
   world.addComponent(
     tallBox,
     TransformComponent(
-      position = Vec3(-0.7f, -HALF + 1.5f, -0.6f),
-      rotation = Quaternion.fromAxisAngle(Vec3.UP, -(17f * PI.toFloat() / 180f)),
-      scale = Vec3(1.5f, 3.0f, 1.5f),
+      position = tallBoxPos,
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, 0.3925f),
+      scale = Vec3(1.5f, 3.0f, 1.5f), // 165×330×165mm proportional
     ),
   )
   world.addComponent(tallBox, MeshComponent(mesh = Mesh.cube()))
   world.addComponent(
     tallBox,
-    MaterialComponent(
-      material = Material(baseColor = Color(0.9f, 0.9f, 0.9f), metallic = 0.0f, roughness = 0.9f)
-    ),
+    MaterialComponent(material = Material(baseColor = CORNELL_WHITE, metallic = 0f, roughness = 1f)),
   )
 
-  // Short box: ~33% room height, 30% room width/depth, rotated +17° around Y.
+  val shortBoxPos =
+    Vec3(
+      x = -80f * MM_TO_UNITS, // -0.721
+      y = (82.5f - 277.5f) * MM_TO_UNITS, // -1.757
+      z = 75f * MM_TO_UNITS, // 0.676
+    )
   val shortBox = world.createEntity()
   world.addComponent(
     shortBox,
     TransformComponent(
-      position = Vec3(0.85f, -HALF + 0.75f, -0.3f),
-      rotation = Quaternion.fromAxisAngle(Vec3.UP, (17f * PI.toFloat() / 180f)),
-      scale = Vec3(1.5f, 1.5f, 1.5f),
+      position = shortBoxPos,
+      rotation = Quaternion.fromAxisAngle(Vec3.UP, -0.314f),
+      scale = Vec3(1.5f, 1.5f, 1.5f), // 165×165×165mm proportional
     ),
   )
   world.addComponent(shortBox, MeshComponent(mesh = Mesh.cube()))
   world.addComponent(
     shortBox,
-    MaterialComponent(
-      material = Material(baseColor = Color(0.9f, 0.9f, 0.9f), metallic = 0.0f, roughness = 0.9f)
-    ),
+    MaterialComponent(material = Material(baseColor = CORNELL_WHITE, metallic = 0f, roughness = 1f)),
   )
 
   world.initialize()
@@ -178,7 +237,7 @@ private fun addWall(
   world.addComponent(entity, MeshComponent(mesh = mesh))
   world.addComponent(
     entity,
-    MaterialComponent(material = Material(baseColor = color, metallic = 0.0f, roughness = 0.9f)),
+    MaterialComponent(material = Material(baseColor = color, metallic = 0f, roughness = 1f)),
   )
   return entity
 }
