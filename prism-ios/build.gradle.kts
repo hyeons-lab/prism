@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 plugins {
   id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
+  alias(libs.plugins.skie)
 }
 
 val generatedDir = layout.buildDirectory.dir("generated/src/iosMain/kotlin")

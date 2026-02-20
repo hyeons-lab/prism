@@ -254,15 +254,14 @@ surface.startRenderLoop { dt, elapsed, _ -&gt;
             <div class="lang-label">Swift &middot; iOS</div>
 <pre class="code-block">import PrismDemo
 
-<span class="comment">// Initialize PBR renderer on any MTKView</span>
-IosDemoControllerKt.configureDemo(view: mtkView) { handle, _ in
-    self.handle = handle
-    mtkView.isPaused = false
-}
+<span class="comment">// Parse glTF — suspend fun → Swift async via SKIE</span>
+let asset = try await GltfLoader().load(path: "model.glb", data: glb)
 
-<span class="comment">// Orbit the camera from a pan gesture</span>
-self.handle?.orbitBy(dx: -Float(dx) * 0.005,
-                     dy:  Float(dy) * 0.005)</pre>
+<span class="comment">// Upload all meshes and textures to the GPU</span>
+asset.uploadToGpu(renderer: renderer)
+
+<span class="comment">// Create ECS entities (Transform + Mesh + Material each)</span>
+asset.instantiateInWorld(world: world)</pre>
           </div>
 
           <div class="lang-card">

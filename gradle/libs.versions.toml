@@ -11,6 +11,7 @@ kotlinxCoroutines = "1.10.2"
 kotlinxIo = "0.8.2"
 kotlinxSerialization = "1.9.0"
 ktfmt = "0.25.0"
+skie = "0.10.10"
 lifecycleCompose = "2.8.4"
 mavenPublish = "0.36.0"
 wgpu4k = "0.2.0-SNAPSHOT"
@@ -57,3 +58,4 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
+skie = { id = "co.touchlab.skie", version.ref = "skie" }

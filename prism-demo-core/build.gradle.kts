@@ -6,6 +6,7 @@ plugins {
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.compose.multiplatform)
   alias(libs.plugins.android.kotlin.multiplatform.library)
+  alias(libs.plugins.skie)
 }
 
 kotlin {
@@ -25,6 +26,18 @@ kotlin {
       baseName = "PrismDemo"
       isStatic = true
       xcf.add(this)
+
+      // Export engine modules so their types are accessible from Swift via PrismDemo.xcframework.
+      export(project(":prism-math"))
+      export(project(":prism-core"))
+      export(project(":prism-renderer"))
+      export(project(":prism-scene"))
+      export(project(":prism-ecs"))
+      export(project(":prism-input"))
+      export(project(":prism-assets"))
+      export(project(":prism-audio"))
+      export(project(":prism-native-widgets"))
+      export(project(":prism-compose"))
     }
   }
 
@@ -38,16 +51,16 @@ kotlin {
 
   sourceSets {
     commonMain.dependencies {
-      implementation(project(":prism-math"))
-      implementation(project(":prism-core"))
-      implementation(project(":prism-renderer"))
-      implementation(project(":prism-scene"))
-      implementation(project(":prism-ecs"))
-      implementation(project(":prism-input"))
-      implementation(project(":prism-assets"))
-      implementation(project(":prism-audio"))
-      implementation(project(":prism-compose"))
-      implementation(project(":prism-native-widgets"))
+      api(project(":prism-math"))
+      api(project(":prism-core"))
+      api(project(":prism-renderer"))
+      api(project(":prism-scene"))
+      api(project(":prism-ecs"))
+      api(project(":prism-input"))
+      api(project(":prism-assets"))
+      api(project(":prism-audio"))
+      api(project(":prism-compose"))
+      api(project(":prism-native-widgets"))
       implementation(libs.compose.runtime)
       implementation(libs.compose.foundation)
       implementation(libs.compose.ui)
