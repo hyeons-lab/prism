@@ -28,8 +28,16 @@ import kotlinx.serialization.json.Json
  *   updating [com.hyeonslab.prism.renderer.Texture.descriptor] to the real image dimensions.
  * @param rawTextureImageBytes Raw PNG/JPEG bytes parallel to [GltfAsset.textures]. Each entry is
  *   the compressed source image data for the corresponding texture, or null if unavailable.
+ * @param rawTextureByteRanges Byte ranges parallel to [GltfAsset.textures]. Each non-null entry is
+ *   a `(offset, length)` pair giving the position of the compressed image within the original GLB
+ *   source bytes, enabling zero-copy slicing on platforms that retain the source buffer (e.g.
+ *   WASM). Null for textures whose image comes from a data URI or external file.
  */
-class GltfLoadResult(val asset: GltfAsset, val rawTextureImageBytes: List<ByteArray?>)
+class GltfLoadResult(
+  val asset: GltfAsset,
+  val rawTextureImageBytes: List<ByteArray?>,
+  val rawTextureByteRanges: List<Pair<Int, Int>?> = emptyList(),
+)
 
 /** Loads glTF 2.0 (.gltf / .glb) files into [GltfAsset]. */
 class GltfLoader : AssetLoader<GltfAsset> {
@@ -76,13 +84,19 @@ class GltfLoader : AssetLoader<GltfAsset> {
    *    [com.hyeonslab.prism.renderer.Renderer.invalidateMaterial] to swap in the real texture.
    */
   suspend fun loadStructure(path: String, data: ByteArray): GltfLoadResult {
-    val (json, bin) =
-      if (GlbReader.isGlb(data)) {
-        val glb = GlbReader.read(data)
-        Pair(glb.json, glb.bin)
-      } else {
-        Pair(data.decodeToString(), null)
-      }
+    val json: String
+    val bin: ByteArray?
+    val binOffset: Int
+    if (GlbReader.isGlb(data)) {
+      val glb = GlbReader.read(data)
+      json = glb.json
+      bin = glb.bin
+      binOffset = glb.binOffset
+    } else {
+      json = data.decodeToString()
+      bin = null
+      binOffset = 0
+    }
 
     val doc = jsonParser.decodeFromString<GltfDocument>(json)
     val basePath = path.substringBeforeLast('/').takeIf { '/' in path } ?: ""
@@ -97,11 +111,22 @@ class GltfLoader : AssetLoader<GltfAsset> {
       (doc.textures ?: emptyList()).map { gltfTex ->
         gltfTex.source?.let { rawImageBytes.getOrNull(it) }
       }
+    // Byte ranges parallel to textures. Non-null only for buffer-view images embedded in the GLB
+    // BIN chunk (buffer 0). Data-URI and external-file images get null and fall back to rawBytes.
+    val rawTextureByteRanges =
+      (doc.textures ?: emptyList()).map { gltfTex ->
+        val imgIdx = gltfTex.source ?: return@map null
+        val image = doc.images?.getOrNull(imgIdx) ?: return@map null
+        val bvIdx = image.bufferView ?: return@map null
+        val bv = doc.bufferViews?.getOrNull(bvIdx) ?: return@map null
+        if (bv.buffer != 0) return@map null
+        Pair(binOffset + bv.byteOffset, bv.byteLength)
+      }
     // No decoded image data — textures are not yet uploaded to GPU.
     val textureImageData: List<ImageData?> = List(textures.size) { null }
     val renderableNodes = traverseDefaultScene(doc, buffers, materials)
     val asset = GltfAsset(textures, textureImageData, renderableNodes)
-    return GltfLoadResult(asset, rawTextureBytesParallelToTextures)
+    return GltfLoadResult(asset, rawTextureBytesParallelToTextures, rawTextureByteRanges)
   }
 
   // ===== Buffer resolution =====

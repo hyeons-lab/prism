@@ -3,8 +3,9 @@
 package com.hyeonslab.prism.demo
 
 import co.touchlab.kermit.Logger
+import com.hyeonslab.prism.widget.FetchBytesResult
 import com.hyeonslab.prism.widget.createPrismSurface
-import com.hyeonslab.prism.widget.fetchBytes
+import com.hyeonslab.prism.widget.fetchBytesWithNativeBuffer
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlin.math.PI
 import kotlin.math.roundToInt
@@ -16,8 +17,8 @@ import kotlinx.coroutines.launch
 
 private val log = Logger.withTag("Prism")
 
-/** Cached GLB bytes — populated on first glTF scene load, reused on subsequent switches. */
-private var cachedGlbData: ByteArray? = null
+/** Cached GLB fetch result — populated on first glTF scene load, reused on subsequent switches. */
+private var cachedGlbFetch: FetchBytesResult? = null
 
 /**
  * Reads and clears `window.prismNextScene` in a single JS call. pbr.html sets this global on tab
@@ -61,15 +62,16 @@ fun main() {
     val surface = createPrismSurface("prismCanvas")
 
     // 2. Load the glTF model (falls back to PBR sphere-grid if unavailable).
-    val glbData = fetchBytes("DamagedHelmet.glb")
+    val glbFetch = fetchBytesWithNativeBuffer("DamagedHelmet.glb")
     val scene =
-      if (glbData != null) {
+      if (glbFetch != null) {
         createGltfDemoScene(
           surface.wgpuContext!!,
           surface.width,
           surface.height,
-          glbData,
+          glbFetch.bytes,
           progressiveScope = GlobalScope,
+          nativeGlbBuffer = glbFetch.nativeBuffer,
         )
       } else {
         createDemoScene(surface.wgpuContext!!, surface.width, surface.height)
@@ -185,17 +187,18 @@ private suspend fun startGltfScene(canvasId: String) {
   val surface = createPrismSurface(canvasId)
   val ctx = checkNotNull(surface.wgpuContext) { "WebGPU context not available" }
 
-  if (cachedGlbData == null) {
-    cachedGlbData = fetchBytes("DamagedHelmet.glb")
+  if (cachedGlbFetch == null) {
+    cachedGlbFetch = fetchBytesWithNativeBuffer("DamagedHelmet.glb")
   }
   val scene =
-    if (cachedGlbData != null) {
+    if (cachedGlbFetch != null) {
       createGltfDemoScene(
         ctx,
         surface.width,
         surface.height,
-        cachedGlbData!!,
+        cachedGlbFetch!!.bytes,
         progressiveScope = GlobalScope,
+        nativeGlbBuffer = cachedGlbFetch!!.nativeBuffer,
       )
     } else {
       createDemoScene(ctx, surface.width, surface.height)

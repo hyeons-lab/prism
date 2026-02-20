@@ -37,8 +37,13 @@ private const val GLTF_ORBIT_RADIUS = 3.5f
  * @param glbData Raw bytes of the GLB file to load.
  * @param surfacePreConfigured When true, the renderer skips its own surface configuration.
  * @param progressiveScope When non-null, textures are decoded and uploaded asynchronously in this
- *   scope while the scene renders immediately with placeholder materials. When null, the function
- *   blocks until all textures are uploaded before returning.
+ *   scope while the scene renders immediately with placeholder materials. IBL is also computed
+ *   asynchronously at reduced resolution so the render loop starts immediately. When null, the
+ *   function blocks until all textures and IBL are fully initialized before returning.
+ * @param nativeGlbBuffer Platform-native source buffer (e.g. the JS `ArrayBuffer` from the GLB
+ *   fetch on WASM). When non-null and [progressiveScope] is non-null, texture image bytes are
+ *   sliced directly from this buffer instead of copying through Kotlin, eliminating ~125K JS
+ *   interop calls per texture. Pass null on platforms that do not retain a native buffer.
  */
 suspend fun createGltfDemoScene(
   wgpuContext: WGPUContext,
@@ -47,6 +52,7 @@ suspend fun createGltfDemoScene(
   glbData: ByteArray,
   surfacePreConfigured: Boolean = false,
   progressiveScope: CoroutineScope? = null,
+  nativeGlbBuffer: Any? = null,
 ): DemoScene {
   val renderer = WgpuRenderer(wgpuContext, surfacePreConfigured = surfacePreConfigured)
   val engine = Engine()
@@ -54,7 +60,6 @@ suspend fun createGltfDemoScene(
   engine.initialize()
 
   renderer.hdrEnabled = true
-  renderer.initializeIbl()
 
   val world = World()
   world.addSystem(RenderSystem(renderer))
@@ -74,11 +79,17 @@ suspend fun createGltfDemoScene(
     val texToMaterials = buildTexToMaterialsMap(asset)
     progressiveScope.launch {
       for (i in result.rawTextureImageBytes.indices) {
-        val rawBytes = result.rawTextureImageBytes[i] ?: continue
         val texture = asset.textures.getOrNull(i) ?: continue
+        // Use zero-copy path when native buffer + byte range are both available (WASM only).
+        val range = result.rawTextureByteRanges.getOrNull(i)
         val imageData =
           try {
-            ImageDecoder.decode(rawBytes, unpremultiply = true)
+            if (nativeGlbBuffer != null && range != null) {
+              decodeTextureFromNativeBuffer(nativeGlbBuffer, range.first, range.second)
+            } else {
+              val rawBytes = result.rawTextureImageBytes[i] ?: continue
+              ImageDecoder.decode(rawBytes, unpremultiply = true)
+            }
           } catch (e: Exception) {
             log.w { "Progressive texture $i decode failed: ${e.message}" }
             null
@@ -95,8 +106,28 @@ suspend fun createGltfDemoScene(
       }
       log.i { "Progressive texture loading complete ($nodeCount primitives)" }
     }
+    // Compute IBL asynchronously at reduced resolution — completes in < one frame (~25ms) so the
+    // render loop runs immediately with the default env bind group until IBL is ready.
+    // Wrapped in try-catch: if the user switches scenes before IBL finishes, surface.detach()
+    // closes the device and initializeIbl() will throw. Without a handler the unhandled exception
+    // would terminate the WASM coroutine runtime, preventing the new scene from launching.
+    progressiveScope.launch {
+      try {
+        renderer.initializeIbl(
+          brdfLutSize = 64,
+          brdfLutSamples = 32,
+          irradianceSize = 8,
+          prefilteredSize = 16,
+          prefilteredMipLevels = 4,
+        )
+        log.i { "glTF async IBL ready" }
+      } catch (e: Throwable) {
+        log.d { "glTF async IBL aborted (scene switched before completion): ${e.message}" }
+      }
+    }
   } else {
-    // Non-progressive: block on full image decode, then upload all textures before returning.
+    // Non-progressive: block on full image decode and IBL before returning.
+    renderer.initializeIbl()
     val asset = GltfLoader().load("model.glb", glbData)
     uploadGltfTextures(renderer, asset)
     nodeCount = asset.renderableNodes.size

@@ -1,6 +1,6 @@
 package com.hyeonslab.prism.assets
 
-internal data class GlbContent(val json: String, val bin: ByteArray?)
+internal data class GlbContent(val json: String, val bin: ByteArray?, val binOffset: Int = 0)
 
 internal object GlbReader {
   private const val MAGIC = 0x46546C67 // "glTF" as little-endian uint32
@@ -24,6 +24,7 @@ internal object GlbReader {
     var offset = 12
     var json: String? = null
     var bin: ByteArray? = null
+    var binOffset = 0
 
     while (offset + 8 <= totalLength) {
       val chunkLength = readInt32LE(data, offset)
@@ -38,14 +39,23 @@ internal object GlbReader {
       when (chunkType) {
         // JSON chunk is padded with spaces (0x20 per spec) — trim only spaces, not all whitespace
         CHUNK_JSON -> json = data.decodeToString(offset, offset + chunkLength).trimEnd(' ')
-        CHUNK_BIN -> bin = data.copyOfRange(offset, offset + chunkLength)
+        CHUNK_BIN -> {
+          // Record the byte offset of the BIN data in the original GLB so callers can slice
+          // image byte ranges directly from the source buffer without copying.
+          binOffset = offset
+          bin = data.copyOfRange(offset, offset + chunkLength)
+        }
       // Unknown chunk types are silently skipped per spec
       }
 
       offset += chunkLength
     }
 
-    return GlbContent(json = requireNotNull(json) { "GLB has no JSON chunk" }, bin = bin)
+    return GlbContent(
+      json = requireNotNull(json) { "GLB has no JSON chunk" },
+      bin = bin,
+      binOffset = binOffset,
+    )
   }
 
   fun isGlb(data: ByteArray): Boolean =

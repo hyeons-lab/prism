@@ -203,3 +203,17 @@ f39e668 — fix: match loading overlay to scene background color; add FPS counte
 
 ## Issues
 2026-02-19T23:50-08:00 Cornell Box and Damaged Helmet tabs failed to load after progressive materials change — root cause: async IBL coroutine in GlobalScope had no exception handler; when surface.detach() closed the device mid-computation, initializeIbl() threw; unhandled GlobalScope exception in WASM can terminate the coroutine dispatcher, preventing the new scene coroutine from running; fixed by try-catch(Throwable)
+
+2026-02-19T23:59-08:00 prism-assets/.../GlbReader.kt — add `binOffset: Int` to GlbContent; record byte offset of BIN chunk data in original GLB so callers can slice image ranges without copying
+2026-02-19T23:59-08:00 prism-assets/.../GltfLoader.kt — add `rawTextureByteRanges: List<Pair<Int,Int>?>` to GltfLoadResult; loadStructure() computes (binOffset+bv.byteOffset, bv.byteLength) per texture; null for data-URI/external images
+2026-02-19T23:59-08:00 prism-assets/.../ImageDecoder.wasmJs.kt — add `decodeFromJsBuffer(jsBuffer, offset, length)` to actual object; uses `jsBuffer.slice(offset, offset+length)` → Blob → createImageBitmap path; eliminates ~125K JS interop calls per texture (zero Kotlin↔JS copy)
+2026-02-19T23:59-08:00 prism-native-widgets/.../WasmUtils.kt — add FetchBytesResult(bytes, nativeBuffer) + fetchBytesWithNativeBuffer(); fetches both Int8Array (for Kotlin copy) and the underlying ArrayBuffer in a single JS call
+2026-02-19T23:59-08:00 prism-demo-core/.../GltfDemoScene.kt — move initializeIbl() into progressiveScope.launch at reduced resolution (64×32 BRDF LUT, 8px irradiance, 16px prefiltered); add nativeGlbBuffer: Any? param; progressive loop uses decodeTextureFromNativeBuffer zero-copy when range+buffer available
+2026-02-19T23:59-08:00 prism-demo-core/src/commonMain/.../NativeTextureDecode.kt (NEW) — expect fun decodeTextureFromNativeBuffer(nativeBuffer, offset, length): ImageData?
+2026-02-19T23:59-08:00 prism-demo-core/src/{wasmJs,jvm,android,ios,macos}Main/.../NativeTextureDecode.*.kt (NEW) — actuals: wasmJs delegates to ImageDecoder.decodeFromJsBuffer; all others return null
+2026-02-19T23:59-08:00 prism-demo-core/.../Main.kt — use fetchBytesWithNativeBuffer; cache FetchBytesResult; pass nativeBuffer to createGltfDemoScene in both main() and startGltfScene()
+
+## Decisions
+2026-02-19T23:59-08:00 IBL async at reduced resolution for glTF scene — matches MaterialPresetScene pattern; 64×32 BRDF LUT is visually indistinguishable at demo quality; eliminates 1-2s blocking before first frame
+2026-02-19T23:59-08:00 decodeTextureFromNativeBuffer placed in prism-demo-core not prism-assets — bridge depends on WASM-specific ImageDecoder.decodeFromJsBuffer; keeping it in demo avoids adding platform-specific SDK surface area; could be promoted to SDK (into ImageDecoder expect/actual) if consumers need it
+2026-02-19T23:59-08:00 rawTextureByteRanges defaults to emptyList() — backward-compatible; callers on non-WASM paths get null ranges for all textures and fall back to rawTextureImageBytes copy path unchanged

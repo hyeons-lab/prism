@@ -53,6 +53,41 @@ private external fun decodeImageBitmapJs(
   onError: (String) -> Unit,
 )
 
+/**
+ * Zero-copy variant: decodes a byte range from [jsBuffer] (a JS `ArrayBuffer`) directly without
+ * copying it into Kotlin. Slices `[offset, offset+length)` from the source buffer, wraps it in a
+ * `Blob`, and passes it to `createImageBitmap` — bypassing the Kotlin↔JS byte-copy loop that
+ * [decode] requires when starting from a Kotlin `ByteArray`.
+ *
+ * Returns null if decoding fails.
+ */
+@JsFun(
+  """(jsBuffer, offset, length, onSuccess, onError) => {
+  const slice = jsBuffer.slice(offset, offset + length);
+  const blob = new Blob([slice]);
+  createImageBitmap(blob, { premultiplyAlpha: 'none' })
+    .then(bmp => {
+      const w = bmp.width, h = bmp.height;
+      const canvas = new OffscreenCanvas(w, h);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bmp, 0, 0);
+      bmp.close();
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const clamped = imgData.data;
+      const buf = clamped.buffer.slice(clamped.byteOffset, clamped.byteOffset + clamped.byteLength);
+      onSuccess(w, h, buf);
+    })
+    .catch(e => onError(String(e)));
+}"""
+)
+private external fun decodeFromJsBufferJs(
+  jsBuffer: JsAny,
+  offset: Int,
+  length: Int,
+  onSuccess: (Int, Int, JsAny) -> Unit,
+  onError: (String) -> Unit,
+)
+
 actual object ImageDecoder {
   /**
    * Decodes [bytes] (PNG, JPEG, or any format supported by the browser) into RGBA8 pixel data using
@@ -98,4 +133,30 @@ actual object ImageDecoder {
       )
     }
   }
+
+  /**
+   * Decodes a byte range from [jsBuffer] (a raw JS `ArrayBuffer`) into RGBA8 pixel data without
+   * copying the compressed bytes through Kotlin. The slice `[offset, offset+length)` is passed
+   * directly to `createImageBitmap` via `Blob`, eliminating the ~125K JS interop calls that
+   * [decode] requires when the source is a Kotlin `ByteArray`.
+   *
+   * Returns `null` if the browser cannot decode the image.
+   */
+  suspend fun decodeFromJsBuffer(jsBuffer: JsAny, offset: Int, length: Int): ImageData? =
+    suspendCancellableCoroutine { cont ->
+      decodeFromJsBufferJs(
+        jsBuffer,
+        offset,
+        length,
+        onSuccess = { width, height, jsArrayBuffer ->
+          val imageData = ImageData(width, height, ByteArray(0))
+          imageData.nativePixelBuffer = jsArrayBuffer
+          cont.resume(imageData)
+        },
+        onError = { error ->
+          log.w { "decodeFromJsBuffer failed: $error" }
+          cont.resume(null)
+        },
+      )
+    }
 }
