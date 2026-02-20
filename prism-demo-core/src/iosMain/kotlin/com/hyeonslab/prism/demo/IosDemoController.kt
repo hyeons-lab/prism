@@ -14,7 +14,7 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGSize
 import platform.Foundation.NSBundle
-import platform.Foundation.NSData
+import platform.Foundation.NSFileManager
 import platform.MetalKit.MTKView
 import platform.MetalKit.MTKViewDelegateProtocol
 import platform.QuartzCore.CACurrentMediaTime
@@ -126,7 +126,7 @@ suspend fun configureDemoWithGltf(view: MTKView, store: DemoStore): IosDemoHandl
 private fun loadBundleAssetBytes(relativePath: String): ByteArray? {
   val resourcePath = NSBundle.mainBundle.resourcePath ?: return null
   val fullPath = "$resourcePath/$relativePath"
-  val nsData = NSData.dataWithContentsOfFile(fullPath) ?: return null
+  val nsData = NSFileManager.defaultManager.contentsAtPath(fullPath) ?: return null
   val length = nsData.length.toInt()
   if (length == 0) return null
   return nsData.bytes?.reinterpret<ByteVar>()?.readBytes(length)
