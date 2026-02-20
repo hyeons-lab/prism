@@ -6,11 +6,12 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.useContents
-import kotlinx.cinterop.usePinned
 import platform.CoreGraphics.CGSize
 import platform.Foundation.NSBundle
 import platform.Foundation.NSData
@@ -128,9 +129,7 @@ private fun loadBundleAssetBytes(relativePath: String): ByteArray? {
   val nsData = NSData(contentsOfFile = fullPath) ?: return null
   val length = nsData.length.toInt()
   if (length == 0) return null
-  val bytes = ByteArray(length)
-  bytes.usePinned { pinned -> nsData.getBytes(pinned.addressOf(0), nsData.length) }
-  return bytes
+  return nsData.bytes?.reinterpret<ByteVar>()?.readBytes(length)
 }
 
 /**
