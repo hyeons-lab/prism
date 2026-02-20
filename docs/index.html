@@ -236,16 +236,19 @@
         <div class="lang-grid">
 
           <div class="lang-card">
-            <div class="lang-label">Kotlin &middot; WASM</div>
-<pre class="code-block">val surface = createPrismSurface("myCanvas")
-val bytes   = fetchBytes("scene.glb")
-val scene   = createGltfDemoScene(
-    surface.wgpuContext!!, surface.width, surface.height, bytes!!)
+            <div class="lang-label">Kotlin &middot; Android</div>
+<pre class="code-block">lifecycleScope.launch {
+  val surface = createPrismSurface(holder, width, height)
+  val glb = assets.open("model.glb").readBytes()
+  val scene = createGltfDemoScene(
+      surface.wgpuContext!!, width, height, glb,
+      progressiveScope = lifecycleScope)
 
-surface.onPointerDrag  { dx, dy -&gt; scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
-surface.onResize       { w, h   -&gt; scene.renderer.resize(w, h) }
-surface.startRenderLoop { dt, elapsed, frame -&gt;
-    scene.tick(dt, elapsed, frame) }</pre>
+  surface.onPointerDrag { dx, dy -&gt;
+      scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
+  surface.startRenderLoop { dt, elapsed, frame -&gt;
+      scene.tick(dt, elapsed, frame) }
+}</pre>
           </div>
 
           <div class="lang-card">
@@ -265,11 +268,14 @@ addChild(vc)</pre>
 
           <div class="lang-card">
             <div class="lang-label">JavaScript &middot; Web</div>
-<pre class="code-block">import { default as init, prismInit }
-    from './prism-flutter.mjs';
+<pre class="code-block">import { prismSwitchScene }
+    from './prism-demo-core.js';
 
-await init();
-prismInit('myCanvas', 'scene.glb');</pre>
+<span class="comment">// Canvas starts rendering on module load.</span>
+<span class="comment">// Switch scenes at any time:</span>
+prismSwitchScene('gltf');      <span class="comment">// Damaged Helmet</span>
+prismSwitchScene('cornell');   <span class="comment">// Cornell Box</span>
+prismSwitchScene('hero');      <span class="comment">// PBR presets</span></pre>
           </div>
 
           <div class="lang-card">
