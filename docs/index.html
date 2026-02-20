@@ -30,7 +30,6 @@
           <li><a href="#demo">Demo</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#architecture">Architecture</a></li>
-          <li><a href="#api">API</a></li>
           <li><a href="#platforms">Platforms</a></li>
           <li><a href="#milestones">Milestones</a></li>
           <li><a href="#quickstart">Quick Start</a></li>
@@ -224,8 +223,8 @@
       </div>
     </section>
 
-    <!-- API Examples -->
-    <section id="api">
+    <!-- API Examples — hidden until unified wrapper API is ready -->
+    <section id="api" style="display:none">
       <div class="container">
         <p class="section-label">API</p>
         <h2 class="section-title">Simple from every language</h2>
@@ -235,8 +234,8 @@
         </p>
         <div class="lang-grid">
 
-          <div class="lang-card">
-            <div class="lang-label">Kotlin &middot; Android</div>
+          <details class="lang-card">
+            <summary class="lang-label">Kotlin &middot; Android</summary>
 <pre class="code-block"><span class="comment">// Parse glTF — geometry, PBR materials, textures</span>
 val asset = GltfLoader().load("model.glb", glb)
 renderer.upload(asset)
@@ -245,10 +244,10 @@ asset.instantiateInWorld(world)
 <span class="comment">// Drive the render loop</span>
 surface.startRenderLoop { dt, elapsed, _ -&gt;
     world.update(Time(dt, elapsed)) }</pre>
-          </div>
+          </details>
 
-          <div class="lang-card">
-            <div class="lang-label">Swift &middot; iOS</div>
+          <details class="lang-card">
+            <summary class="lang-label">Swift &middot; iOS</summary>
 <pre class="code-block">import PrismDemo
 
 <span class="comment">// Parse glTF — suspend fun → async via SKIE</span>
@@ -259,19 +258,19 @@ asset.instantiateInWorld(world: world)
 <span class="comment">// Drive the render loop</span>
 surface.startRenderLoop { dt, elapsed, _ in
     world.update(Time(dt: dt, elapsed: elapsed)) }</pre>
-          </div>
+          </details>
 
-          <div class="lang-card">
-            <div class="lang-label">JavaScript &middot; Web</div>
+          <details class="lang-card">
+            <summary class="lang-label">JavaScript &middot; Web</summary>
 <pre class="code-block"><span class="comment">// Module loads DamagedHelmet.glb and starts rendering on import</span>
 await import('./prism-demo-core.mjs');
 
 <span class="comment">// Switch scenes at runtime</span>
 window.prismNextScene = 'gltf'; <span class="comment">// 'gltf' | 'cornell' | 'hero'</span></pre>
-          </div>
+          </details>
 
-          <div class="lang-card">
-            <div class="lang-label">Dart &middot; Flutter</div>
+          <details class="lang-card">
+            <summary class="lang-label">Dart &middot; Flutter</summary>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
 <span class="comment">// Embed the GPU surface — renders the glTF scene immediately</span>
@@ -280,7 +279,7 @@ PrismRenderView(engine: engine)
 <span class="comment">// Control from Dart</span>
 await engine.togglePause();
 final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span></pre>
-          </div>
+          </details>
 
         </div>
       </div>

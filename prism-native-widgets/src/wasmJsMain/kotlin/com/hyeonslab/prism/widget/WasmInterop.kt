@@ -49,6 +49,7 @@ internal external fun jsNotifyFirstFrameReady()
  */
 @JsFun(
   """(canvas, onDelta) => {
+  canvas.style.touchAction = 'none';
   let active = false, lastX = 0, lastY = 0;
   canvas.addEventListener('pointerdown', e => {
     active = true; lastX = e.clientX; lastY = e.clientY;
