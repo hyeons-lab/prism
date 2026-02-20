@@ -28,7 +28,6 @@
         <a href="#hero" class="nav-logo"><span>&gt;</span> prism</a>
         <ul class="nav-links">
           <li><a href="#demo">Demo</a></li>
-          <li><a href="#gltf-demo">glTF</a></li>
           <li><a href="#features">Features</a></li>
           <li><a href="#architecture">Architecture</a></li>
           <li><a href="#api">API</a></li>
@@ -57,53 +56,57 @@
       </div>
     </section>
 
-    <!-- Demo: PBR interactive scene switcher (Kotlin/WASM) -->
+    <!-- Demo: unified interactive scene switcher (Kotlin/WASM) — PBR presets, Cornell box, glTF -->
     <section id="demo">
       <iframe
         src="wasm/pbr.html"
-        title="Interactive PBR demo: material presets and Cornell box rendered with Prism Engine (Kotlin/WASM + WebGPU)"
+        title="Interactive 3D demo: PBR material presets, Cornell box, and DamagedHelmet glTF model rendered with Prism Engine (Kotlin/WASM + WebGPU)"
         class="gltf-wasm-frame"
       ></iframe>
       <div class="gltf-demo-overlay">
         <div class="container">
-          <p class="section-label">PBR Materials</p>
-          <h2 class="section-title">Material presets &amp; Cornell box</h2>
-          <p class="section-desc">
+          <p class="section-label" id="demo-label">PBR Materials</p>
+          <h2 class="section-title" id="demo-title">Material Presets</h2>
+          <p class="section-desc" id="demo-desc">
             Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick
-            reflectance. Switch between five material presets (Gold, Chrome, Worn Metal,
-            Ceramic, Obsidian) or a classic Cornell box with two PBR spheres.
+            reflectance. Five material presets &mdash; Gold, Chrome, Worn Metal, Ceramic,
+            and Obsidian &mdash; each with distinct metallic and roughness properties.
           </p>
-          <p class="demo-caption">Drag to orbit &middot; Use the tabs to switch scenes.</p>
+          <p class="demo-caption" id="demo-caption">Drag to orbit &middot; Use the tabs to switch scenes.</p>
         </div>
       </div>
     </section>
-
-    <!-- Demo: glTF DamagedHelmet (Kotlin/WASM) -->
-    <section id="gltf-demo">
-      <iframe
-        src="wasm/index.html"
-        title="DamagedHelmet glTF model rendered with Prism Engine (Kotlin/WASM + WebGPU)"
-        class="gltf-wasm-frame"
-        loading="lazy"
-      ></iframe>
-      <div class="gltf-demo-overlay">
-        <div class="container">
-          <p class="section-label">glTF 2.0 Asset Loading</p>
-          <h2 class="section-title">DamagedHelmet — textured PBR model</h2>
-          <p class="section-desc">
-            Real-time glTF 2.0 rendering with all five PBR textures: base color,
-            metallic-roughness, normal map, ambient occlusion, and emissive.
-            Model parsed directly from the GLB binary at runtime with no
-            external libraries &mdash; pure WebGPU.
-          </p>
-          <p class="demo-caption">
-            Drag to orbit &middot; Scroll to zoom &mdash; Cook-Torrance BRDF + Khronos PBR Neutral tone mapping.
-            Model: <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" style="color:inherit;text-decoration:underline">DamagedHelmet</a>
-            &copy; Khronos Group, CC BY 4.0.
-          </p>
-        </div>
-      </div>
-    </section>
+    <script>
+      var demoSceneInfo = {
+        hero: {
+          label: 'PBR Materials',
+          title: 'Material Presets',
+          desc: 'Cook-Torrance BRDF with GGX NDF, Smith-GGX geometry, and Fresnel-Schlick reflectance. Five material presets \u2014 Gold, Chrome, Worn Metal, Ceramic, and Obsidian \u2014 each with distinct metallic and roughness properties.',
+          caption: 'Drag to orbit \u00b7 Use the tabs to switch scenes.'
+        },
+        cornell: {
+          label: 'PBR Materials',
+          title: 'Cornell Box',
+          desc: 'Classic Cornell box reference render \u2014 PBR-shaded walls with historically accurate muted pigments and a ceiling area light. Geometry from the standard glTF dataset (555\u00d7555\u00d7559 mm room).',
+          caption: 'Drag to orbit \u00b7 Use the tabs to switch scenes.'
+        },
+        gltf: {
+          label: 'glTF 2.0 Asset Loading',
+          title: 'Damaged Helmet',
+          desc: 'Real-time glTF 2.0 rendering with all five PBR textures: base color, metallic-roughness, normal map, ambient occlusion, and emissive. GLB binary parsed at runtime \u2014 no external libraries.',
+          caption: 'Drag to orbit \u00b7 Cook-Torrance BRDF + Khronos PBR Neutral tone mapping. Model: <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" style="color:inherit;text-decoration:underline">DamagedHelmet</a> \u00a9 Khronos Group, CC BY 4.0.'
+        }
+      };
+      window.addEventListener('message', function(e) {
+        if (!e.data || e.data.type !== 'prismSceneChange') return;
+        var info = demoSceneInfo[e.data.scene];
+        if (!info) return;
+        document.getElementById('demo-label').textContent = info.label;
+        document.getElementById('demo-title').textContent = info.title;
+        document.getElementById('demo-desc').textContent = info.desc;
+        document.getElementById('demo-caption').innerHTML = info.caption;
+      });
+    </script>
 
     <!-- Features -->
     <section id="features">

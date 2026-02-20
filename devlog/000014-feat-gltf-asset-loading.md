@@ -169,3 +169,12 @@ c744dd9 — chore: update devlog with missing commits and progressive loading no
 - [x] Reconcile devlog conventions (AGENTS.md, CONVENTIONS.md, global CLAUDE.md)
 - [x] MaterialPresetScene + CornellBoxScene (5-sphere row, Cornell box walls + spheres)
 - [x] PBR scene switcher on docs landing page (pbr.html iframe, window.prismPbrScene routing, window.prismNextScene switching)
+2026-02-19T19:25-08:00 prism-renderer/src/commonMain/.../Mesh.kt — fix Mesh.quad() missing tangent data; also Mesh.triangle() still uses positionNormalUv (unchanged, not rendered by PBR pipeline directly)
+2026-02-19T19:25-08:00 prism-demo-core/src/commonMain/.../CornellBoxScene.kt — redesign to match Wikipedia Cornell box: two white matte boxes (tall + short rotated ≈17°), single ceiling point light (intensity 150 at ceiling center), removed fill directional light
+2026-02-19T19:25-08:00 docs/wasm/pbr.html — fix loading overlay not dismissing on scene switch: register new pointerdown listener per switch, 4s fallback timeout
+2026-02-19T22:30-08:00 prism-demo-core/src/wasmJsMain/.../Main.kt — add startGltfScene() with lazy GLB fetch + cachedGlbData; startPbrScene dispatches to startGltfScene when next=='gltf'; glTF loop dispatches back to startPbrScene on switch
+2026-02-19T22:30-08:00 docs/wasm/pbr.html — add 'Damaged Helmet' third button; toggle all 3 buttons in switchScene(); postMessage to parent page on scene switch; 10s timeout for glTF scene
+2026-02-19T22:30-08:00 docs/index.html — merge gltf-demo section into unified #demo; add id attributes to overlay elements; add postMessage listener to update label/title/desc per scene; remove glTF nav link
+
+## Commits (continued)
+ab56feb — fix: fix Cornell box rendering and redesign to match Wikipedia reference

@@ -15,6 +15,9 @@ import kotlinx.coroutines.launch
 
 private val log = Logger.withTag("Prism")
 
+/** Cached GLB bytes — populated on first glTF scene load, reused on subsequent switches. */
+private var cachedGlbData: ByteArray? = null
+
 /**
  * Returns the initial PBR scene name when a page sets `window.prismPbrScene` before loading this
  * module (e.g. pbr.html sets it to "hero" or "cornell"). Null when the page hasn't set it.
@@ -22,7 +25,7 @@ private val log = Logger.withTag("Prism")
 @JsFun("() => window.prismPbrScene || null") private external fun getPbrSceneName(): String?
 
 /**
- * Consumes and clears `window.prismNextScene`. The PBR render loop calls this each frame to detect
+ * Consumes and clears `window.prismNextScene`. The render loops call this each frame to detect
  * scene-switch requests set by pbr.html's `switchScene()` JS function.
  */
 @JsFun("() => { var s = window.prismNextScene || null; window.prismNextScene = null; return s; }")
@@ -140,7 +143,60 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
     if (next != null) {
       surface.detach()
       val handler = CoroutineExceptionHandler { _, e ->
-        log.e(e) { "PBR scene switch error: ${e.message}" }
+        log.e(e) { "Scene switch error: ${e.message}" }
+      }
+      GlobalScope.launch(handler) {
+        if (next == "gltf") startGltfScene(canvasId) else startPbrScene(canvasId, next)
+      }
+    }
+  }
+}
+
+/**
+ * Starts the glTF DamagedHelmet scene on [canvasId]. The GLB file is fetched lazily on first call
+ * and cached for subsequent scene switches. Each frame, checks `window.prismNextScene` for a
+ * scene-switch request back to a PBR scene.
+ */
+@OptIn(DelicateCoroutinesApi::class)
+private suspend fun startGltfScene(canvasId: String) {
+  log.i { "Starting glTF scene (DamagedHelmet)" }
+  val surface = createPrismSurface(canvasId)
+  val ctx = checkNotNull(surface.wgpuContext) { "WebGPU context not available" }
+
+  if (cachedGlbData == null) {
+    cachedGlbData = fetchBytes("DamagedHelmet.glb")
+  }
+  val scene =
+    if (cachedGlbData != null) {
+      createGltfDemoScene(
+        ctx,
+        surface.width,
+        surface.height,
+        cachedGlbData!!,
+        progressiveScope = GlobalScope,
+      )
+    } else {
+      createDemoScene(ctx, surface.width, surface.height)
+    }
+
+  surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
+  surface.onResize { w, h ->
+    scene.renderer.resize(w, h)
+    scene.updateAspectRatio(w, h)
+  }
+
+  surface.startRenderLoop(onError = { e -> log.e(e) { "glTF render loop error: ${e.message}" } }) {
+    dt,
+    elapsed,
+    frame ->
+    scene.tick(dt, elapsed, frame)
+
+    // Poll for a scene-switch request from pbr.html's switchScene() JS function.
+    val next = consumePendingSceneSwitch()
+    if (next != null) {
+      surface.detach()
+      val handler = CoroutineExceptionHandler { _, e ->
+        log.e(e) { "Scene switch error: ${e.message}" }
       }
       GlobalScope.launch(handler) { startPbrScene(canvasId, next) }
     }

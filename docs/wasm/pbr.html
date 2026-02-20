@@ -99,6 +99,9 @@
             <button class="tab-btn" id="btn-cornell" onclick="switchScene('cornell')">
                 Cornell Box
             </button>
+            <button class="tab-btn" id="btn-gltf" onclick="switchScene('gltf')">
+                Damaged Helmet
+            </button>
         </div>
 
         <div id="fallback">
@@ -127,14 +130,18 @@
 
             document.getElementById('btn-hero').classList.toggle('active', name === 'hero');
             document.getElementById('btn-cornell').classList.toggle('active', name === 'cornell');
+            document.getElementById('btn-gltf').classList.toggle('active', name === 'gltf');
             document.getElementById('loading').style.display = 'flex';
 
             // Re-register the pointer listener each time (the { once } version auto-removes).
             document.getElementById('prismCanvas').addEventListener('pointerdown', hideLoading, { once: true });
-            // Fallback: auto-hide after 4s if the user doesn't interact.
-            setTimeout(hideLoading, 4000);
+            // glTF scene needs more time to fetch + parse the GLB.
+            setTimeout(hideLoading, name === 'gltf' ? 10000 : 4000);
 
-            // Signal Kotlin's PBR render loop to switch scenes. The render loop polls
+            // Notify the parent page so it can update the section title and description.
+            window.parent.postMessage({ type: 'prismSceneChange', scene: name }, '*');
+
+            // Signal Kotlin's render loop to switch scenes. The loop polls
             // window.prismNextScene each frame and restarts with the new scene.
             window.prismNextScene = name;
         }
