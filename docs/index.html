@@ -237,18 +237,20 @@
 
           <div class="lang-card">
             <div class="lang-label">Kotlin &middot; Android</div>
-<pre class="code-block">lifecycleScope.launch {
-  val surface = createPrismSurface(holder, width, height)
-  val glb = assets.open("model.glb").readBytes()
-  val scene = createGltfDemoScene(
-      surface.wgpuContext!!, width, height, glb,
-      progressiveScope = lifecycleScope)
+<pre class="code-block"><span class="comment">// Parse glTF — mesh geometry, PBR materials, textures</span>
+val asset = GltfLoader().load("model.glb", glb)
 
-  surface.onPointerDrag { dx, dy -&gt;
-      scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
-  surface.startRenderLoop { dt, elapsed, frame -&gt;
-      scene.tick(dt, elapsed, frame) }
-}</pre>
+<span class="comment">// Upload GPU resources</span>
+for (node in asset.renderableNodes)
+    renderer.uploadMesh(node.mesh)
+for ((tex, img) in asset.textures.zip(asset.imageData))
+    if (img != null) renderer.uploadTextureData(tex, img.pixels)
+
+<span class="comment">// Create ECS entities (Transform + Mesh + Material each)</span>
+asset.instantiateInWorld(world)
+
+surface.startRenderLoop { dt, elapsed, _ -&gt;
+    world.update(Time(dt, elapsed)) }</pre>
           </div>
 
           <div class="lang-card">
