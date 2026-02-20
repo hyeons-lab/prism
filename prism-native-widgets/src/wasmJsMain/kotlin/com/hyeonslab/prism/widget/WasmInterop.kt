@@ -37,6 +37,13 @@ internal external fun jsNextFrame(callback: (Double) -> Unit): JsAny
 internal external fun jsOnBeforeUnload(callback: () -> Unit)
 
 /**
+ * Invokes `window.prismHideLoading()` if set. Embed pages assign this to dismiss a loading overlay
+ * as soon as the first frame is rendered, without needing any consumer-side `@JsFun` glue.
+ */
+@JsFun("() => { var f = window.prismHideLoading; if (f) f(); }")
+internal external fun jsNotifyFirstFrameReady()
+
+/**
  * Installs pointer-capture drag listeners on [canvas]. Calls [onDelta] with (dx, dy) in CSS pixels
  * for each pointermove while a button is held.
  */

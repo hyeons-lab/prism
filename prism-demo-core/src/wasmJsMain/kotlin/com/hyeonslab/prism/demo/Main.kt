@@ -43,14 +43,6 @@ fun prismSwitchScene(name: String) {
  */
 @JsFun("() => window.prismPbrScene || null") private external fun getPbrSceneName(): String?
 
-/**
- * Notifies pbr.html that the first frame of a new scene has been rendered. pbr.html sets
- * `window.prismHideLoading` to a callback that dismisses the loading overlay immediately, so the
- * scene appears as soon as it is ready rather than after a fixed timeout.
- */
-@JsFun("() => { var f = window.prismHideLoading; if (f) f(); }")
-private external fun notifyFirstFrameReady()
-
 /** Updates the FPS counter element in pbr.html with the current smoothed frame rate. */
 @JsFun(
   "(fps) => { var el = document.getElementById('fps-counter'); if (el) el.textContent = fps + ' fps'; }"
@@ -158,19 +150,12 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
     }
   }
 
-  var firstFrameNotified = false
   var smoothedFps = 60f
-  surface.startRenderLoop(onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } }) {
-    dt,
-    elapsed,
-    frame ->
+  surface.startRenderLoop(
+    onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } },
+    onFirstFrame = { log.i { "PBR first frame rendered" } },
+  ) { dt, elapsed, frame ->
     scene.tick(dt, elapsed, frame)
-
-    // Hide the loading overlay on the first rendered frame.
-    if (!firstFrameNotified) {
-      firstFrameNotified = true
-      notifyFirstFrameReady()
-    }
 
     // Smoothed FPS — EMA with α=0.05; updated in the DOM every 20 frames (~3 Hz at 60 fps).
     if (frame > 0L && dt > 0f) {
@@ -226,19 +211,12 @@ private suspend fun startGltfScene(canvasId: String) {
     scene.updateAspectRatio(w, h)
   }
 
-  var firstFrameNotified = false
   var smoothedFps = 60f
-  surface.startRenderLoop(onError = { e -> log.e(e) { "glTF render loop error: ${e.message}" } }) {
-    dt,
-    elapsed,
-    frame ->
+  surface.startRenderLoop(
+    onError = { e -> log.e(e) { "glTF render loop error: ${e.message}" } },
+    onFirstFrame = { log.i { "glTF first frame rendered" } },
+  ) { dt, elapsed, frame ->
     scene.tick(dt, elapsed, frame)
-
-    // Hide the loading overlay on the first rendered frame.
-    if (!firstFrameNotified) {
-      firstFrameNotified = true
-      notifyFirstFrameReady()
-    }
 
     // Smoothed FPS — EMA with α=0.05; updated in the DOM every 20 frames (~3 Hz at 60 fps).
     if (frame > 0L && dt > 0f) {

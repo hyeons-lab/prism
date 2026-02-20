@@ -78,11 +78,16 @@ actual class PrismSurface(canvasContext: CanvasContext? = null, canvas: HTMLCanv
    * Starts a `requestAnimationFrame` render loop. [onFrame] is called each frame with (deltaTime in
    * seconds, elapsed seconds since start, frameCount).
    *
+   * [onFirstFrame] is called once after the very first rendered frame. Prism also automatically
+   * invokes `window.prismHideLoading` (if set) at that point — embed pages can set this to dismiss
+   * a loading overlay without writing any `@JsFun` glue code.
+   *
    * The loop stops automatically when [detach] is called, including on page unload. If [onFrame]
    * throws, [onError] is invoked (default: log the error), the loop stops, and [detach] is called.
    */
   fun startRenderLoop(
     onError: (Throwable) -> Unit = { log.e(it) { "Render loop error: ${it.message}" } },
+    onFirstFrame: (() -> Unit)? = null,
     onFrame: (deltaTime: Float, elapsed: Float, frameCount: Long) -> Unit,
   ) {
     if (_running) return
@@ -92,6 +97,7 @@ actual class PrismSurface(canvasContext: CanvasContext? = null, canvas: HTMLCanv
     val startTime = jsNow()
     var lastTime = startTime
     var frameCount = 0L
+    var firstFrameFired = false
 
     fun frame(timestamp: Double) {
       if (!_running) return
@@ -101,6 +107,11 @@ actual class PrismSurface(canvasContext: CanvasContext? = null, canvas: HTMLCanv
         val elapsed = ((timestamp - startTime) / 1000.0).toFloat()
         frameCount++
         onFrame(deltaTime, elapsed, frameCount)
+        if (!firstFrameFired) {
+          firstFrameFired = true
+          onFirstFrame?.invoke()
+          jsNotifyFirstFrameReady()
+        }
         jsNextFrame(::frame)
       } catch (e: Throwable) {
         detach()
