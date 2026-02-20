@@ -186,8 +186,8 @@
             <span class="feature-icon">A</span>
             <h3>Asset Management</h3>
             <p>
-              Loader interfaces for meshes, shaders, and textures with
-              platform-specific file I/O via kotlinx-io.
+              glTF 2.0 loader with GLB binary parsing, PBR texture support,
+              and ECS instantiation. Platform file I/O via kotlinx-io.
             </p>
           </div>
         </div>
@@ -218,7 +218,7 @@
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
 
-<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid)</span></pre>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid, glTF 2.0)</span></pre>
         </div>
       </div>
     </section>
@@ -353,6 +353,11 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
                 <td>Flutter Web</td>
                 <td>WebGPU via HtmlElementView + Kotlin/WASM</td>
                 <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>Flutter Desktop (macOS, Windows, Linux)</td>
+                <td>Native rendering via platform channels</td>
+                <td class="status-planned">Planned</td>
               </tr>
             </tbody>
           </table>

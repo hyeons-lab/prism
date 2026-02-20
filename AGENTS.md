@@ -140,7 +140,7 @@ module-name/src/
 
 **Rendering (prism-renderer):**
 - `Renderer` - Core rendering interface
-- `WgpuRenderer` - WebGPU/wgpu4k implementation (in progress)
+- `WgpuRenderer` - WebGPU/wgpu4k implementation
 - `Mesh`, `Material`, `Shader` - Graphics primitives
 - `Camera`, `RenderPass`, `Pipeline` - Rendering pipeline
 - `Buffer`, `Texture`, `VertexAttribute` - GPU resources
@@ -333,6 +333,19 @@ Implement core WgpuRenderer backend for JVM platform with GLFW windowing and bas
 - Add demo app entry point for rotating cube scene
 ```
 
+### PR Submission Checklist
+
+Before marking a PR ready for review:
+
+- [ ] `./gradlew ktfmtFormat` run — no formatting violations
+- [ ] `./gradlew ktfmtCheck detektJvmMain jvmTest` passes locally
+- [ ] PR title is concise (under 72 characters), imperative mood
+- [ ] PR description matches the final squash commit body exactly (summary paragraph + bullets)
+- [ ] Devlog updated: `What Changed`, `Decisions`, and `Commits` sections filled in
+- [ ] No secrets, credentials, or private URLs committed
+
+CI runs `ktfmtCheck + detekt + jvmTest` on every push. PRs must pass CI before merging.
+
 ## Branching & Plan Workflow
 
 ### Write a Plan Before Starting
@@ -395,7 +408,7 @@ One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively a
 
 ## Current Project Status
 
-**Phase:** PBR materials + Flutter integration complete (M9, M11), all platforms operational
+**Phase:** glTF 2.0 asset loading complete (M10), all platforms operational
 
 **What works:**
 - ✅ All math operations (Vec2/3/4, Mat3/4, Quaternion, Transform)
@@ -412,7 +425,7 @@ One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively a
 - ✅ Compose Desktop integration with MVI architecture (M5 complete)
 - ✅ PrismPanel: AWT Canvas with native handle → wgpu surface (macOS Metal, Windows/Linux stubs)
 - ✅ Compose demo: Material3 UI controls driving 3D scene via EngineStore/DemoStore
-- ✅ Unit tests: 236 tests across prism-math (80), prism-renderer (146), prism-demo-core (10)
+- ✅ Unit tests: 268 tests across prism-math (80), prism-renderer (146), prism-demo-core (10), prism-assets (32)
 - ✅ CI: GitHub Actions with ktfmtCheck, detekt, jvmTest
 - ✅ WASM/Canvas WebGPU integration (M6 complete)
 - ✅ iOS native rendering via MTKView + wgpu4k iosContextRenderer (M7 complete)
@@ -435,11 +448,12 @@ One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively a
 - ✅ Flutter iOS plugin: MTKView + configureDemo + PrismBridge MethodChannel (M11)
 - ✅ Flutter Web: Kotlin/WASM @JsExport + HtmlElementView canvas + Dart JS interop (M11)
 - ✅ Flutter example app: Material3 UI controls (speed slider, color buttons, pause/resume)
-
-**What's in progress:**
+- ✅ glTF 2.0 asset loading: GlbReader, GltfLoader, ImageDecoder, GltfAsset with `instantiateInWorld()` ECS factory (M10 complete)
+- ✅ DamagedHelmet.glb demo: PBR textures (albedo, normal, metallicRoughness, occlusion, emissive) with orbit camera
+- ✅ Mobile orbit drag: touch-to-rotate on iOS and Android
 
 **What's next:**
-- ⏭️ glTF 2.0 asset loading
+- ⏭️ Flutter Desktop (macOS, Windows, Linux)
 
 See BUILD_STATUS.md and PLAN.md for detailed implementation plan.
 
@@ -529,7 +543,7 @@ All feature work MUST use git worktrees. Do not switch branches in the main chec
 
 See [CONVENTIONS.md](devlog/CONVENTIONS.md) for devlog conventions. AI coding agents must maintain development logs proactively.
 
-## Random Notes
+## Agent Notes
 
 - When clearing caches, do NOT delete `.gradle` folder - be specific about what's deleted
 - Create all temporary/scratch files in `.scratch/` folder
