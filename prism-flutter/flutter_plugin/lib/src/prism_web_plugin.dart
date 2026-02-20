@@ -1,9 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
 import 'generated/prism_js_bindings.dart';
+
+/// JS interop bindings to the prism-flutter WASM module's high-level API.
+/// These are exported by FlutterWasmEntry.kt via @JsExport.
+@JS('prismInit')
+external void _prismInit(String canvasId, String glbUrl);
+
+@JS('prismTogglePause')
+external void _prismTogglePause(String canvasId);
+
+@JS('prismGetState')
+external String _prismGetState(String canvasId);
+
+@JS('prismIsInitialized')
+external bool _prismIsInitialized(String canvasId);
+
+@JS('prismShutdown')
+external void _prismShutdown(String canvasId);
 
 /// Web implementation of PrismEngine that calls WASM-exported JS functions
 /// instead of using platform method channels.
@@ -14,9 +32,6 @@ class PrismWebEngine {
   static bool _wasmLoaded = false;
   static String? _loadedModuleUrl;
   static Future<void>? _wasmLoadingFuture;
-
-  /// canvasId → engine handle returned by [prismCreateEngine].
-  static final Map<String, String> _handles = {};
 
   /// Load the Kotlin/WASM module and expose its @JsExport functions globally.
   ///
@@ -49,8 +64,10 @@ class PrismWebEngine {
     _wasmLoadingFuture = completer.future;
 
     // Build the names array from the generated list — Dart is the single
-    // source of truth; no hand-written names to keep in sync.
-    final namesJson = prismJsExportNames.map((n) => '"$n"').join(', ');
+    // source of truth for the prism-js low-level API names; no hand-written
+    // names to keep in sync. The prism-flutter high-level API names are
+    // pinned separately below.
+    final jsApiNamesJson = prismJsExportNames.map((n) => '"$n"').join(', ');
 
     // Create an inline ES module script that:
     // 1. Dynamically imports the Kotlin/WASM entry point
@@ -65,8 +82,12 @@ class PrismWebEngine {
         if (typeof mod.default === "function") {
           await mod.default();
         }
-        const names = [$namesJson];
-        for (const name of names) {
+        // Pin the prism-flutter high-level API (FlutterWasmEntry.kt exports).
+        const flutterNames = ["prismInit", "prismTogglePause",
+                              "prismGetState", "prismIsInitialized", "prismShutdown"];
+        // Pin the prism-js low-level API (generated from prism-js @JsExport list).
+        const jsApiNames = [$jsApiNamesJson];
+        for (const name of [...flutterNames, ...jsApiNames]) {
           if (typeof mod[name] === "function") {
             window[name] = mod[name];
           }
@@ -119,37 +140,25 @@ class PrismWebEngine {
     return _wasmLoadingFuture!;
   }
 
-  /// Create and initialize an engine instance for [canvasId].
-  static void init(String canvasId) {
-    final handle = prismCreateEngine('Prism', 60.0);
-    prismEngineInitialize(handle);
-    _handles[canvasId] = handle;
-  }
+  static void init(String canvasId) =>
+      _prismInit(canvasId, 'DamagedHelmet.glb');
 
   static Future<void> togglePause(String canvasId) async {
-    // No direct toggle-pause in the new API — no-op until added upstream.
+    if (!_wasmLoaded) return;
+    _prismTogglePause(canvasId);
   }
 
   static Future<Map<String, dynamic>> getState(String canvasId) async {
     if (!_wasmLoaded) return {};
-    final h = _handles[canvasId];
-    if (h == null) return {};
-    return {
-      'initialized': prismEngineIsAlive(h),
-      'deltaTime': prismEngineGetDeltaTime(h),
-      'totalTime': prismEngineGetTotalTime(h),
-    };
+    final json = _prismGetState(canvasId);
+    return jsonDecode(json) as Map<String, dynamic>;
   }
 
   static Future<bool> isInitialized(String canvasId) async {
     if (!_wasmLoaded) return false;
-    final h = _handles[canvasId];
-    if (h == null) return false;
-    return prismEngineIsAlive(h);
+    return _prismIsInitialized(canvasId);
   }
 
-  static Future<void> shutdown(String canvasId) async {
-    final h = _handles.remove(canvasId);
-    if (h != null) prismDestroyEngine(h);
-  }
+  static Future<void> shutdown(String canvasId) async =>
+      _prismShutdown(canvasId);
 }

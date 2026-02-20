@@ -132,7 +132,7 @@ tasks.register("generateDartJsBindings") {
 // Copy Kotlin/WASM build artifacts to the Flutter example web directory so that
 // `flutter run -d chrome` can serve them alongside the Dart-compiled output.
 tasks.register<Copy>("copyWasmToFlutterWeb") {
-  dependsOn("compileProductionExecutableKotlinWasmJsOptimize")
+  dependsOn("compileProductionExecutableKotlinWasmJsOptimize", "kotlinWasmNpmInstall")
   val wasmOutput =
     layout.buildDirectory.dir("compileSync/wasmJs/main/productionExecutable/optimized")
   from(wasmOutput) {
