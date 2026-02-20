@@ -238,88 +238,86 @@
         </p>
         <div class="lang-grid">
 
-          <details class="lang-card">
-            <summary class="lang-label">Kotlin &middot; Android</summary>
-<pre class="code-block"><span class="comment">// Parse glTF — geometry, PBR materials, textures</span>
-val asset = GltfLoader().load("model.glb", glb)
-renderer.upload(asset)
+          <div class="lang-card">
+            <div class="lang-label">Kotlin &middot; JVM / Android</div>
+<pre class="code-block"><span class="comment">// Create engine and ECS world</span>
+val engine = PrismEngine(targetFps = 60)
+val world  = World()
+
+<span class="comment">// Load a glTF asset and instantiate into the world</span>
+val asset = GltfLoader().load("model.glb", glbBytes)
 asset.instantiateInWorld(world)
 
 <span class="comment">// Drive the render loop</span>
 surface.startRenderLoop { dt, elapsed, _ -&gt;
-    world.update(Time(dt, elapsed)) }</pre>
-          </details>
+    world.update(Time(dt, elapsed))
+    println("frame: ${engine.frameCount}") }</pre>
+          </div>
 
-          <details class="lang-card">
-            <summary class="lang-label">Swift &middot; iOS</summary>
-<pre class="code-block">import PrismDemo
+          <div class="lang-card">
+            <div class="lang-label">Swift &middot; iOS</div>
+<pre class="code-block"><span class="comment">// Create engine and ECS world</span>
+let engine = PrismEngine(targetFps: 60)
+let world  = World()
 
-<span class="comment">// Parse glTF — suspend fun → async via SKIE</span>
-let asset = try await GltfLoader().load(path: "model.glb", data: glb)
-renderer.upload(asset: asset)
+<span class="comment">// Load a glTF asset — suspend fun → async via SKIE</span>
+let asset = try await GltfLoader().load(path: "model.glb", data: glbBytes)
 asset.instantiateInWorld(world: world)
 
 <span class="comment">// Drive the render loop</span>
 surface.startRenderLoop { dt, elapsed, _ in
-    world.update(Time(dt: dt, elapsed: elapsed)) }</pre>
-          </details>
+    world.update(Time(dt: dt, elapsed: elapsed))
+    print("frame: \(engine.frameCount)") }</pre>
+          </div>
 
-          <details class="lang-card" open>
-            <summary class="lang-label">JavaScript &middot; Web (prism-js)</summary>
-<pre class="code-block"><span class="comment">// Load the Prism WASM module — auto-generated @JsExport bridge</span>
+          <div class="lang-card">
+            <div class="lang-label">JavaScript &middot; Web (prism-js)</div>
+<pre class="code-block"><span class="comment">// Load the Prism WASM module and pin exports to window</span>
 const mod = await import('./prism.mjs');
-await mod.default(); <span class="comment">// instantiate WebAssembly</span>
-
-<span class="comment">// Pin @JsExport functions to window for global access</span>
+await mod.default();
 Object.keys(mod).forEach(n =&gt; {
   if (typeof mod[n] === 'function') window[n] = mod[n];
 });
 
-<span class="comment">// Create engine + ECS world</span>
+<span class="comment">// Create engine and ECS world</span>
 const engine = prismCreateEngine('MyApp', 60);
 prismEngineInitialize(engine);
 const world  = prismCreateWorld();
 const entity = prismWorldCreateEntity(world);
 prismWorldAddTransformComponent(world, entity, 0, 0, -5.0);
 
-<span class="comment">// Scene graph</span>
-const scene = prismCreateScene('main');
-const mesh  = prismCreateMeshNode('helmet');
-const cam   = prismCreateCameraNode('cam');
-prismSceneAddNode(scene, mesh);
-prismSceneAddNode(scene, cam);
-prismSceneSetActiveCamera(scene, cam);
-
 <span class="comment">// Query state</span>
 console.log('dt:', prismEngineGetDeltaTime(engine),
             'frames:', prismEngineGetFrameCount(engine));</pre>
-          </details>
+          </div>
 
-          <details class="lang-card">
-            <summary class="lang-label">Dart &middot; Flutter</summary>
+          <div class="lang-card">
+            <div class="lang-label">Dart &middot; Flutter</div>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
-<span class="comment">// Embed the GPU surface — renders the glTF scene immediately</span>
+<span class="comment">// Create engine and embed the GPU surface</span>
+final engine = PrismEngine();
 PrismRenderView(engine: engine)
 
-<span class="comment">// Control from Dart (web: Kotlin/WASM; native: platform channel)</span>
+<span class="comment">// Query and control (web: Kotlin/WASM; native: platform channel)</span>
+final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span>
 await engine.togglePause();
-final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span></pre>
-          </details>
+await engine.shutdown();</pre>
+          </div>
 
-          <details class="lang-card">
-            <summary class="lang-label">Dart &middot; FFI (prism-native)</summary>
+          <div class="lang-card">
+            <div class="lang-label">Dart &middot; FFI (prism-native)</div>
 <pre class="code-block">import 'package:prism_flutter/src/prism_engine_ffi.dart';
 
-<span class="comment">// Auto-generated dart:ffi bindings — loads libprism.dylib/.so/.dll</span>
+<span class="comment">// Create engine — loads libprism.dylib / .so / .dll</span>
 final engine = PrismEngine();
 await engine.initialize(appName: 'MyApp', targetFps: 60);
 
+<span class="comment">// Query state</span>
 final state = await engine.getState();
-<span class="comment">// { initialized: true, deltaTime: 0.016, totalTime: 1.234, frameCount: 74 }</span>
-
+<span class="comment">// { initialized: true, deltaTime: 0.016, frameCount: 74 }</span>
 await engine.shutdown();</pre>
-          </details>
+          </div>
 
         </div>
       </div>
