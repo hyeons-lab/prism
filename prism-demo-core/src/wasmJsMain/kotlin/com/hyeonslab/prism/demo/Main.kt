@@ -7,6 +7,7 @@ import com.hyeonslab.prism.widget.createPrismSurface
 import com.hyeonslab.prism.widget.fetchBytes
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlin.math.PI
+import kotlin.math.roundToInt
 import kotlin.math.tan
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -38,6 +39,12 @@ private external fun consumePendingSceneSwitch(): String?
  */
 @JsFun("() => { var f = window.prismHideLoading; if (f) f(); }")
 private external fun notifyFirstFrameReady()
+
+/** Updates the FPS counter element in pbr.html with the current smoothed frame rate. */
+@JsFun(
+  "(fps) => { var el = document.getElementById('fps-counter'); if (el) el.textContent = fps + ' fps'; }"
+)
+private external fun updateFpsDisplay(fps: Int)
 
 @OptIn(DelicateCoroutinesApi::class)
 fun main() {
@@ -141,6 +148,7 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
   }
 
   var firstFrameNotified = false
+  var smoothedFps = 60f
   surface.startRenderLoop(onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } }) {
     dt,
     elapsed,
@@ -151,6 +159,12 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
     if (!firstFrameNotified) {
       firstFrameNotified = true
       notifyFirstFrameReady()
+    }
+
+    // Smoothed FPS — EMA with α=0.05; updated in the DOM every 20 frames (~3 Hz at 60 fps).
+    if (frame > 0L && dt > 0f) {
+      smoothedFps = 0.05f * (1f / dt) + 0.95f * smoothedFps
+      if (frame % 20L == 0L) updateFpsDisplay(smoothedFps.roundToInt())
     }
 
     // Poll for a scene-switch request from pbr.html's switchScene() JS function.
@@ -201,6 +215,7 @@ private suspend fun startGltfScene(canvasId: String) {
   }
 
   var firstFrameNotified = false
+  var smoothedFps = 60f
   surface.startRenderLoop(onError = { e -> log.e(e) { "glTF render loop error: ${e.message}" } }) {
     dt,
     elapsed,
@@ -211,6 +226,12 @@ private suspend fun startGltfScene(canvasId: String) {
     if (!firstFrameNotified) {
       firstFrameNotified = true
       notifyFirstFrameReady()
+    }
+
+    // Smoothed FPS — EMA with α=0.05; updated in the DOM every 20 frames (~3 Hz at 60 fps).
+    if (frame > 0L && dt > 0f) {
+      smoothedFps = 0.05f * (1f / dt) + 0.95f * smoothedFps
+      if (frame % 20L == 0L) updateFpsDisplay(smoothedFps.roundToInt())
     }
 
     // Poll for a scene-switch request from pbr.html's switchScene() JS function.
