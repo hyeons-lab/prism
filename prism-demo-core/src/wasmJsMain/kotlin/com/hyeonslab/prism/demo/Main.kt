@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalWasmJsInterop::class)
+@file:OptIn(ExperimentalWasmJsInterop::class, ExperimentalJsExport::class)
 
 package com.hyeonslab.prism.demo
 
@@ -20,17 +20,28 @@ private val log = Logger.withTag("Prism")
 private var cachedGlbData: ByteArray? = null
 
 /**
+ * Pending scene switch set by pbr.html calling `globalThis["prism-demo-core"].prismSwitchScene`.
+ * Written from JS (event-driven on button click); read + cleared by the render loop each frame with
+ * no JS interop crossing.
+ */
+private var pendingSceneSwitch: String? = null
+
+/**
+ * Exported entry point callable from JS — pbr.html calls
+ * `globalThis["prism-demo-core"].prismSwitchScene(name)` on tab click. The active render loop reads
+ * [pendingSceneSwitch] once at the end of the current frame and restarts with the new scene. No
+ * per-frame JS interop is needed.
+ */
+@JsExport
+fun prismSwitchScene(name: String) {
+  pendingSceneSwitch = name
+}
+
+/**
  * Returns the initial PBR scene name when a page sets `window.prismPbrScene` before loading this
  * module (e.g. pbr.html sets it to "hero" or "cornell"). Null when the page hasn't set it.
  */
 @JsFun("() => window.prismPbrScene || null") private external fun getPbrSceneName(): String?
-
-/**
- * Consumes and clears `window.prismNextScene`. The render loops call this each frame to detect
- * scene-switch requests set by pbr.html's `switchScene()` JS function.
- */
-@JsFun("() => { var s = window.prismNextScene || null; window.prismNextScene = null; return s; }")
-private external fun consumePendingSceneSwitch(): String?
 
 /**
  * Notifies pbr.html that the first frame of a new scene has been rendered. pbr.html sets
@@ -167,9 +178,10 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
       if (frame % 20L == 0L) updateFpsDisplay(smoothedFps.roundToInt())
     }
 
-    // Poll for a scene-switch request from pbr.html's switchScene() JS function.
-    val next = consumePendingSceneSwitch()
+    // Check for a scene-switch request (set event-driven by prismSwitchScene(); no JS interop).
+    val next = pendingSceneSwitch
     if (next != null) {
+      pendingSceneSwitch = null
       surface.detach()
       val handler = CoroutineExceptionHandler { _, e ->
         log.e(e) { "Scene switch error: ${e.message}" }
@@ -234,9 +246,10 @@ private suspend fun startGltfScene(canvasId: String) {
       if (frame % 20L == 0L) updateFpsDisplay(smoothedFps.roundToInt())
     }
 
-    // Poll for a scene-switch request from pbr.html's switchScene() JS function.
-    val next = consumePendingSceneSwitch()
+    // Check for a scene-switch request (set event-driven by prismSwitchScene(); no JS interop).
+    val next = pendingSceneSwitch
     if (next != null) {
+      pendingSceneSwitch = null
       surface.detach()
       val handler = CoroutineExceptionHandler { _, e ->
         log.e(e) { "Scene switch error: ${e.message}" }

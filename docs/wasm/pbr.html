@@ -167,9 +167,9 @@
             // Notify the parent page so it can update the section title and description.
             window.parent.postMessage({ type: 'prismSceneChange', scene: name }, '*');
 
-            // Signal Kotlin's render loop to switch scenes. The loop polls
-            // window.prismNextScene each frame and restarts with the new scene.
-            window.prismNextScene = name;
+            // Signal Kotlin's render loop via the @JsExport entry point — no polling needed.
+            var mod = globalThis['prism-demo-core'];
+            if (mod && mod.prismSwitchScene) mod.prismSwitchScene(name);
         }
     </script>
 
