@@ -4,9 +4,9 @@
 Claude Code (claude-sonnet-4-6) @ prism branch fix/ios-nsdata-read
 
 ## Intent
-Fix the Apple Targets CI failure: `Unresolved reference 'dataWithContentsOfFile'` in
-`IosDemoController.kt`. The previous fix attempt used `NSData.dataWithContentsOfFile()`
-which is also wrong — it's not exposed as a companion object method in Kotlin/Native.
+Fix two bugs that survived PR #41:
+1. Apple Targets CI failure: `Unresolved reference 'dataWithContentsOfFile'` in `IosDemoController.kt`
+2. Two-finger orbit fix + WASM rebuild were in commit 730f33f which was not included in the PR #41 squash merge, so the live site never got the two-finger drag-to-orbit behavior
 
 ## What Changed
 - `2026-02-20T10:00-08:00` `prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/IosDemoController.kt`
@@ -29,5 +29,12 @@ which is also wrong — it's not exposed as a companion object method in Kotlin/
   on NSFileManager that returns `NSData?` without any NSData constructor shenanigans. This is
   a well-established ObjC/Kotlin-Native pattern for reading file contents.
 
+## Issues (continued)
+- **Two-finger fix missing from live site:** PR #41 squash merge captured 4 of 5 commits. Commit
+  730f33f (two-finger orbit rewrite + WASM rebuild + pbr.html `pan-x pan-y`) was created after the
+  PR was merged, so the live site still has `touch-action: none` and the old single-finger WASM bundle.
+  Fixed by adding the two-finger logic and WASM rebuild to this PR.
+
 ## Commits
-- HEAD — fix: read bundle asset bytes via NSFileManager.defaultManager.contentsAtPath()
+- d0eec32 — fix: read bundle asset bytes via NSFileManager.defaultManager.contentsAtPath()
+- HEAD — fix: two-finger orbit on mobile, rebuild WASM (missed from PR #41 squash)
