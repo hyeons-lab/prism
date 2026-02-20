@@ -361,6 +361,12 @@ section {
     rgba(13, 17, 23, 0.4) 60%,
     transparent 100%
   );
+  /* Pass pointer events through to the iframe canvas below. Links inside remain clickable. */
+  pointer-events: none;
+}
+
+.gltf-demo-overlay a {
+  pointer-events: auto;
 }
 
 .gltf-demo-overlay .section-desc {

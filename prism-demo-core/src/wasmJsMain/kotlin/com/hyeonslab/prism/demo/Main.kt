@@ -6,6 +6,8 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.createPrismSurface
 import com.hyeonslab.prism.widget.fetchBytes
 import kotlin.js.ExperimentalWasmJsInterop
+import kotlin.math.PI
+import kotlin.math.tan
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
@@ -81,6 +83,22 @@ fun main() {
 }
 
 /**
+ * Computes the orbit radius (camera distance) for the Material Preset scene so that all 5 spheres
+ * fit horizontally across the viewport with a small margin, regardless of aspect ratio.
+ *
+ * The 5 spheres span ±3.5 units in X (including sphere radius). With fovY = 45° and the given
+ * aspect ratio, the required distance is `halfSpan / (tan(fovY/2) * aspect)`.
+ */
+private fun materialPresetOrbitRadius(width: Int, height: Int): Float {
+  val aspect = if (height > 0) width.toFloat() / height.toFloat() else 1f
+  // halfSpan = 3.5 (sphere edges) + 0.5 margin = 4.0 units from centre
+  val halfSpan = 4.0f
+  // tan(fovY/2) for fovY = 45°
+  val tanHalfFov = tan(PI / 8.0).toFloat()
+  return (halfSpan / (tanHalfFov * aspect)).coerceIn(5f, 20f)
+}
+
+/**
  * Starts a PBR demo scene on [canvasId]. Each frame, checks `window.prismNextScene` for a
  * scene-switch request. When one is detected the current surface is torn down and a new coroutine
  * restarts this function with the requested scene name.
@@ -94,13 +112,21 @@ private suspend fun startPbrScene(canvasId: String, sceneName: String) {
   val scene =
     when (sceneName) {
       "cornell" -> createCornellBoxScene(ctx, surface.width, surface.height)
-      else -> createMaterialPresetScene(ctx, surface.width, surface.height)
+      else -> {
+        val s = createMaterialPresetScene(ctx, surface.width, surface.height)
+        // Override default orbit radius with a viewport-aware value so all 5 spheres are visible.
+        s.setOrbitRadius(materialPresetOrbitRadius(surface.width, surface.height))
+        s
+      }
     }
 
   surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
   surface.onResize { nw, nh ->
     scene.renderer.resize(nw, nh)
     scene.updateAspectRatio(nw, nh)
+    if (sceneName != "cornell") {
+      scene.setOrbitRadius(materialPresetOrbitRadius(nw, nh))
+    }
   }
 
   surface.startRenderLoop(onError = { e -> log.e(e) { "PBR render loop error: ${e.message}" } }) {

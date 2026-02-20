@@ -35,7 +35,7 @@ class DemoScene(
   val world: World,
   val renderer: WgpuRenderer,
   val cameraEntity: Entity,
-  private val orbitRadius: Float = 12f,
+  private var orbitRadius: Float = 12f,
 ) {
   private var orbitAzimuth = 0f
   private var orbitElevation = 0f
@@ -57,6 +57,15 @@ class DemoScene(
   fun tickWithAngle(deltaTime: Float, elapsed: Float, frameCount: Long, angle: Float) {
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)
     world.update(time)
+  }
+
+  /**
+   * Updates the orbit radius and immediately recalculates the camera position. Call this when the
+   * viewport size changes to ensure the scene content remains fully visible.
+   */
+  fun setOrbitRadius(radius: Float) {
+    orbitRadius = radius
+    orbitBy(0f, 0f)
   }
 
   /** Updates the camera's aspect ratio. Call this when the rendering surface is resized. */
