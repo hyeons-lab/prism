@@ -56,6 +56,24 @@
 
 `prism-js/prism-sdk.mjs` — New hand-written ES module OO façade over the flat `@JsExport` API. Exports: `PrismEngine`, `PrismWorld`, `PrismScene`, `PrismMeshNode`, `PrismCameraNode`, `PrismLightNode`, `PrismEmptyNode`, `PrismMeshBuilder`.
 
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_types.dart` — New shared value types (`Vec3`, `EngineConfig`, `TransformComponent`, `Entity`) used by both web and stub Dart SDK implementations.
+
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_web.dart` — New web Dart SDK wrapper routing all calls to prism.mjs via generated `@JS()` bindings. Mirrors Kotlin API: `Engine`, `World`, `Scene`, `Node`, `MeshNode`, `CameraNode`, `LightNode`.
+
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_stub.dart` — Stub implementation that throws `UnsupportedError` on all non-web platforms; allows web-only Dart code to compile everywhere.
+
+`prism-flutter/flutter_plugin/lib/prism_sdk.dart` — Conditional export: routes to web impl when `dart.library.js_interop` is available, stub otherwise.
+
+`docs/index.html` (second review) — Added Kotlin and Swift import statements to snippets; fixed Swift imports from four separate module imports to single `import Prism` (baseName = "Prism" in prism-ios).
+
+`prism-js/prism-sdk.mjs` (second review fixes) — Renamed all `PrismX` → `X` to match Kotlin API. Added `Vec3`, `EngineConfig`, `TransformComponent`. `Vec3.zero`/`Vec3.one` changed from getters (new object each access) to frozen static fields. `World.addComponent` now throws `TypeError` for unsupported component types. `Scene.activeCamera` setter now validates `instanceof CameraNode` before delegating.
+
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_web.dart` (second review fixes) — Removed duplicate `export 'prism_sdk_types.dart'` (was causing compile error — `prism_sdk.dart` already exports it). Removed unused `dart:js_interop` import. `World.addComponent` now throws `ArgumentError` for unsupported component types. Added doc comment on `Node._handle` clarifying the library-private subclassing limitation.
+
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_stub.dart` (second review fixes) — Changed `export 'prism_sdk_types.dart'` to `import` (was a duplicate export via `prism_sdk.dart`).
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` (second review fixes) — `nativeName.cast()` → `nativeName.cast<Void>()` (explicit type, matches generated binding for `void* appName`). Moved `prism_engine_initialize` and `_initialized = true` inside the `try` block; added `catch` that destroys the engine handle before rethrowing so no handle leaks if initialize fails.
+
 `prism-flutter/flutter_plugin/example/web/.gitignore` — Gitignore for generated WASM/JS artifacts (`prism-flutter.{mjs,wasm}`, `prism.{mjs,wasm}`, `prism-sdk.mjs`, `skiko.{mjs,wasm}`).
 
 `docs/index.html` — API section unhidden; JS snippet updated to use class-based `prism-sdk.mjs` API; all 5 code snippets made consistent (create engine → setup content → query state) and non-collapsible; architecture diagram extended with prism-js / prism-native; M12 milestone added.
@@ -84,6 +102,16 @@
 
 **2026-02-20 Generated files removed from git** — `prism_js_bindings.dart` and `prism_native_bindings.dart` were committed, creating a drift risk. Replaced with `generated/.gitignore` (covers `*.dart`). Regeneration steps: `./gradlew :prism-flutter:generateDartJsBindings` (JS) and `./gradlew :prism-native:generateFfiBindings` (native).
 
+**2026-02-20 Dart SDK wrapper: conditional export pattern** — `prism_sdk.dart` uses `export … if (dart.library.js_interop) …` so web code gets the real implementation and non-web gets stubs that throw `UnsupportedError`. Both files must only `import` (not `export`) shared types since `prism_sdk.dart` already re-exports `prism_sdk_types.dart`.
+
+**2026-02-20 Swift import is `import Prism`** — Confirmed from `prism-ios/build.gradle.kts`: `baseName = "Prism"`. The KMP iOS XCFramework exposes a single umbrella module, not separate `PrismCore`/`PrismEcs`/etc. modules. Previous docs snippet was wrong.
+
+**2026-02-20 Vec3 statics: frozen fields not getters** — `static get zero()` returns a new object on every access, causing unexpected inequality and wasted allocations in default parameter expressions. Changed to `static zero = Object.freeze(new Vec3(0,0,0))` — allocated once at class definition time.
+
+**2026-02-20 `addComponent` should throw on unknown types** — Silent no-op for unsupported component types masks caller bugs. Both the JS façade and the Dart web impl now throw `TypeError`/`ArgumentError` for unrecognised types. The stub already throws `UnsupportedError` for all calls so no change needed there.
+
+**2026-02-20 `prism_create_engine` takes `void*`** — Confirmed from generated `libprism_api.h`: `prism_create_engine(void* appName, …)`. The Dart `cast()` call must be `cast<Void>()` to match; leaving it implicit would fail if the analyzer cannot infer the type from context.
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -104,4 +132,8 @@ d359142 — feat(prism-js): add OO JS façade (prism-sdk.mjs) and wire into buil
 576d9ef — docs: merge dart panels and align all 4 snippets to same pattern
 4d63535 — docs: rename dart panel label to 'Dart · Flutter'
 a2f6c6b — docs: remove prism-sdk label from JS panel
-HEAD — fix: address all critical review findings
+4ffb75a — fix: address all critical review findings
+e3eed72 — chore: update devlog with review fixes and decisions
+037bfaf — feat: add Dart SDK wrapper (prism_sdk.dart) mirroring the Kotlin API
+ac535e7 — docs: add import statements to Kotlin and Swift snippets
+HEAD — fix: address second critical review findings

@@ -4,7 +4,7 @@
 /// WASM module runs. On Android, iOS, and desktop use the Flutter plugin API
 /// (PrismEngine, PrismRenderView) from prism_flutter.dart instead.
 
-export 'prism_sdk_types.dart';
+import 'prism_sdk_types.dart';
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 

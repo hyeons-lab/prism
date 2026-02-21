@@ -3,13 +3,8 @@
 ///
 /// Requires `generated/prism_js_bindings.dart` to be present.
 /// Run: ./gradlew :prism-flutter:generateDartJsBindings
-// ignore: unused_import
-import 'dart:js_interop';
-
 import 'generated/prism_js_bindings.dart';
 import 'prism_sdk_types.dart';
-
-export 'prism_sdk_types.dart';
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +49,9 @@ class World {
         component.position.y,
         component.position.z,
       );
+    } else {
+      throw ArgumentError.value(
+          component, 'component', 'Unsupported component type: $T');
     }
   }
 
@@ -74,7 +72,8 @@ class Node {
       prismNodeSetScale(_h, x, y, z);
   void destroy() => prismDestroyNode(_h);
 
-  // @internal — used by Scene
+  // @internal — used by Scene; library-private, so external subclasses
+  // cannot be passed to [Scene.addNode] or [Scene.activeCamera].
   String get _handle => _h;
 }
 

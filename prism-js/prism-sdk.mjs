@@ -44,8 +44,8 @@ import {
 export class Vec3 {
   /** @param {number} x @param {number} y @param {number} z */
   constructor(x = 0, y = 0, z = 0) { this.x = x; this.y = y; this.z = z; }
-  static get zero() { return new Vec3(0, 0, 0); }
-  static get one()  { return new Vec3(1, 1, 1); }
+  static zero = Object.freeze(new Vec3(0, 0, 0));
+  static one  = Object.freeze(new Vec3(1, 1, 1));
 }
 
 export class EngineConfig {
@@ -102,6 +102,10 @@ export class World {
     if (component instanceof TransformComponent) {
       const p = component.position;
       prismWorldAddTransformComponent(this.#h, entityId, p.x, p.y, p.z);
+    } else {
+      throw new TypeError(
+        `Unsupported component type: ${component?.constructor?.name ?? typeof component}`,
+      );
     }
   }
 
@@ -125,7 +129,14 @@ export class Scene {
   constructor(name = 'Scene') { this.#h = prismCreateScene(name); }
 
   addNode(node)              { prismSceneAddNode(this.#h, node._handle); }
-  set activeCamera(camNode)  { prismSceneSetActiveCamera(this.#h, camNode._handle); }
+  set activeCamera(camNode) {
+    if (!(camNode instanceof CameraNode)) {
+      throw new TypeError(
+        `activeCamera must be a CameraNode (got ${camNode?.constructor?.name ?? typeof camNode})`,
+      );
+    }
+    prismSceneSetActiveCamera(this.#h, camNode._handle);
+  }
   update(deltaTime)          { prismSceneUpdate(this.#h, deltaTime); }
   destroy()                  { prismDestroyScene(this.#h); }
 }

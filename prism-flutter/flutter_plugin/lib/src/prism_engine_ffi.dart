@@ -39,12 +39,18 @@ class PrismEngine {
     if (_initialized) return;
     final nativeName = appName.toNativeUtf8();
     try {
-      _engineHandle = _bindings.prism_create_engine(nativeName.cast(), targetFps);
+      _engineHandle = _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
+      _bindings.prism_engine_initialize(_engineHandle);
+      _initialized = true;
+    } catch (_) {
+      if (_engineHandle != 0) {
+        _bindings.prism_destroy_engine(_engineHandle);
+        _engineHandle = 0;
+      }
+      rethrow;
     } finally {
       malloc.free(nativeName);
     }
-    _bindings.prism_engine_initialize(_engineHandle);
-    _initialized = true;
   }
 
   /// Toggle pause.
