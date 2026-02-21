@@ -32,6 +32,9 @@ class PrismEngine {
     return PrismNativeBindings(lib);
   }
 
+  /// Raw engine handle — exposed so platform views can pass it to the C API.
+  int get handle => _engineHandle;
+
   // No-op: canvas binding is only needed for the web multi-instance model.
   void attachCanvas(String canvasId) {}
 

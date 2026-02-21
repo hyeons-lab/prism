@@ -175,7 +175,10 @@ tasks.register<Exec>("bundleNativeMacOS") {
         "-headers", dylibDir.absolutePath,
         "-output", File(outDir, "PrismNative.xcframework").absolutePath,
     )
-    doFirst { outDir.mkdirs() }
+    doFirst {
+        File(outDir, "PrismNative.xcframework").deleteRecursively()
+        outDir.mkdirs()
+    }
 }
 
 // Copy Kotlin/WASM build artifacts to the Flutter example web directory so that

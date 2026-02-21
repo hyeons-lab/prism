@@ -15,6 +15,10 @@ class PrismEngine {
   PrismEngine()
       : _impl = Platform.isAndroid ? channel.PrismEngine() : ffi.PrismEngine();
 
+  /// Raw engine handle (non-zero on FFI platforms). Used by platform views to
+  /// call prism-native C API functions (e.g. prism_attach_metal_layer).
+  int get handle => Platform.isAndroid ? 0 : (_impl as ffi.PrismEngine).handle;
+
   void attachCanvas(String canvasId) => _impl.attachCanvas(canvasId);
   Future<void> initialize({String appName = 'Prism', int targetFps = 60}) =>
       _impl.initialize(appName: appName, targetFps: targetFps);

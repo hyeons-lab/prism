@@ -16,6 +16,10 @@ kotlin {
             implementation(project(":prism-math"))
             implementation(project(":prism-core"))
         }
+        macosMain.dependencies {
+            implementation(libs.wgpu4k.toolkit)
+            implementation(libs.kotlinx.coroutines.core)
+        }
     }
 
     compilerOptions { allWarningsAsErrors.set(true) }
