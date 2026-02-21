@@ -50,6 +50,18 @@
 
 `prism-flutter/flutter_plugin/lib/src/prism_engine.dart` — Added TODO comment about wiring `prism_engine_ffi.dart` once native library bundling per-platform is solved.
 
+`prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart` (post-fix) — Reverted `PrismWebEngine` to use high-level Flutter WASM API (`prismInit`, `prismTogglePause`, etc.). Window-pinning script now pins both the Flutter API names and all `prismJsExportNames` so the low-level handle API is also accessible to external JS.
+
+`prism-flutter/build.gradle.kts` (post-fix) — Added `:kotlinWasmNpmInstall` (root-project task, fixed path from bare `kotlinWasmNpmInstall`) as dependency of `copyWasmToFlutterWeb` so `skiko.mjs`/`skiko.wasm` are always extracted from Gradle cache. Added copy of `prism.mjs`, `prism.uninstantiated.mjs`, `prism.wasm` from `:prism-js` build output and `prism-sdk.mjs` from `:prism-js` project directory into `flutter_plugin/example/web/`.
+
+`prism-js/prism-sdk.mjs` — New hand-written ES module OO façade over the flat `@JsExport` API. Exports: `PrismEngine`, `PrismWorld`, `PrismScene`, `PrismMeshNode`, `PrismCameraNode`, `PrismLightNode`, `PrismEmptyNode`, `PrismMeshBuilder`.
+
+`prism-flutter/flutter_plugin/example/web/.gitignore` — Gitignore for generated WASM/JS artifacts (`prism-flutter.{mjs,wasm}`, `prism.{mjs,wasm}`, `prism-sdk.mjs`, `skiko.{mjs,wasm}`).
+
+`docs/index.html` — API section unhidden; JS snippet updated to use class-based `prism-sdk.mjs` API; all 5 code snippets made consistent (create engine → setup content → query state) and non-collapsible; architecture diagram extended with prism-js / prism-native; M12 milestone added.
+
+`docs/style.css` — `.lang-label` always shows `border-bottom`; removed `cursor: pointer` and `details[open]` rule.
+
 ## Decisions
 
 **2026-02-20 Step 1 is a no-op** — Kotlin 2.3.0 WasmJS: `@JsExport` is function-only; applying it to a class/data class yields "This annotation is not applicable to target 'class'. Applicable targets: function". The plan's Step 1 (annotate source types) was incompatible with the current compiler. Decision: use primitives-only at the boundary via the opaque-handle registry pattern, which is architecturally cleaner anyway.
@@ -62,6 +74,10 @@
 
 **2026-02-20 FFI conditional export deferred** — `dart.library.ffi` is `true` on all native targets including Android/iOS. We can't currently use it to select the FFI impl only on desktop. Left a TODO comment; `prism_engine_channel.dart` remains the default for all non-web native platforms.
 
+**2026-02-20 prism_web_plugin.dart reverted to old flutter API** — Initial Step 6 update called `prismCreateEngine` (new prism-js API), but `prism-flutter.mjs` only exports the old `prismInit`/`prismTogglePause` etc. from `FlutterWasmEntry.kt`. These are two separate WASM modules. `PrismWebEngine` was reverted to the old high-level API; `prismJsExportNames` is only used for window-pinning the low-level API alongside the flutter names.
+
+**2026-02-20 prism-sdk.mjs: OO JS façade** — The flat `@JsExport` API surface is verbose for JS consumers. Created `prism-sdk.mjs` as a hand-written ES module that wraps the handle-based API with classes (`PrismEngine`, `PrismWorld`, `PrismScene`, `PrismMeshNode`, etc.) mirroring the Kotlin class hierarchy. This is a companion file shipped with `prism.mjs` for JS users.
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -73,4 +89,8 @@
 ## Commits
 
 5d5c2df — chore: add devlog and plan for feat/ffi-kmp-bindings (issue #40)
-HEAD — feat: auto-generated JS and native bindings (prism-js + prism-native)
+6593425 — feat: auto-generated JS and native bindings (prism-js + prism-native)
+638c90b — fix: restore flutter web demo and add kotlinWasmNpmInstall dependency
+53a5c5e — docs: show API section with prism-js/native examples, add M12 milestone
+8dcd3b7 — docs: consistent non-collapsing API snippets across all 5 targets
+HEAD — feat(prism-js): add OO JS façade (prism-sdk.mjs) and wire into build
