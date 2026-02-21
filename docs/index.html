@@ -240,7 +240,16 @@
 
           <div class="lang-card">
             <div class="lang-label">Kotlin &middot; JVM / Android</div>
-<pre class="code-block"><span class="comment">// Create engine and ECS world</span>
+<pre class="code-block">import com.hyeonslab.prism.core.Engine
+import com.hyeonslab.prism.core.EngineConfig
+import com.hyeonslab.prism.ecs.World
+import com.hyeonslab.prism.ecs.components.TransformComponent
+import com.hyeonslab.prism.math.Vec3
+import com.hyeonslab.prism.scene.Scene
+import com.hyeonslab.prism.scene.MeshNode
+import com.hyeonslab.prism.scene.CameraNode
+
+<span class="comment">// Create engine and ECS world</span>
 val engine = Engine(EngineConfig(targetFps = 60))
 val world  = World()
 val entity = world.createEntity()
@@ -258,7 +267,12 @@ println("dt: ${engine.time.deltaTime}")</pre>
 
           <div class="lang-card">
             <div class="lang-label">Swift &middot; iOS</div>
-<pre class="code-block"><span class="comment">// Create engine and ECS world</span>
+<pre class="code-block">import PrismCore
+import PrismEcs
+import PrismMath
+import PrismScene
+
+<span class="comment">// Create engine and ECS world</span>
 let engine = Engine(config: EngineConfig(targetFps: 60))
 let world  = World()
 let entity = world.createEntity()
