@@ -53,18 +53,33 @@ kotlin {
 }
 
 // ---------------------------------------------------------------------------
-// Copy PrismDemo.xcframework into the iOS SPM package for flutter run -d ios.
+// Wrap libprism.dylib into a multi-slice iOS XCFramework for SPM binary target.
 // Run: ./gradlew :prism-flutter:bundleNativeiOS
 // ---------------------------------------------------------------------------
-tasks.register<Copy>("bundleNativeiOS") {
-    dependsOn(":prism-demo-core:assemblePrismDemoReleaseXCFramework")
-    val srcDir = project(":prism-demo-core").layout.buildDirectory
-        .dir("XCFrameworks/release/PrismDemo.xcframework").get().asFile
-    val destDir = layout.projectDirectory
-        .dir("flutter_plugin/ios/prism_flutter/Frameworks/PrismDemo.xcframework").asFile
-    from(srcDir)
-    into(destDir)
-    doFirst { destDir.deleteRecursively() }
+tasks.register<Exec>("bundleNativeiOS") {
+    val prismNative = project(":prism-native")
+    val iosArm64Dir = prismNative.layout.buildDirectory
+        .dir("bin/iosArm64/releaseShared").get().asFile
+    val iosSimDir = prismNative.layout.buildDirectory
+        .dir("bin/iosSimulatorArm64/releaseShared").get().asFile
+    val outDir = layout.projectDirectory
+        .dir("flutter_plugin/ios/prism_flutter/Frameworks").asFile
+    dependsOn(
+        ":prism-native:linkReleaseSharedIosArm64",
+        ":prism-native:linkReleaseSharedIosSimulatorArm64",
+    )
+    commandLine(
+        "xcodebuild", "-create-xcframework",
+        "-library", File(iosArm64Dir, "libprism.dylib").absolutePath,
+        "-headers", iosArm64Dir.absolutePath,
+        "-library", File(iosSimDir, "libprism.dylib").absolutePath,
+        "-headers", iosSimDir.absolutePath,
+        "-output", File(outDir, "PrismNative.xcframework").absolutePath,
+    )
+    doFirst {
+        File(outDir, "PrismNative.xcframework").deleteRecursively()
+        outDir.mkdirs()
+    }
 }
 
 // ---------------------------------------------------------------------------

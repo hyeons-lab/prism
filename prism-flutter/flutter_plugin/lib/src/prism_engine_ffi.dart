@@ -21,16 +21,14 @@ class PrismEngine {
   bool _initialized = false;
 
   static PrismNativeBindings _loadBindings() {
-    // On macOS the dylib is embedded by the SPM binary target and auto-loaded
-    // by dyld before Dart code runs — use process() to avoid loading a second
-    // copy which causes duplicate ObjC class warnings and crashes.
-    final lib = Platform.isMacOS
-        ? DynamicLibrary.process()
-        : Platform.isLinux
-            ? DynamicLibrary.open('libprism.so')
-            : Platform.isWindows
-                ? DynamicLibrary.open('prism.dll')
-                : DynamicLibrary.process();
+    // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
+    // target and auto-loaded by dyld before Dart code runs — use process() to
+    // avoid loading a second copy, which causes duplicate ObjC class crashes.
+    final lib = Platform.isLinux
+        ? DynamicLibrary.open('libprism.so')
+        : Platform.isWindows
+            ? DynamicLibrary.open('prism.dll')
+            : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
     return PrismNativeBindings(lib);
   }
 
@@ -70,6 +68,10 @@ class PrismEngine {
         'deltaTime': _bindings.prism_engine_get_delta_time(_engineHandle),
         'totalTime': _bindings.prism_engine_get_total_time(_engineHandle),
         'frameCount': _bindings.prism_engine_get_frame_count(_engineHandle),
+        // fps and isPaused are not yet tracked by the C API; return safe defaults
+        // so callers that read these keys (e.g. the example app) don't crash.
+        'fps': 0.0,
+        'isPaused': false,
       };
 
   /// Shuts down and destroys the native engine.

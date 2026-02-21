@@ -2,7 +2,10 @@ import 'dart:io' show Platform;
 import 'prism_engine_channel.dart' as channel;
 import 'prism_engine_ffi.dart' as ffi;
 
-/// Runtime dispatcher: FFI on macOS/Linux/Windows, MethodChannel on iOS/Android.
+/// Runtime dispatcher: FFI on all native platforms except Android (MethodChannel).
+///
+/// iOS, macOS, Linux, and Windows all talk directly to the prism-native C API
+/// via Dart FFI. Android uses the MethodChannel bridge (no prism-native binary).
 ///
 /// Prerequisite: run `./gradlew :prism-native:generateFfiBindings` before
 /// building on any native platform (generates prism_native_bindings.dart).
@@ -10,9 +13,7 @@ class PrismEngine {
   final dynamic _impl;
 
   PrismEngine()
-      : _impl = (Platform.isMacOS || Platform.isLinux || Platform.isWindows)
-            ? ffi.PrismEngine()
-            : channel.PrismEngine();
+      : _impl = Platform.isAndroid ? channel.PrismEngine() : ffi.PrismEngine();
 
   void attachCanvas(String canvasId) => _impl.attachCanvas(canvasId);
   Future<void> initialize({String appName = 'Prism', int targetFps = 60}) =>
