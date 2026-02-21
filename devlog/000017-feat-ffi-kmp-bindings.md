@@ -97,6 +97,22 @@
 
 `prism-flutter/flutter_plugin/pubspec.yaml` — Added `macos: pluginClass: PrismFlutterPlugin` under `flutter.plugin.platforms`.
 
+`prism-flutter/flutter_plugin/macos/prism_flutter/Package.swift` — Replaced `macos/Package.swift`: moved to Flutter's required path `macos/prism_flutter/Package.swift`; product name changed to `prism-flutter` (hyphen, Flutter replaces `_` with `-`); platform lowered to `.macOS(.v10_15)` to match `FlutterGeneratedPluginSwiftPackage`; XCFramework path changed to `Frameworks/PrismNative.xcframework` (self-contained within the package dir).
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` — Moved from `macos/Classes/`; removed `import PrismNative` (the dylib has no Swift module interface; SPM dependency is enough for embedding).
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — Changed macOS from `DynamicLibrary.open('libprism.dylib')` to `DynamicLibrary.process()`: SPM embeds and auto-loads `libprism.dylib` via dyld before Dart runs; calling `open()` loaded a second copy causing duplicate ObjC class warnings and crashes.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Package.swift` — New: SPM manifest for iOS, mirroring macOS pattern. `PrismDemo` binary target at `Frameworks/PrismDemo.xcframework`; `prism_flutter` target at `Sources/prism_flutter`; product name `prism-flutter`.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Frameworks/.gitignore` — New: ignores built `PrismDemo.xcframework`.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter.podspec` — Deleted: replaced by SPM.
+
+`prism-flutter/flutter_plugin/ios/{Classes → prism_flutter/Sources/prism_flutter}/` — Moved both Swift sources to Flutter's SPM-expected path.
+
+`prism-flutter/build.gradle.kts` — Added `bundleNativeiOS` task: depends on `:prism-demo-core:assemblePrismDemoReleaseXCFramework`, copies output to `flutter_plugin/ios/prism_flutter/Frameworks/PrismDemo.xcframework`.
+
 `prism-flutter/flutter_plugin/lib/src/prism_engine_channel.dart` — Added no-op `initialize()` method so `prism_engine_dispatch.dart` can call it uniformly on all platforms without `NoSuchMethodError` on mobile.
 
 `prism-flutter/flutter_plugin/example/lib/main.dart` — Added `_engine.initialize()` call in `initState()`. On mobile it is a no-op (engine starts via platform view); on macOS it starts the native FFI engine.
@@ -141,6 +157,14 @@
 
 **2026-02-21 `_impl` typed as `dynamic`** — Both `ffi.PrismEngine` and `channel.PrismEngine` share the same method signatures but no common interface. Typed as `dynamic` for now; extracting a shared `PrismEngineInterface` abstract class is deferred to a follow-up.
 
+**2026-02-21 Flutter SPM path convention is `{platform}/{plugin_name}/Package.swift`** — Not `{platform}/Package.swift`. Flutter derives the path as `fileSystem.path.join(path, platformDir, name)`. Initial placement at `macos/Package.swift` caused `FlutterGeneratedPluginSwiftPackage` to have no dependencies. Moving to `macos/prism_flutter/Package.swift` fixed detection.
+
+**2026-02-21 Flutter SPM product name uses hyphens** — Flutter calls `plugin.name.replaceAll('_', '-')` when generating the `FlutterGeneratedPluginSwiftPackage` target dependency. The plugin's `Package.swift` library product must be named `prism-flutter` (not `prism_flutter`) to match.
+
+**2026-02-21 SPM binary target path must be inside the package directory** — Symlinks in Flutter's `.packages/` ephemeral directory are not followed by SPM for path resolution. `../Frameworks/PrismNative.xcframework` (relative to `macos/prism_flutter/`) resolved to `.packages/Frameworks/` (wrong) instead of `macos/Frameworks/`. Fixed by moving `Frameworks/` inside `macos/prism_flutter/` so the path `"Frameworks/PrismNative.xcframework"` is fully self-contained.
+
+**2026-02-21 `DynamicLibrary.open('libprism.dylib')` causes duplicate load on macOS SPM** — SPM embeds `libprism.dylib` in the app bundle and dyld auto-loads it before Dart runs. Calling `DynamicLibrary.open('libprism.dylib')` in Flutter debug mode loaded the source-path dylib a second time (DYLD_LIBRARY_PATH pointed to the build dir), causing duplicate ObjC class warnings. Fix: use `DynamicLibrary.process()` on macOS — symbols are already in the process.
+
 **2026-02-21 channel impl needs no-op `initialize()`** — `prism_engine_dispatch.dart` calls `_impl.initialize(...)` uniformly. `channel.PrismEngine` didn't have that method, causing `NoSuchMethodError` on mobile. Added a no-op — mobile engine starts natively via the platform view, not via an explicit call.
 
 ## Issues
@@ -169,4 +193,8 @@ e3eed72 — chore: update devlog with review fixes and decisions
 ac535e7 — docs: add import statements to Kotlin and Swift snippets
 ac535e70d63eaa2a4b3d121f7e07b9a5ac77fa33 — fix: address second critical review findings
 aa95126 — feat: macOS Flutter desktop support via SPM (#828)
-HEAD — feat: scaffold macOS example runner and fix channel initialize
+4acc28e — feat: scaffold macOS example runner and fix channel initialize
+8119203 — docs: update Dart snippet and platform table for macOS FFI
+3ce2dcb — docs: align Dart snippet structure with other three panels
+87c1a83 — fix: correct SPM package structure and library loading for macOS
+HEAD — feat: migrate iOS plugin from CocoaPods to SPM
