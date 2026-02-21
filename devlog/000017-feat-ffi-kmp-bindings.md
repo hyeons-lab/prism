@@ -97,6 +97,12 @@
 
 `prism-flutter/flutter_plugin/pubspec.yaml` — Added `macos: pluginClass: PrismFlutterPlugin` under `flutter.plugin.platforms`.
 
+`prism-flutter/flutter_plugin/lib/src/prism_engine_channel.dart` — Added no-op `initialize()` method so `prism_engine_dispatch.dart` can call it uniformly on all platforms without `NoSuchMethodError` on mobile.
+
+`prism-flutter/flutter_plugin/example/lib/main.dart` — Added `_engine.initialize()` call in `initState()`. On mobile it is a no-op (engine starts via platform view); on macOS it starts the native FFI engine.
+
+`prism-flutter/flutter_plugin/example/macos/` — Scaffolded via `flutter create --platforms macos .`: standard Xcode runner project, entitlements, AppInfo.xcconfig, and gitignore for ephemeral/Pods.
+
 ## Decisions
 
 **2026-02-20 Step 1 is a no-op** — Kotlin 2.3.0 WasmJS: `@JsExport` is function-only; applying it to a class/data class yields "This annotation is not applicable to target 'class'. Applicable targets: function". The plan's Step 1 (annotate source types) was incompatible with the current compiler. Decision: use primitives-only at the boundary via the opaque-handle registry pattern, which is architecturally cleaner anyway.
@@ -135,6 +141,8 @@
 
 **2026-02-21 `_impl` typed as `dynamic`** — Both `ffi.PrismEngine` and `channel.PrismEngine` share the same method signatures but no common interface. Typed as `dynamic` for now; extracting a shared `PrismEngineInterface` abstract class is deferred to a follow-up.
 
+**2026-02-21 channel impl needs no-op `initialize()`** — `prism_engine_dispatch.dart` calls `_impl.initialize(...)` uniformly. `channel.PrismEngine` didn't have that method, causing `NoSuchMethodError` on mobile. Added a no-op — mobile engine starts natively via the platform view, not via an explicit call.
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -160,4 +168,5 @@ e3eed72 — chore: update devlog with review fixes and decisions
 037bfaf — feat: add Dart SDK wrapper (prism_sdk.dart) mirroring the Kotlin API
 ac535e7 — docs: add import statements to Kotlin and Swift snippets
 ac535e70d63eaa2a4b3d121f7e07b9a5ac77fa33 — fix: address second critical review findings
-HEAD — feat: macOS Flutter desktop support (FFI via SPM, issue #828)
+aa95126 — feat: macOS Flutter desktop support via SPM (#828)
+HEAD — feat: scaffold macOS example runner and fix channel initialize
