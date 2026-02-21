@@ -12,6 +12,8 @@
 - [x] Step 5 — Auto-generate Dart `@JS()` bindings from `.d.mts`
 - [x] Step 6 — Update `prism-flutter` to use generated bindings
 - [x] Step 7 — macOS Flutter Desktop Support (FFI via SPM) — issue #828
+- [x] Step 8 — Refactor iOS plugin to prism-native FFI; add macOS Metal platform view
+- [x] Step 9 — Wire macOS AppKitView to wgpu via prism-native C API (wgpu4k fork)
 
 ## What Changed
 
@@ -103,6 +105,26 @@
 
 `prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — Changed macOS from `DynamicLibrary.open('libprism.dylib')` to `DynamicLibrary.process()`: SPM embeds and auto-loads `libprism.dylib` via dyld before Dart runs; calling `open()` loaded a second copy causing duplicate ObjC class warnings and crashes.
 
+`prism-flutter/build.gradle.kts` — Changed `bundleNativeiOS` from a `Copy` task (copying `PrismDemo.xcframework`) to an `Exec` task: uses `xcodebuild -create-xcframework` to build `PrismNative.xcframework` from the iosArm64 and iosSimulatorArm64 prism-native dylibs. Matches the macOS `bundleNativeMacOS` pattern.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Package.swift` — Replaced `PrismDemo` binary target with `PrismNative`; updated path to `Frameworks/PrismNative.xcframework`.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Frameworks/.gitignore` — Changed from `PrismDemo.xcframework` to `PrismNative.xcframework`.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` — Replaced full OO implementation (DemoStore, MethodChannel, platform view factory) with minimal stub matching macOS: no MethodChannel, no platform view — all engine calls handled by Dart FFI.
+
+`prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismPlatformView.swift` — DELETED: MTKView platform view using `IosDemoControllerKt.configureDemoWithGltf` is no longer needed; iOS rendering is deferred until the prism-native C API exposes surface attachment.
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — Simplified dispatch: was `(isMacOS || isLinux || isWindows) ? ffi : channel`; now `isAndroid ? channel : ffi`. iOS now routes to FFI (prism-native) alongside macOS/Linux/Windows.
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — Added `fps` and `isPaused` keys with safe defaults to `getState()`: example app reads these keys and was receiving a null access error; `fps: 0.0` and `isPaused: false` are returned until the C API tracks those values.
+
+`prism-flutter/flutter_plugin/lib/src/prism_render_view_mobile.dart` — Removed `UiKitView` branch (no platform view factory in minimal iOS plugin); replaced macOS placeholder `Text` with `AppKitView(viewType: 'engine.prism.flutter/render_view')`.
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` — Added `PrismMacOSPlatformViewFactory` registration so `AppKitView` gets a real `NSView`.
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Sources/prism_flutter/PrismMacOSPlatformView.swift` — NEW: `PrismMacOSPlatformViewFactory` + `PrismMetalView` (MTKView subclass). Uses system MetalKit only — no PrismDemo, no wgpu4k dependency. Dark-blue cleared Metal viewport running at 60fps via MTKViewDelegate. Replaces the text placeholder with a live Metal render surface.
+
 `prism-flutter/flutter_plugin/ios/prism_flutter/Package.swift` — New: SPM manifest for iOS, mirroring macOS pattern. `PrismDemo` binary target at `Frameworks/PrismDemo.xcframework`; `prism_flutter` target at `Sources/prism_flutter`; product name `prism-flutter`.
 
 `prism-flutter/flutter_plugin/ios/prism_flutter/Frameworks/.gitignore` — New: ignores built `PrismDemo.xcframework`.
@@ -167,6 +189,48 @@
 
 **2026-02-21 channel impl needs no-op `initialize()`** — `prism_engine_dispatch.dart` calls `_impl.initialize(...)` uniformly. `channel.PrismEngine` didn't have that method, causing `NoSuchMethodError` on mobile. Added a no-op — mobile engine starts natively via the platform view, not via an explicit call.
 
+**2026-02-21 iOS refactored to prism-native FFI** — iOS was using PrismDemo (OO Kotlin framework, MethodChannel, MTKView platform view via `IosDemoControllerKt`). User requirement: PrismDemo is demo-only code and must not be a Flutter plugin dependency. Refactored iOS to the same prism-native C API + Dart FFI architecture as macOS. Only Android remains on MethodChannel (prism-native does not target Android).
+
+**2026-02-21 macOS Metal render surface — system MetalKit only (temporary)** — wgpu4k's macOS `actual class Surface` required a `CPointer<GLFWwindow>` for width/height; no `macosContextRenderer(view: MTKView)` existed. Initial implementation used system MetalKit only (dark-blue clear pass) to prove the AppKitView pipeline. wgpu rendering was deferred to Step 9.
+
+**2026-02-21 wgpu4k fork: decouple macOS from desktopNativeMain** — macOS `actual class Surface` was inherited from `desktopNativeMain` which uses `glfwGetWindowSize` for dynamic dimensions. For MTKView embedding, width/height come from the view (fixed at construction). Decision: remove `macosMain.get().dependsOn(desktopNativeMain)`, give macOS its own `Surface.macos.kt` (mirrors iOS — fixed width/height), and add `context.macos.kt` with `macosContextRendererFromLayer(NativeAddress, w, h)` and a macOS-local `glfwContextRenderer`/`GLFWContext` for backward compatibility with the desktop demo.
+
+**2026-02-21 prism_attach_metal_layer uses runBlocking** — `macosContextRendererFromLayer` is `suspend` (calls `requestAdapter`/`requestDevice`). The C API cannot be `suspend`. Solution: `runBlocking { macosContextRendererFromLayer(...) }`. In Kotlin/Native, `runBlocking` runs the coroutine synchronously on the calling thread (Swift's main thread via MTKViewDelegate). All wgpu initialisation calls complete synchronously under the hood so this is safe.
+
+**2026-02-21 Lazy surface attachment on first draw** — Calling `prism_attach_metal_layer` at Swift `init()` time risks the CAMetalLayer not being fully configured yet (view not in hierarchy). Instead, attach lazily on the first `draw(in:)` call (MTKViewDelegate), at which point `drawableSize` is valid and the layer is ready. A `surfaceAttached` flag prevents double-attach.
+
+**2026-02-21 AppKitView creationParams pass engineHandle as Int64** — Swift reads the engine handle from `(args as? [String: Any])?["engineHandle"] as? Int64`. Flutter encodes `int` (Dart) as `Int64` (Swift) via `FlutterStandardMessageCodec`. The handle is used to call `prism_attach_metal_layer(engineHandle, layerPtr, w, h)` and per-frame `prism_render_frame(engineHandle)`.
+
+**2026-02-21 bundleNativeMacOS must delete old XCFramework** — `xcodebuild -create-xcframework` fails with exit code 70 if the output path already exists. Added `File(outDir, "PrismNative.xcframework").deleteRecursively()` to `doFirst` (mirrors the existing `bundleNativeiOS` task). This was the root cause of the first bundleNativeMacOS failure after the rebuild.
+
+**2026-02-21 `getState()` safe defaults for `fps` and `isPaused`** — The C API does not track fps or pause state. The example app reads `state['fps']` and `state['isPaused']`; returning a map without those keys caused a Dart null access error at runtime. Added `'fps': 0.0` and `'isPaused': false` as explicit safe defaults until the C API exposes these values.
+
+### Step 9 — wgpu macOS rendering (2026-02-21)
+
+`wgpu4k-toolkit/build.gradle.kts` — Removed `macosMain.get().dependsOn(desktopNativeMain)`; added `macosMain { dependencies { api(libs.glfw.native) } }` so macOS gets GLFW for backward-compat but is no longer forced onto the GLFW-window-based `Surface`.
+
+`wgpu4k-toolkit/src/macosMain/kotlin/Surface.macos.kt` — NEW actual class `Surface(handler, width: UInt, height: UInt)`: fixed-dimension implementation mirroring iOS, independent of GLFW.
+
+`wgpu4k-toolkit/src/macosMain/kotlin/context.macos.kt` — NEW: `macosContextRenderer(MTKView, w, h)` (gets layer from view), `macosContextRendererFromLayer(NativeAddress, w, h)` (accepts raw layer pointer — used from C API bridge), `MacosContext(wgpuContext)`, macOS-local `glfwContextRenderer`/`GLFWContext` (mirrors desktopNativeMain for the desktop demo).
+
+`wgpu4k-toolkit/src/macosMain/kotlin/glfw.macos.kt` — Removed `actual` keyword; function becomes a package-private extension callable by `glfwContextRenderer` in the same source set (no longer satisfies an `expect` since macOS left `desktopNativeMain`).
+
+`prism-native/build.gradle.kts` — Added `macosMain.dependencies { implementation(libs.wgpu4k.toolkit); implementation(libs.kotlinx.coroutines.core) }`.
+
+`prism-native/src/macosMain/kotlin/engine/prism/native/MacosBridge.kt` — NEW: three `@CName` C API functions: `prism_attach_metal_layer(handle, layerPtr, w, h)` (creates MacosContext via `runBlocking`, configures surface, starts game-loop in external mode), `prism_render_frame(handle)` (ticks game loop, submits wgpu clear-color render pass, calls `surface.present()`), `prism_detach_surface(handle)` (stops game loop, closes MacosContext).
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Sources/prism_flutter/PrismMacOSPlatformView.swift` — Replaced manual Metal clear with prism-native C API: reads `engineHandle` from `creationParams`, lazy-attaches wgpu surface on first `draw(in:)`, forwards each frame to `prism_render_frame`, calls `prism_detach_surface` on `deinit`.
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — Added `int get handle => _engineHandle` for platform view interop.
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — Added `int get handle` forwarding to `ffi.PrismEngine.handle` on FFI platforms (0 on Android).
+
+`prism-flutter/flutter_plugin/lib/src/prism_render_view_mobile.dart` — macOS `AppKitView` now passes `creationParams: {'engineHandle': engine.handle}` so the Swift platform view can call `prism_attach_metal_layer`.
+
+`prism-flutter/build.gradle.kts` — Fixed `bundleNativeMacOS` task: added `File(outDir, "PrismNative.xcframework").deleteRecursively()` to `doFirst` (xcodebuild fails with exit 70 if output already exists).
+
+`gradle/libs.versions.toml` — Bumped `wgpu4kCommit` to `49da407...` (new commit on `fix/android-api35-wgpu4k-native-snapshot` branch with macOS toolkit changes). All three fork pins are now the heads of their respective branches.
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -197,4 +261,8 @@ aa95126 — feat: macOS Flutter desktop support via SPM (#828)
 8119203 — docs: update Dart snippet and platform table for macOS FFI
 3ce2dcb — docs: align Dart snippet structure with other three panels
 87c1a83 — fix: correct SPM package structure and library loading for macOS
-HEAD — feat: migrate iOS plugin from CocoaPods to SPM
+c02201f — feat: migrate iOS plugin from CocoaPods to SPM
+5c7bdac — chore: update devlog with SPM migration decisions and fixes
+e66a7a4 — feat: switch iOS to prism-native FFI and add macOS Metal platform view
+5e8d0b1 — chore: update devlog
+HEAD — feat: wire macOS AppKitView to wgpu via prism-native C API
