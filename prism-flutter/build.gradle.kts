@@ -132,13 +132,29 @@ tasks.register("generateDartJsBindings") {
 // Copy Kotlin/WASM build artifacts to the Flutter example web directory so that
 // `flutter run -d chrome` can serve them alongside the Dart-compiled output.
 tasks.register<Copy>("copyWasmToFlutterWeb") {
-  dependsOn("compileProductionExecutableKotlinWasmJsOptimize", "kotlinWasmNpmInstall")
+  dependsOn(
+    "compileProductionExecutableKotlinWasmJsOptimize",
+    ":prism-js:compileProductionExecutableKotlinWasmJs",
+    ":kotlinWasmNpmInstall",
+  )
   val wasmOutput =
     layout.buildDirectory.dir("compileSync/wasmJs/main/productionExecutable/optimized")
   from(wasmOutput) {
     include("prism-flutter.mjs")
     include("prism-flutter.uninstantiated.mjs")
     include("prism-flutter.wasm")
+  }
+  // prism-js: generated WASM module + hand-written OO SDK façade
+  val prismJsBuild =
+    project(":prism-js").layout.buildDirectory
+      .dir("compileSync/wasmJs/main/productionExecutable/kotlin")
+  from(prismJsBuild) {
+    include("prism.mjs")
+    include("prism.uninstantiated.mjs")
+    include("prism.wasm")
+  }
+  from(project(":prism-js").layout.projectDirectory) {
+    include("prism-sdk.mjs")
   }
   // Skiko runtime (Compose/Skiko transitive dependency for WASM)
   from(rootProject.layout.buildDirectory.dir("wasm/packages_imported/skiko-js-wasm-runtime")) {

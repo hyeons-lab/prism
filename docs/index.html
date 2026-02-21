@@ -271,24 +271,26 @@ surface.startRenderLoop { dt, elapsed, _ in
           </div>
 
           <div class="lang-card">
-            <div class="lang-label">JavaScript &middot; Web (prism-js)</div>
-<pre class="code-block"><span class="comment">// Load the Prism WASM module and pin exports to window</span>
-const mod = await import('./prism.mjs');
-await mod.default();
-Object.keys(mod).forEach(n =&gt; {
-  if (typeof mod[n] === 'function') window[n] = mod[n];
-});
+            <div class="lang-label">JavaScript &middot; Web (prism-sdk)</div>
+<pre class="code-block">import { PrismEngine, PrismWorld, PrismScene,
+         PrismMeshNode, PrismCameraNode } from './prism-sdk.mjs';
 
 <span class="comment">// Create engine and ECS world</span>
-const engine = prismCreateEngine('MyApp', 60);
-prismEngineInitialize(engine);
-const world  = prismCreateWorld();
-const entity = prismWorldCreateEntity(world);
-prismWorldAddTransformComponent(world, entity, 0, 0, -5.0);
+const engine = new PrismEngine('MyApp', 60);
+const world  = new PrismWorld();
+const entity = world.createEntity();
+world.addTransform(entity, 0, 0, -5.0);
+
+<span class="comment">// Scene graph</span>
+const scene = new PrismScene('main');
+const mesh  = new PrismMeshNode('helmet');
+const cam   = new PrismCameraNode('cam');
+scene.addNode(mesh);
+scene.addNode(cam);
+scene.setActiveCamera(cam);
 
 <span class="comment">// Query state</span>
-console.log('dt:', prismEngineGetDeltaTime(engine),
-            'frames:', prismEngineGetFrameCount(engine));</pre>
+console.log('dt:', engine.deltaTime, 'alive:', engine.isAlive);</pre>
           </div>
 
           <div class="lang-card">
