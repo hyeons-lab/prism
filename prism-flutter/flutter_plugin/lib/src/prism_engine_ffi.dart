@@ -21,8 +21,11 @@ class PrismEngine {
   bool _initialized = false;
 
   static PrismNativeBindings _loadBindings() {
+    // On macOS the dylib is embedded by the SPM binary target and auto-loaded
+    // by dyld before Dart code runs — use process() to avoid loading a second
+    // copy which causes duplicate ObjC class warnings and crashes.
     final lib = Platform.isMacOS
-        ? DynamicLibrary.open('libprism.dylib')
+        ? DynamicLibrary.process()
         : Platform.isLinux
             ? DynamicLibrary.open('libprism.so')
             : Platform.isWindows

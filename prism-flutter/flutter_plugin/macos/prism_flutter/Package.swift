@@ -3,9 +3,9 @@ import PackageDescription
 
 let package = Package(
     name: "prism_flutter",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v10_15)],
     products: [
-        .library(name: "prism_flutter", targets: ["prism_flutter"])
+        .library(name: "prism-flutter", targets: ["prism_flutter"])
     ],
     targets: [
         // Pre-built libprism.dylib wrapped as XCFramework.
@@ -17,8 +17,7 @@ let package = Package(
         .target(
             name: "prism_flutter",
             dependencies: ["PrismNative"],
-            path: "Classes",
-            publicHeadersPath: ""
+            path: "Sources/prism_flutter"
         ),
     ]
 )

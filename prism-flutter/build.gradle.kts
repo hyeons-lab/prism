@@ -137,7 +137,7 @@ tasks.register<Exec>("bundleNativeMacOS") {
     val dylibDir = project(":prism-native").layout.buildDirectory
         .dir("bin/macosArm64/releaseShared").get().asFile
     val outDir = layout.projectDirectory
-        .dir("flutter_plugin/macos/Frameworks").asFile
+        .dir("flutter_plugin/macos/prism_flutter/Frameworks").asFile
     dependsOn(":prism-native:linkReleaseSharedMacosArm64")
     commandLine(
         "xcodebuild", "-create-xcframework",
