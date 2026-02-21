@@ -1,6 +1,8 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
+
 import 'generated/prism_native_bindings.dart';
 
 /// Native (FFI) implementation of PrismEngine.
@@ -35,12 +37,19 @@ class PrismEngine {
   /// Creates and initializes the native engine (no-op if already initialized).
   Future<void> initialize({String appName = 'Prism', int targetFps = 60}) async {
     if (_initialized) return;
-    _engineHandle = _bindings.prism_create_engine(nullptr, targetFps);
+    final nativeName = appName.toNativeUtf8();
+    try {
+      _engineHandle = _bindings.prism_create_engine(nativeName.cast(), targetFps);
+    } finally {
+      malloc.free(nativeName);
+    }
     _bindings.prism_engine_initialize(_engineHandle);
     _initialized = true;
   }
 
-  /// Toggle pause — not yet wired to the native render loop.
+  /// Toggle pause.
+  // TODO(prism-native): wire to the native render loop once a frame-tick
+  // callback is exposed via the C API.
   Future<void> togglePause() async {}
 
   /// Returns true once the engine has been created and initialized.

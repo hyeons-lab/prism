@@ -241,37 +241,38 @@
           <div class="lang-card">
             <div class="lang-label">Kotlin &middot; JVM / Android</div>
 <pre class="code-block"><span class="comment">// Create engine and ECS world</span>
-val engine = PrismEngine(targetFps = 60)
+val engine = Engine(EngineConfig(targetFps = 60))
 val world  = World()
 val entity = world.createEntity()
-world.addComponent(entity, TransformComponent(x = 0f, y = 0f, z = -5f))
+world.addComponent(entity, TransformComponent(position = Vec3(0f, 0f, -5f)))
 
 <span class="comment">// Scene graph: mesh node + camera</span>
-val scene = PrismScene("main")
-val mesh  = PrismMeshNode("helmet")
-val cam   = PrismCameraNode("cam")
-scene.addNode(mesh);  scene.setActiveCamera(cam)
+val scene = Scene("main")
+val mesh  = MeshNode("helmet")
+val cam   = CameraNode("cam")
+scene.addNode(mesh);  scene.activeCamera = cam
 
 <span class="comment">// Query state</span>
-println("dt: ${engine.deltaTime}  alive: ${engine.isAlive}")</pre>
+println("dt: ${engine.time.deltaTime}")</pre>
           </div>
 
           <div class="lang-card">
             <div class="lang-label">Swift &middot; iOS</div>
 <pre class="code-block"><span class="comment">// Create engine and ECS world</span>
-let engine = PrismEngine(targetFps: 60)
+let engine = Engine(config: EngineConfig(targetFps: 60))
 let world  = World()
 let entity = world.createEntity()
-world.addComponent(entity, TransformComponent(x: 0, y: 0, z: -5))
+world.addComponent(entity: entity,
+    component: TransformComponent(position: Vec3(x: 0, y: 0, z: -5)))
 
 <span class="comment">// Scene graph: mesh node + camera</span>
-let scene = PrismScene(name: "main")
-let mesh  = PrismMeshNode(name: "helmet")
-let cam   = PrismCameraNode(name: "cam")
-scene.addNode(mesh);  scene.setActiveCamera(cam)
+let scene = Scene(name: "main")
+let mesh  = MeshNode(name: "helmet")
+let cam   = CameraNode(name: "cam")
+scene.addNode(node: mesh);  scene.activeCamera = cam
 
 <span class="comment">// Query state</span>
-print("dt: \(engine.deltaTime)  alive: \(engine.isAlive)")</pre>
+print("dt: \(engine.time.deltaTime)")</pre>
           </div>
 
           <div class="lang-card">
@@ -299,20 +300,15 @@ console.log('dt:', engine.deltaTime, 'alive:', engine.isAlive);</pre>
             <div class="lang-label">Dart &middot; Flutter</div>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
-<span class="comment">// Create engine and ECS world</span>
-final engine = PrismEngine(targetFps: 60);
-final world  = World();
-final entity = world.createEntity();
-world.addComponent(entity, TransformComponent(x: 0, y: 0, z: -5));
+<span class="comment">// Embed the GPU surface in your widget tree</span>
+final engine = PrismEngine();
+child: PrismRenderView(engine: engine)
 
-<span class="comment">// Scene graph: mesh node + camera</span>
-final scene = PrismScene('main');
-final mesh  = PrismMeshNode('helmet');
-final cam   = PrismCameraNode('cam');
-scene.addNode(mesh);  scene.setActiveCamera(cam);
-
-<span class="comment">// Query state</span>
-print('dt: ${engine.deltaTime}  alive: ${engine.isAlive}');</pre>
+<span class="comment">// Query and control (web: Kotlin/WASM; native: platform channel)</span>
+final state = await engine.getState();
+print('fps: ${state['fps']}');
+await engine.togglePause();
+await engine.shutdown();</pre>
           </div>
 
         </div>

@@ -134,7 +134,7 @@ tasks.register("generateDartJsBindings") {
 tasks.register<Copy>("copyWasmToFlutterWeb") {
   dependsOn(
     "compileProductionExecutableKotlinWasmJsOptimize",
-    ":prism-js:compileProductionExecutableKotlinWasmJs",
+    ":prism-js:compileProductionExecutableKotlinWasmJsOptimize",
     ":kotlinWasmNpmInstall",
   )
   val wasmOutput =
@@ -147,7 +147,7 @@ tasks.register<Copy>("copyWasmToFlutterWeb") {
   // prism-js: generated WASM module + hand-written OO SDK façade
   val prismJsBuild =
     project(":prism-js").layout.buildDirectory
-      .dir("compileSync/wasmJs/main/productionExecutable/kotlin")
+      .dir("compileSync/wasmJs/main/productionExecutable/optimized")
   from(prismJsBuild) {
     include("prism.mjs")
     include("prism.uninstantiated.mjs")

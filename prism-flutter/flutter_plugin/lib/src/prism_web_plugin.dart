@@ -4,8 +4,6 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-import 'generated/prism_js_bindings.dart';
-
 /// JS interop bindings to the prism-flutter WASM module's high-level API.
 /// These are exported by FlutterWasmEntry.kt via @JsExport.
 @JS('prismInit')
@@ -63,16 +61,10 @@ class PrismWebEngine {
     final completer = Completer<void>();
     _wasmLoadingFuture = completer.future;
 
-    // Build the names array from the generated list — Dart is the single
-    // source of truth for the prism-js low-level API names; no hand-written
-    // names to keep in sync. The prism-flutter high-level API names are
-    // pinned separately below.
-    final jsApiNamesJson = prismJsExportNames.map((n) => '"$n"').join(', ');
-
     // Create an inline ES module script that:
     // 1. Dynamically imports the Kotlin/WASM entry point
     // 2. Instantiates the WASM module
-    // 3. Exposes @JsExport functions on window for Dart @JS() bindings
+    // 3. Exposes all @JsExport functions on window for Dart @JS() bindings
     final script =
         web.document.createElement('script') as web.HTMLScriptElement;
     script.type = 'module';
@@ -82,15 +74,11 @@ class PrismWebEngine {
         if (typeof mod.default === "function") {
           await mod.default();
         }
-        // Pin the prism-flutter high-level API (FlutterWasmEntry.kt exports).
-        const flutterNames = ["prismInit", "prismTogglePause",
-                              "prismGetState", "prismIsInitialized", "prismShutdown"];
-        // Pin the prism-js low-level API (generated from prism-js @JsExport list).
-        const jsApiNames = [$jsApiNamesJson];
-        for (const name of [...flutterNames, ...jsApiNames]) {
-          if (typeof mod[name] === "function") {
-            window[name] = mod[name];
-          }
+        // Pin every exported function to window so Dart @JS() bindings resolve.
+        // This covers both the prism-flutter high-level API (FlutterWasmEntry.kt)
+        // and the prism-js low-level handle API without maintaining a name list.
+        for (const [name, value] of Object.entries(mod)) {
+          if (typeof value === "function") window[name] = value;
         }
         window.dispatchEvent(new CustomEvent("prism-wasm-ready"));
       } catch (e) {

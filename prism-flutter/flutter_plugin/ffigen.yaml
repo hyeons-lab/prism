@@ -6,7 +6,7 @@ description: |
 output: lib/src/generated/prism_native_bindings.dart
 headers:
   entry-points:
-    - '../../prism-native/build/bin/macosArm64/debugShared/libprism_api.h'
+    - '../../prism-native/build/bin/macosArm64/releaseShared/libprism_api.h'
   include-directives:
     - '**libprism_api.h'
 functions:

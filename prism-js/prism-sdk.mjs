@@ -37,6 +37,8 @@ import {
   prismMeshBuilderCreate, prismMeshBuilderAddVertexFloat, prismMeshBuilderAddIndex,
   prismMeshBuilderVertexFloatCount, prismMeshBuilderIndexCount,
   prismMeshBuilderFinalize,
+  prismMeshBuilderGetVertexAt, prismMeshBuilderGetIndexAt,
+  prismMeshBuilderDestroy,
 } from './prism.mjs';
 
 // ── Engine ────────────────────────────────────────────────────────────────────
@@ -112,11 +114,18 @@ export class PrismEmptyNode  extends _PrismNode { constructor(name) { super(pris
 
 export class PrismMeshBuilder {
   #h;
-  constructor()          { this.#h = prismMeshBuilderCreate(); }
-  addVertexFloat(value)  { prismMeshBuilderAddVertexFloat(this.#h, value); }
-  addIndex(index)        { prismMeshBuilderAddIndex(this.#h, index); }
-  get vertexFloatCount() { return prismMeshBuilderVertexFloatCount(this.#h); }
-  get indexCount()       { return prismMeshBuilderIndexCount(this.#h); }
-  /** Finalizes the builder and returns the mesh ID. Invalidates the builder. */
-  finalize()             { return prismMeshBuilderFinalize(this.#h); }
+  constructor()               { this.#h = prismMeshBuilderCreate(); }
+  addVertexFloat(value)       { prismMeshBuilderAddVertexFloat(this.#h, value); }
+  addIndex(index)             { prismMeshBuilderAddIndex(this.#h, index); }
+  get vertexFloatCount()      { return prismMeshBuilderVertexFloatCount(this.#h); }
+  get indexCount()            { return prismMeshBuilderIndexCount(this.#h); }
+  /**
+   * Freezes the builder (no more adds allowed) and returns the vertex float count.
+   * The handle stays valid; use [getVertexAt] / [getIndexAt] to read the data back,
+   * then call [destroy] to release the handle.
+   */
+  finalize()                  { return prismMeshBuilderFinalize(this.#h); }
+  getVertexAt(index)          { return prismMeshBuilderGetVertexAt(this.#h, index); }
+  getIndexAt(index)           { return prismMeshBuilderGetIndexAt(this.#h, index); }
+  destroy()                   { prismMeshBuilderDestroy(this.#h); }
 }
