@@ -78,6 +78,12 @@
 
 **2026-02-20 prism-sdk.mjs: OO JS façade** — The flat `@JsExport` API surface is verbose for JS consumers. Created `prism-sdk.mjs` as a hand-written ES module that wraps the handle-based API with classes (`PrismEngine`, `PrismWorld`, `PrismScene`, `PrismMeshNode`, etc.) mirroring the Kotlin class hierarchy. This is a companion file shipped with `prism.mjs` for JS users.
 
+**2026-02-20 MeshBuilder finalize redesign** — `prismMeshBuilderFinalize` originally discarded the vertex/index data. Since arrays can't cross the WASM boundary there is no single-call mechanism to retrieve the mesh data; finalize now freezes the builder and keeps the handle alive. Callers read data back element-at-a-time via `prismMeshBuilderGetVertexAt`/`prismMeshBuilderGetIndexAt`, then call `prismMeshBuilderDestroy`.
+
+**2026-02-20 Window-pinning switched to dynamic enumeration** — `prism_web_plugin.dart` was importing the generated `prism_js_bindings.dart` solely to get a hardcoded name list for window-pinning. Replaced with `for (const [name, value] of Object.entries(mod))` in the inline JS script, which automatically pins every exported function with no list to maintain and no generated-file dependency.
+
+**2026-02-20 Generated files removed from git** — `prism_js_bindings.dart` and `prism_native_bindings.dart` were committed, creating a drift risk. Replaced with `generated/.gitignore` (covers `*.dart`). Regeneration steps: `./gradlew :prism-flutter:generateDartJsBindings` (JS) and `./gradlew :prism-native:generateFfiBindings` (native).
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -93,4 +99,9 @@
 638c90b — fix: restore flutter web demo and add kotlinWasmNpmInstall dependency
 53a5c5e — docs: show API section with prism-js/native examples, add M12 milestone
 8dcd3b7 — docs: consistent non-collapsing API snippets across all 5 targets
-HEAD — feat(prism-js): add OO JS façade (prism-sdk.mjs) and wire into build
+941318a — chore: update devlog with all commits and post-fix decisions
+d359142 — feat(prism-js): add OO JS façade (prism-sdk.mjs) and wire into build
+576d9ef — docs: merge dart panels and align all 4 snippets to same pattern
+4d63535 — docs: rename dart panel label to 'Dart · Flutter'
+a2f6c6b — docs: remove prism-sdk label from JS panel
+HEAD — fix: address all critical review findings
