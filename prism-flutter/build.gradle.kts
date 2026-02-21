@@ -129,6 +129,25 @@ tasks.register("generateDartJsBindings") {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Wrap libprism.dylib into an XCFramework for SPM binary target bundling.
+// Run: ./gradlew :prism-flutter:bundleNativeMacOS
+// ---------------------------------------------------------------------------
+tasks.register<Exec>("bundleNativeMacOS") {
+    val dylibDir = project(":prism-native").layout.buildDirectory
+        .dir("bin/macosArm64/releaseShared").get().asFile
+    val outDir = layout.projectDirectory
+        .dir("flutter_plugin/macos/Frameworks").asFile
+    dependsOn(":prism-native:linkReleaseSharedMacosArm64")
+    commandLine(
+        "xcodebuild", "-create-xcframework",
+        "-library", File(dylibDir, "libprism.dylib").absolutePath,
+        "-headers", dylibDir.absolutePath,
+        "-output", File(outDir, "PrismNative.xcframework").absolutePath,
+    )
+    doFirst { outDir.mkdirs() }
+}
+
 // Copy Kotlin/WASM build artifacts to the Flutter example web directory so that
 // `flutter run -d chrome` can serve them alongside the Dart-compiled output.
 tasks.register<Copy>("copyWasmToFlutterWeb") {

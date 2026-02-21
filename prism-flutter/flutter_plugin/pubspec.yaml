@@ -25,4 +25,6 @@ flutter:
         pluginClass: PrismFlutterPlugin
       ios:
         pluginClass: PrismFlutterPlugin
+      macos:
+        pluginClass: PrismFlutterPlugin
     ffiPlugin: true

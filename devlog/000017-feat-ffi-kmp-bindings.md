@@ -11,6 +11,7 @@
 - [x] Step 4 — Wire Dart FFI bindings via ffigen
 - [x] Step 5 — Auto-generate Dart `@JS()` bindings from `.d.mts`
 - [x] Step 6 — Update `prism-flutter` to use generated bindings
+- [x] Step 7 — macOS Flutter Desktop Support (FFI via SPM) — issue #828
 
 ## What Changed
 
@@ -80,6 +81,22 @@
 
 `docs/style.css` — `.lang-label` always shows `border-bottom`; removed `cursor: pointer` and `details[open]` rule.
 
+`prism-flutter/build.gradle.kts` — Added `bundleNativeMacOS` task: depends on `:prism-native:linkReleaseSharedMacosArm64`, runs `xcodebuild -create-xcframework` to wrap `libprism.dylib` into `flutter_plugin/macos/Frameworks/PrismNative.xcframework`. SPM binary targets require XCFrameworks; raw dylibs are not supported.
+
+`prism-flutter/flutter_plugin/macos/Package.swift` — New: SPM manifest declaring `prism_flutter` Swift target (sources in `Classes/`) and `PrismNative` binary target pointing at `Frameworks/PrismNative.xcframework`. Requires macOS 13+.
+
+`prism-flutter/flutter_plugin/macos/Classes/PrismFlutterPlugin.swift` — New: minimal `FlutterPlugin` registration stub. Imports `PrismNative` so the linker embeds the XCFramework in the app bundle. No MethodChannel — all engine calls go through Dart FFI.
+
+`prism-flutter/flutter_plugin/macos/Frameworks/.gitignore` — New: ignores the built `PrismNative.xcframework` (generated artifact, same pattern as other build outputs).
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — New: runtime dispatcher using `dart:io Platform` checks; routes to `ffi.PrismEngine` on macOS/Linux/Windows and `channel.PrismEngine` on iOS/Android. Resolves the `dart.library.ffi` ambiguity (true on all native platforms).
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine.dart` — Updated export: removed stale TODO; now exports `prism_engine_dispatch.dart` for native and `prism_engine_web.dart` for web via `dart.library.js_interop` conditional.
+
+`prism-flutter/flutter_plugin/lib/src/prism_render_view_mobile.dart` — Added macOS case returning a placeholder `Text` widget. Full render surface is future work; engine API via `PrismEngine` is usable now.
+
+`prism-flutter/flutter_plugin/pubspec.yaml` — Added `macos: pluginClass: PrismFlutterPlugin` under `flutter.plugin.platforms`.
+
 ## Decisions
 
 **2026-02-20 Step 1 is a no-op** — Kotlin 2.3.0 WasmJS: `@JsExport` is function-only; applying it to a class/data class yields "This annotation is not applicable to target 'class'. Applicable targets: function". The plan's Step 1 (annotate source types) was incompatible with the current compiler. Decision: use primitives-only at the boundary via the opaque-handle registry pattern, which is architecturally cleaner anyway.
@@ -112,6 +129,12 @@
 
 **2026-02-20 `prism_create_engine` takes `void*`** — Confirmed from generated `libprism_api.h`: `prism_create_engine(void* appName, …)`. The Dart `cast()` call must be `cast<Void>()` to match; leaving it implicit would fail if the analyzer cannot infer the type from context.
 
+**2026-02-21 macOS uses SPM binary target, not CocoaPods** — SPM binary targets require XCFrameworks; raw `.dylib` files are not accepted. `bundleNativeMacOS` wraps `libprism.dylib` via `xcodebuild -create-xcframework`. This mirrors the iOS SPM pattern already used for `Package.swift` at the repo root.
+
+**2026-02-21 Runtime dispatch instead of compile-time conditional** — `dart.library.ffi` is `true` on all native platforms (iOS, Android, macOS, Linux, Windows). Using it as a conditional export would silently route iOS/Android to the FFI path, breaking those platforms. Solution: `prism_engine_dispatch.dart` checks `Platform.isMacOS || Platform.isLinux || Platform.isWindows` at runtime.
+
+**2026-02-21 `_impl` typed as `dynamic`** — Both `ffi.PrismEngine` and `channel.PrismEngine` share the same method signatures but no common interface. Typed as `dynamic` for now; extracting a shared `PrismEngineInterface` abstract class is deferred to a follow-up.
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -136,4 +159,5 @@ a2f6c6b — docs: remove prism-sdk label from JS panel
 e3eed72 — chore: update devlog with review fixes and decisions
 037bfaf — feat: add Dart SDK wrapper (prism_sdk.dart) mirroring the Kotlin API
 ac535e7 — docs: add import statements to Kotlin and Swift snippets
-HEAD — fix: address second critical review findings
+ac535e70d63eaa2a4b3d121f7e07b9a5ac77fa33 — fix: address second critical review findings
+HEAD — feat: macOS Flutter desktop support (FFI via SPM, issue #828)

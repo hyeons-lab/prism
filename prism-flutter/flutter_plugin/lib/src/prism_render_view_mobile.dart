@@ -22,6 +22,10 @@ class PrismRenderView extends StatelessWidget {
         viewType: 'engine.prism.flutter/render_view',
         onPlatformViewCreated: _onPlatformViewCreated,
       );
+    } else if (defaultTargetPlatform == TargetPlatform.macOS) {
+      return const Center(
+        child: Text('Prism: macOS render view not yet available — use PrismEngine directly.'),
+      );
     }
     return const Center(
       child: Text('Prism: Platform not supported for rendering view'),
