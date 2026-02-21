@@ -277,38 +277,43 @@ print("dt: \(engine.time.deltaTime)")</pre>
 
           <div class="lang-card">
             <div class="lang-label">JavaScript &middot; Web</div>
-<pre class="code-block">import { PrismEngine, PrismWorld, PrismScene,
-         PrismMeshNode, PrismCameraNode } from './prism-sdk.mjs';
+<pre class="code-block">import { Engine, World, Scene, MeshNode, CameraNode,
+         EngineConfig, TransformComponent, Vec3 } from './prism-sdk.mjs';
 
 <span class="comment">// Create engine and ECS world</span>
-const engine = new PrismEngine('MyApp', 60);
-const world  = new PrismWorld();
+const engine = new Engine(new EngineConfig({ targetFps: 60 }));
+const world  = new World();
 const entity = world.createEntity();
-world.addTransform(entity, 0, 0, -5);
+world.addComponent(entity, new TransformComponent({ position: new Vec3(0, 0, -5) }));
 
 <span class="comment">// Scene graph: mesh node + camera</span>
-const scene = new PrismScene('main');
-const mesh  = new PrismMeshNode('helmet');
-const cam   = new PrismCameraNode('cam');
-scene.addNode(mesh);  scene.setActiveCamera(cam);
+const scene = new Scene('main');
+const mesh  = new MeshNode('helmet');
+const cam   = new CameraNode('cam');
+scene.addNode(mesh);  scene.activeCamera = cam;
 
 <span class="comment">// Query state</span>
-console.log('dt:', engine.deltaTime, 'alive:', engine.isAlive);</pre>
+console.log('dt:', engine.time.deltaTime);</pre>
           </div>
 
           <div class="lang-card">
             <div class="lang-label">Dart &middot; Flutter</div>
-<pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
+<pre class="code-block">import 'package:prism_flutter/prism_sdk.dart';
 
-<span class="comment">// Embed the GPU surface in your widget tree</span>
-final engine = PrismEngine();
-child: PrismRenderView(engine: engine)
+<span class="comment">// Create engine and ECS world</span>
+final engine = Engine(EngineConfig(targetFps: 60));
+final world  = World();
+final entity = world.createEntity();
+world.addComponent(entity, TransformComponent(position: Vec3(0, 0, -5)));
 
-<span class="comment">// Query and control (web: Kotlin/WASM; native: platform channel)</span>
-final state = await engine.getState();
-print('fps: ${state['fps']}');
-await engine.togglePause();
-await engine.shutdown();</pre>
+<span class="comment">// Scene graph: mesh node + camera</span>
+final scene = Scene('main');
+final mesh  = MeshNode('helmet');
+final cam   = CameraNode('cam');
+scene.addNode(mesh);  scene.activeCamera = cam;
+
+<span class="comment">// Query state</span>
+print('dt: \${engine.time.deltaTime}');</pre>
           </div>
 
         </div>
