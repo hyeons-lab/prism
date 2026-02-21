@@ -243,15 +243,17 @@
 <pre class="code-block"><span class="comment">// Create engine and ECS world</span>
 val engine = PrismEngine(targetFps = 60)
 val world  = World()
+val entity = world.createEntity()
+world.addComponent(entity, TransformComponent(x = 0f, y = 0f, z = -5f))
 
-<span class="comment">// Load a glTF asset and instantiate into the world</span>
-val asset = GltfLoader().load("model.glb", glbBytes)
-asset.instantiateInWorld(world)
+<span class="comment">// Scene graph: mesh node + camera</span>
+val scene = PrismScene("main")
+val mesh  = PrismMeshNode("helmet")
+val cam   = PrismCameraNode("cam")
+scene.addNode(mesh);  scene.setActiveCamera(cam)
 
-<span class="comment">// Drive the render loop</span>
-surface.startRenderLoop { dt, elapsed, _ -&gt;
-    world.update(Time(dt, elapsed))
-    println("frame: ${engine.frameCount}") }</pre>
+<span class="comment">// Query state</span>
+println("dt: ${engine.deltaTime}  alive: ${engine.isAlive}")</pre>
           </div>
 
           <div class="lang-card">
@@ -259,15 +261,17 @@ surface.startRenderLoop { dt, elapsed, _ -&gt;
 <pre class="code-block"><span class="comment">// Create engine and ECS world</span>
 let engine = PrismEngine(targetFps: 60)
 let world  = World()
+let entity = world.createEntity()
+world.addComponent(entity, TransformComponent(x: 0, y: 0, z: -5))
 
-<span class="comment">// Load a glTF asset — suspend fun → async via SKIE</span>
-let asset = try await GltfLoader().load(path: "model.glb", data: glbBytes)
-asset.instantiateInWorld(world: world)
+<span class="comment">// Scene graph: mesh node + camera</span>
+let scene = PrismScene(name: "main")
+let mesh  = PrismMeshNode(name: "helmet")
+let cam   = PrismCameraNode(name: "cam")
+scene.addNode(mesh);  scene.setActiveCamera(cam)
 
-<span class="comment">// Drive the render loop</span>
-surface.startRenderLoop { dt, elapsed, _ in
-    world.update(Time(dt: dt, elapsed: elapsed))
-    print("frame: \(engine.frameCount)") }</pre>
+<span class="comment">// Query state</span>
+print("dt: \(engine.deltaTime)  alive: \(engine.isAlive)")</pre>
           </div>
 
           <div class="lang-card">
@@ -279,46 +283,36 @@ surface.startRenderLoop { dt, elapsed, _ in
 const engine = new PrismEngine('MyApp', 60);
 const world  = new PrismWorld();
 const entity = world.createEntity();
-world.addTransform(entity, 0, 0, -5.0);
+world.addTransform(entity, 0, 0, -5);
 
-<span class="comment">// Scene graph</span>
+<span class="comment">// Scene graph: mesh node + camera</span>
 const scene = new PrismScene('main');
 const mesh  = new PrismMeshNode('helmet');
 const cam   = new PrismCameraNode('cam');
-scene.addNode(mesh);
-scene.addNode(cam);
-scene.setActiveCamera(cam);
+scene.addNode(mesh);  scene.setActiveCamera(cam);
 
 <span class="comment">// Query state</span>
 console.log('dt:', engine.deltaTime, 'alive:', engine.isAlive);</pre>
           </div>
 
           <div class="lang-card">
-            <div class="lang-label">Dart &middot; Flutter</div>
+            <div class="lang-label">Dart &middot; Flutter / Native</div>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
-<span class="comment">// Create engine and embed the GPU surface</span>
-final engine = PrismEngine();
-PrismRenderView(engine: engine)
+<span class="comment">// Create engine and ECS world</span>
+final engine = PrismEngine(targetFps: 60);
+final world  = World();
+final entity = world.createEntity();
+world.addComponent(entity, TransformComponent(x: 0, y: 0, z: -5));
 
-<span class="comment">// Query and control (web: Kotlin/WASM; native: platform channel)</span>
-final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span>
-await engine.togglePause();
-await engine.shutdown();</pre>
-          </div>
-
-          <div class="lang-card">
-            <div class="lang-label">Dart &middot; FFI (prism-native)</div>
-<pre class="code-block">import 'package:prism_flutter/src/prism_engine_ffi.dart';
-
-<span class="comment">// Create engine — loads libprism.dylib / .so / .dll</span>
-final engine = PrismEngine();
-await engine.initialize(appName: 'MyApp', targetFps: 60);
+<span class="comment">// Scene graph: mesh node + camera</span>
+final scene = PrismScene('main');
+final mesh  = PrismMeshNode('helmet');
+final cam   = PrismCameraNode('cam');
+scene.addNode(mesh);  scene.setActiveCamera(cam);
 
 <span class="comment">// Query state</span>
-final state = await engine.getState();
-<span class="comment">// { initialized: true, deltaTime: 0.016, frameCount: 74 }</span>
-await engine.shutdown();</pre>
+print('dt: ${engine.deltaTime}  alive: ${engine.isAlive}');</pre>
           </div>
 
         </div>
