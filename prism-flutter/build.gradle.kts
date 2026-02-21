@@ -53,6 +53,21 @@ kotlin {
 }
 
 // ---------------------------------------------------------------------------
+// Copy PrismDemo.xcframework into the iOS SPM package for flutter run -d ios.
+// Run: ./gradlew :prism-flutter:bundleNativeiOS
+// ---------------------------------------------------------------------------
+tasks.register<Copy>("bundleNativeiOS") {
+    dependsOn(":prism-demo-core:assemblePrismDemoReleaseXCFramework")
+    val srcDir = project(":prism-demo-core").layout.buildDirectory
+        .dir("XCFrameworks/release/PrismDemo.xcframework").get().asFile
+    val destDir = layout.projectDirectory
+        .dir("flutter_plugin/ios/prism_flutter/Frameworks/PrismDemo.xcframework").asFile
+    from(srcDir)
+    into(destDir)
+    doFirst { destDir.deleteRecursively() }
+}
+
+// ---------------------------------------------------------------------------
 // Auto-generate Dart @JS() bindings from the prism-js TypeScript declarations.
 // Run: ./gradlew :prism-flutter:generateDartJsBindings
 // ---------------------------------------------------------------------------
