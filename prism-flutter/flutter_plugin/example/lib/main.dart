@@ -42,6 +42,7 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
   @override
   void initState() {
     super.initState();
+    _engine.initialize();
     _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
       if (!_isInitialized) {
         final ready = await _engine.isInitialized();
