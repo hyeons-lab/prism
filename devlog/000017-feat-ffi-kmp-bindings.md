@@ -751,4 +751,15 @@ CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref 
 
 **Fix 4:** Docker container failed with `Failed to apply plugin 'com.android.internal.application' > /home/gradle/.android` — AGP requires the `.android` directory to exist. Added `mkdir -p "$HOME/.android"` and `-v "$HOME/.android:/home/gradle/.android"` to `build-all-docker.sh`.
 
-#### HEAD — fix: ktfmt prism-flutter-demo build.gradle.kts; mount .android in Docker
+**Fix 5:** Docker failed with `SDK location not found. Define a valid SDK location with ANDROID_HOME`. Added conditional `ANDROID_ARGS` array that mounts `$ANDROID_HOME` read-only and passes it as an env var when available on the host.
+
+**Fix 6:** Docker failed with `Could not resolve io.ygdrasil:wgpu4k:0.2.0-SNAPSHOT` for `macosArm64CompilationDependenciesMetadata`. Root cause: `assemble` triggers `transformCommonMainDependenciesMetadata` which resolves ALL declared targets' dependencies including `macosArm64`; macosArm64 wgpu4k klibs only exist in Maven Local on macOS. Fix: (a) switched Docker tasks from `assemble` to explicit `linkReleaseSharedLinuxX64`, `linkReleaseSharedMingwX64`, `wasmJsBrowserDistribution`, `generateSdkTypes`; (b) made `macosArm64()` conditional on `isMac` in all 10 KMP modules so metadata resolution on Linux skips the Apple target entirely.
+
+bfec04e — fix: update wgpu4kNativeCommit to correct full hash after force-push
+9d9faa7 — fix: update wgpu4kNativeCommit to fix reinterpret() compile error
+55f6226 — devlog: record wgpu4kNative compile fix
+1350c5b — fix: ktfmt prism-flutter-demo build.gradle.kts; mount .android in Docker
+b511f53 — devlog: record CI fixes 3 and 4
+d42e346 — chore: ktfmtFormat prism-native MacosBridge and NativeBridge
+6cb8e41 — fix: pass ANDROID_HOME into Docker container for Android build
+HEAD — fix: make macosArm64 conditional on host OS across all KMP modules
