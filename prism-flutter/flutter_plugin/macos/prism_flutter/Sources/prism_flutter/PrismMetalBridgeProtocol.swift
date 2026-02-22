@@ -18,6 +18,12 @@ import Foundation
     func togglePause()
     func getPauseState() -> Bool
     func getCurrentFps() -> Double
+
+    /// Returns the full engine state map for the `getState` method channel call.
+    /// Overrides on concrete bridges (e.g. DemoMacosBridge) add domain fields
+    /// (rotationSpeed, metallic, roughness, envIntensity) so the macOS response
+    /// matches the Kotlin FlutterMethodHandler.getState() used on Android.
+    func getState() -> [String: Any]
 }
 
 /// Optional protocol for bridges that support pointer/scroll camera input.

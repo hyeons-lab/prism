@@ -538,7 +538,7 @@ speed arg, not a default value).
 the string-matching ISE check until the fork is published (F7 Prism-side deferred to Phase B).
 
 2026-02-21 F9 (getState routing) deferred to Phase B — requires Swift protocol changes and
-SKIE export adjustments; isolated from Phase A fixes.
+SKIE export adjustments; isolated from Phase A fixes. Implemented in the follow-up commit.
 
 2026-02-21 FrameTimer `nextFrame` vs Android frameCount semantics — macOS (post F10): calls
 `nextFrame()` only when not paused, so `frameCount` is a rendered-frame counter. Android:
@@ -548,3 +548,33 @@ pre-existing behavior (deemed non-buggy per the review).
 ## Commits (Step 15)
 
 adf657f — fix: critical review fixes (F1-F12, new test, wgpu4k SurfaceOutdatedException)
+
+### Step 16 — F9: getState routing through Kotlin (2026-02-21)
+
+`prism-flutter/src/macosMain/.../PrismMetalBridge.kt` — Added `open fun getState(): Map<String, Any>`
+with a base implementation returning `{initialized}`. Concrete bridges override to add
+domain fields.
+
+`prism-flutter-demo/src/macosMain/.../DemoMacosBridge.kt` — Overrides `getState()` to
+return the full demo state: `{initialized, isPaused, fps, rotationSpeed, metallic, roughness,
+envIntensity}` — matching Kotlin's `FlutterMethodHandler.getState()` used on Android.
+
+`prism-flutter/flutter_plugin/macos/.../PrismMetalBridgeProtocol.swift` — Added
+`func getState() -> [String: Any]` requirement.
+
+`prism-flutter/flutter_plugin/macos/.../PrismFlutterPlugin.swift` — Replaced the three-field
+inline map (`fps`, `isPaused`, `initialized`) with `bridge.getState() as NSDictionary` so all
+fields are now populated from Kotlin.
+
+## Decisions (Step 16)
+
+2026-02-21 `bridge.getState() as NSDictionary` — SKIE maps `Map<String, Any>` to a type
+that bridges to `NSDictionary`, which `FlutterStandardMessageCodec` encodes correctly for
+the Dart method channel. The cast is safe since the values (Double, Bool) are NSNumber.
+
+2026-02-21 `open fun getState()` on base class rather than abstract — future non-demo bridges
+get a working default (initialized only) without being forced to implement domain-specific fields.
+
+## Commits (Step 16)
+
+HEAD — fix(F9): route getState through Kotlin; macOS+Android getState now return same fields

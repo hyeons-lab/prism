@@ -35,11 +35,7 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
             case "isInitialized":
                 result(bridge.isInitialized)
             case "getState":
-                result([
-                    "fps": bridge.getCurrentFps(),
-                    "isPaused": bridge.getPauseState(),
-                    "initialized": bridge.isInitialized,
-                ])
+                result(bridge.getState() as NSDictionary)
             case "shutdown":
                 bridge.detachSurface()
                 result(true)

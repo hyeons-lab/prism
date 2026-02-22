@@ -47,6 +47,13 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
     protected open val isPaused: Boolean get() = false
 
     /**
+     * Returns the current engine state as a plain map for the Flutter method channel.
+     * The base implementation includes only `"initialized"`. Override to add domain fields
+     * (e.g. fps, rotationSpeed) so that macOS and Android `getState` responses match.
+     */
+    open fun getState(): Map<String, Any> = mapOf("initialized" to isInitialized)
+
+    /**
      * Creates a wgpu [MacosContext] from [layerPtr] (raw `CAMetalLayer*`), configures the
      * surface, creates the scene via [createScene], and attaches it to this bridge.
      *

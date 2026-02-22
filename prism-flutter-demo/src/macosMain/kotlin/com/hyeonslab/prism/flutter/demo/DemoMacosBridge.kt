@@ -89,6 +89,24 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
         scene?.setOrbitRadius(orbitRadius)
     }
 
+    /**
+     * Returns the full demo state for the Flutter `getState` method channel call.
+     * Overrides the base [PrismMetalBridge.getState] so the macOS response matches
+     * the Kotlin [FlutterMethodHandler.getState] used by Android.
+     */
+    override fun getState(): Map<String, Any> {
+        val state = store.state.value
+        return mapOf(
+            "initialized" to isInitialized,
+            "isPaused" to state.isPaused,
+            "fps" to state.fps.toDouble(),
+            "rotationSpeed" to state.rotationSpeed.toDouble(),
+            "metallic" to state.metallic.toDouble(),
+            "roughness" to state.roughness.toDouble(),
+            "envIntensity" to state.envIntensity.toDouble(),
+        )
+    }
+
     override fun onResize(width: Int, height: Int) {
         scene?.updateAspectRatio(width, height)
     }
