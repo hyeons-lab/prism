@@ -577,4 +577,4 @@ get a working default (initialized only) without being forced to implement domai
 
 ## Commits (Step 16)
 
-HEAD — fix(F9): route getState through Kotlin; macOS+Android getState now return same fields
+ad1f24c — fix(F9): route getState through Kotlin; macOS+Android getState now return same fields
