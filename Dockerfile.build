@@ -20,6 +20,10 @@ RUN apt-get update && apt-get install -y \
     mingw-w64 \
     && rm -rf /var/lib/apt/lists/*
 
+# Create a world-writable home directory so any UID (--user) can write caches
+# (.kotlin, .gradle, .konan, etc.) without needing a system user account.
+RUN mkdir -p /home/gradle && chmod 777 /home/gradle
+
 # Set working directory
 WORKDIR /app
 
