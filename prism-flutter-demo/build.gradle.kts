@@ -76,6 +76,7 @@ tasks.register<Copy>("copyWasmToFlutterWeb") {
     dependsOn(
         ":prism-flutter-demo:compileProductionExecutableKotlinWasmJsOptimize",
         ":prism-js:compileProductionExecutableKotlinWasmJsOptimize",
+        ":prism-js:generateSdkTypes",
         ":kotlinWasmNpmInstall",
     )
     val wasmOutput = layout.buildDirectory
@@ -94,7 +95,7 @@ tasks.register<Copy>("copyWasmToFlutterWeb") {
         include("prism.uninstantiated.mjs")
         include("prism.wasm")
     }
-    from(project(":prism-js").layout.projectDirectory) {
+    from(project(":prism-js").layout.buildDirectory.dir("sdk")) {
         include("prism-sdk.mjs")
     }
     // Skiko runtime (Compose/Skiko transitive dependency for WASM)
