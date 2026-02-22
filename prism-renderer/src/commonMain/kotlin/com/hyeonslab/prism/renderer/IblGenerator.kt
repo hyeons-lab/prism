@@ -163,7 +163,7 @@ object IblGenerator {
     device.queue.writeTexture(
       TexelCopyTextureInfo(texture = texture),
       ArrayBuffer.of(pixels),
-      TexelCopyBufferLayout(bytesPerRow = (size * 4).toUInt()),
+      TexelCopyBufferLayout(bytesPerRow = (size * 4).toUInt(), rowsPerImage = size.toUInt()),
       Extent3D(size.toUInt(), size.toUInt()),
     )
     return texture
@@ -189,7 +189,7 @@ object IblGenerator {
       device.queue.writeTexture(
         TexelCopyTextureInfo(texture = texture, origin = Origin3D(z = face.toUInt())),
         ArrayBuffer.of(facePixels[face]),
-        TexelCopyBufferLayout(bytesPerRow = (size * 8).toUInt()),
+        TexelCopyBufferLayout(bytesPerRow = (size * 8).toUInt(), rowsPerImage = size.toUInt()),
         Extent3D(size.toUInt(), size.toUInt()),
       )
     }
@@ -227,7 +227,7 @@ object IblGenerator {
           ),
           ArrayBuffer.of(pixels),
           // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel
-          TexelCopyBufferLayout(bytesPerRow = (mipSize * 8).toUInt()),
+          TexelCopyBufferLayout(bytesPerRow = (mipSize * 8).toUInt(), rowsPerImage = mipSize.toUInt()),
           Extent3D(mipSize.toUInt(), mipSize.toUInt()),
         )
       }

@@ -4,57 +4,30 @@ package com.hyeonslab.prism.flutter
 class MethodNotImplementedException(method: String) : Exception("Unknown method: $method")
 
 /**
- * Handles Flutter MethodChannel calls by dispatching to [PrismBridge]. Platform-specific
- * implementations connect this to the actual Flutter MethodChannel.
+ * Abstract Flutter MethodChannel handler.
  *
- * Supported methods: setRotationSpeed, togglePause, setMetallic, setRoughness, setEnvIntensity,
- * isInitialized, getState, shutdown. Unknown methods throw [MethodNotImplementedException].
+ * Handles the built-in lifecycle methods (isInitialized, shutdown, getState) and
+ * delegates domain-specific calls to [handleDomainCall].
+ * Subclasses hold a typed bridge reference to access the store and dispatch events.
  */
-class FlutterMethodHandler(private val bridge: PrismBridge) {
+abstract class AbstractFlutterMethodHandler(protected val bridge: PrismBridge<*, *>) {
 
-  fun handleMethodCall(method: String, args: Map<String, Any?>): Any? {
-    return when (method) {
-      "setRotationSpeed" -> {
-        val speed = (args["speed"] as? Number)?.toFloat() ?: 45f
-        bridge.setRotationSpeed(speed)
-        true
-      }
-      "togglePause" -> {
-        bridge.togglePause()
-        true
-      }
-      "setMetallic" -> {
-        val metallic = (args["metallic"] as? Number)?.toFloat() ?: 0f
-        bridge.setMetallic(metallic)
-        true
-      }
-      "setRoughness" -> {
-        val roughness = (args["roughness"] as? Number)?.toFloat() ?: 0.5f
-        bridge.setRoughness(roughness)
-        true
-      }
-      "setEnvIntensity" -> {
-        val intensity = (args["intensity"] as? Number)?.toFloat() ?: 1f
-        bridge.setEnvIntensity(intensity)
-        true
-      }
-      "isInitialized" -> bridge.isInitialized()
-      "getState" -> {
-        val state = bridge.state.value
-        mapOf(
-          "rotationSpeed" to state.rotationSpeed.toDouble(),
-          "isPaused" to state.isPaused,
-          "metallic" to state.metallic.toDouble(),
-          "roughness" to state.roughness.toDouble(),
-          "envIntensity" to state.envIntensity.toDouble(),
-          "fps" to state.fps.toDouble(),
-        )
-      }
-      "shutdown" -> {
-        bridge.shutdown()
-        true
-      }
-      else -> throw MethodNotImplementedException(method)
+    fun handleMethodCall(method: String, args: Map<String, Any?>): Any? = when (method) {
+        "isInitialized" -> bridge.isInitialized()
+        "shutdown" -> { bridge.shutdown(); true }
+        "getState" -> getState()
+        else -> handleDomainCall(method, args)
     }
-  }
+
+    /** Returns the current state map for "getState". Override to include domain fields. */
+    protected open fun getState(): Map<String, Any?> =
+        mapOf("initialized" to bridge.isInitialized())
+
+    /**
+     * Override to handle domain-specific method calls. Access the typed store via
+     * the subclass's own bridge reference. Throw [MethodNotImplementedException]
+     * for unsupported methods.
+     */
+    protected open fun handleDomainCall(method: String, args: Map<String, Any?>): Any? =
+        throw MethodNotImplementedException(method)
 }

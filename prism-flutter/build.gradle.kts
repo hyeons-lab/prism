@@ -20,8 +20,6 @@ kotlin {
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
   wasmJs {
     browser()
-    binaries.executable()
-    outputModuleName.set("prism-flutter")
   }
 
   applyDefaultHierarchyTemplate()
@@ -29,20 +27,16 @@ kotlin {
   sourceSets {
     commonMain.dependencies {
       api(project(":prism-core"))
-      api(project(":prism-renderer"))
-      api(project(":prism-scene"))
-      api(project(":prism-ecs"))
-      api(project(":prism-input"))
-      api(project(":prism-assets"))
-      api(project(":prism-audio"))
       api(project(":prism-native-widgets"))
-      api(project(":prism-demo-core"))
-      implementation(libs.kotlinx.coroutines.core)
-      implementation(libs.kermit)
-      implementation(libs.wgpu4k)
-      implementation(libs.wgpu4k.toolkit)
     }
-    androidMain.dependencies { implementation(libs.kotlinx.coroutines.android) }
+    androidMain.dependencies {
+      api(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.android)
+    }
+    macosMain.dependencies {
+      api(libs.wgpu4k.toolkit)
+      implementation(libs.kotlinx.coroutines.core)
+    }
     commonTest.dependencies { implementation(libs.kotlin.test) }
   }
 
@@ -178,42 +172,11 @@ tasks.register<Exec>("bundleNativeMacOS") {
     doFirst {
         File(outDir, "PrismNative.xcframework").deleteRecursively()
         outDir.mkdirs()
+        // Write module map into the headers dir so Swift can import PrismNative.
+        // xcodebuild copies the entire headers dir into the XCFramework.
+        File(dylibDir, "module.modulemap").writeText(
+            "module PrismNative {\n    umbrella header \"libprism_api.h\"\n    export *\n}\n"
+        )
     }
 }
 
-// Copy Kotlin/WASM build artifacts to the Flutter example web directory so that
-// `flutter run -d chrome` can serve them alongside the Dart-compiled output.
-tasks.register<Copy>("copyWasmToFlutterWeb") {
-  dependsOn(
-    "compileProductionExecutableKotlinWasmJsOptimize",
-    ":prism-js:compileProductionExecutableKotlinWasmJsOptimize",
-    ":kotlinWasmNpmInstall",
-  )
-  val wasmOutput =
-    layout.buildDirectory.dir("compileSync/wasmJs/main/productionExecutable/optimized")
-  from(wasmOutput) {
-    include("prism-flutter.mjs")
-    include("prism-flutter.uninstantiated.mjs")
-    include("prism-flutter.wasm")
-  }
-  // prism-js: generated WASM module + hand-written OO SDK façade
-  val prismJsBuild =
-    project(":prism-js").layout.buildDirectory
-      .dir("compileSync/wasmJs/main/productionExecutable/optimized")
-  from(prismJsBuild) {
-    include("prism.mjs")
-    include("prism.uninstantiated.mjs")
-    include("prism.wasm")
-  }
-  from(project(":prism-js").layout.projectDirectory) {
-    include("prism-sdk.mjs")
-  }
-  // Skiko runtime (Compose/Skiko transitive dependency for WASM)
-  from(rootProject.layout.buildDirectory.dir("wasm/packages_imported/skiko-js-wasm-runtime")) {
-    include("**/skiko.mjs")
-    include("**/skiko.wasm")
-    eachFile { relativePath = RelativePath(true, name) }
-  }
-  into(layout.projectDirectory.dir("flutter_plugin/example/web"))
-  includeEmptyDirs = false
-}

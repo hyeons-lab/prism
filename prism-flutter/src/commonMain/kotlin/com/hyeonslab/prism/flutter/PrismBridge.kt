@@ -1,62 +1,23 @@
 package com.hyeonslab.prism.flutter
 
-import com.hyeonslab.prism.demo.DemoIntent
-import com.hyeonslab.prism.demo.DemoScene
-import com.hyeonslab.prism.demo.DemoStore
-import com.hyeonslab.prism.demo.DemoUiState
-import kotlinx.coroutines.flow.StateFlow
+import com.hyeonslab.prism.core.Store
 
 /**
- * Bridge between the Prism engine and Flutter platform channels. Holds a [DemoScene] (rendering)
- * and [DemoStore] (UI state via MVI). The render loop is driven natively (Choreographer on Android,
- * MTKView delegate on iOS) — Flutter only sends control intents through the method channel.
+ * Generic lifecycle bridge between the Prism engine and a Flutter platform channel.
+ *
+ * [T] — the scene/renderable type (e.g. DemoScene).
+ * [S] — the MVI store type, must implement [Store] (e.g. DemoStore :
+ *       Store<DemoUiState, DemoIntent>). Subclasses access [store] with full type
+ *       information for state observation and typed event dispatch.
+ *
+ * Subclass and override [shutdown] to release scene resources.
  */
-class PrismBridge {
-  var scene: DemoScene? = null
-    private set
+open class PrismBridge<T : Any, S : Store<*, *>>(val store: S) {
+    var scene: T? = null
+        protected set
 
-  val store: DemoStore = DemoStore()
-
-  val state: StateFlow<DemoUiState>
-    get() = store.state
-
-  fun attachScene(scene: DemoScene) {
-    this.scene = scene
-  }
-
-  fun setRotationSpeed(degreesPerSecond: Float) {
-    store.dispatch(DemoIntent.SetRotationSpeed(degreesPerSecond))
-  }
-
-  fun togglePause() {
-    store.dispatch(DemoIntent.TogglePause)
-  }
-
-  fun setMetallic(metallic: Float) {
-    store.dispatch(DemoIntent.SetMetallic(metallic))
-  }
-
-  fun setRoughness(roughness: Float) {
-    store.dispatch(DemoIntent.SetRoughness(roughness))
-  }
-
-  fun setEnvIntensity(intensity: Float) {
-    store.dispatch(DemoIntent.SetEnvIntensity(intensity))
-  }
-
-  fun updateAspectRatio(width: Int, height: Int) {
-    scene?.updateAspectRatio(width, height)
-  }
-
-  /** Detach the scene reference without shutting it down (caller owns the shutdown). */
-  fun detachScene() {
-    scene = null
-  }
-
-  fun shutdown() {
-    scene?.shutdown()
-    scene = null
-  }
-
-  fun isInitialized(): Boolean = scene != null
+    fun attachScene(scene: T) { this.scene = scene }
+    fun detachScene() { scene = null }
+    fun isInitialized(): Boolean = scene != null
+    open fun shutdown() { scene = null }
 }

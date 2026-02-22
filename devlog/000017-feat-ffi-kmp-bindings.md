@@ -14,6 +14,7 @@
 - [x] Step 7 — macOS Flutter Desktop Support (FFI via SPM) — issue #828
 - [x] Step 8 — Refactor iOS plugin to prism-native FFI; add macOS Metal platform view
 - [x] Step 9 — Wire macOS AppKitView to wgpu via prism-native C API (wgpu4k fork)
+- [x] Step 10 — Generalize `prism-flutter` + create `prism-flutter-demo` consumer module
 
 ## What Changed
 
@@ -265,4 +266,165 @@ c02201f — feat: migrate iOS plugin from CocoaPods to SPM
 5c7bdac — chore: update devlog with SPM migration decisions and fixes
 e66a7a4 — feat: switch iOS to prism-native FFI and add macOS Metal platform view
 5e8d0b1 — chore: update devlog
-HEAD — feat: wire macOS AppKitView to wgpu via prism-native C API
+5e8d0b1 — chore: update devlog (replaced HEAD above)
+HEAD — feat: generalize prism-flutter, add prism-flutter-demo, runtime fixes, test coverage (Steps 10–13)
+
+### Step 10 — Generalize `prism-flutter` + `prism-flutter-demo` (2026-02-21)
+
+`prism-flutter/src/commonMain/.../PrismBridge.kt` — Replaced demo-specific class with generic `open class PrismBridge<T : Any, S : Store<*, *>>(val store: S)`. Removed all demo type imports.
+
+`prism-flutter/src/commonMain/.../FlutterMethodHandler.kt` — Replaced concrete class with `abstract class AbstractFlutterMethodHandler(bridge: PrismBridge<*, *>)`. Retained `MethodNotImplementedException`. All demo dispatch logic moved to `prism-flutter-demo`.
+
+`prism-flutter/src/androidMain/.../PrismAndroidBridge.kt` — New generic abstract base: manages wgpu SurfaceView lifecycle, frame timing, `onSurfaceReady`/`doFrame`. Subclasses implement `createScene`/`tickScene`.
+
+`prism-flutter/src/macosMain/.../PrismMetalBridge.kt` — New generic abstract base: full Metal surface setup, wgpu context creation, surface configuration, frame timing. Subclasses implement `createScene`/`tickScene`.
+
+`prism-flutter/build.gradle.kts` — Stripped all `prism-demo-*` dependencies; added `androidMain` wgpu4k-toolkit `api`; changed `macosMain` wgpu4k-toolkit to `api`; removed `binaries.executable()`/`outputModuleName` from wasmJs block; updated `copyWasmToFlutterWeb` to reference `:prism-flutter-demo` build outputs.
+
+`prism-flutter/src/wasmJsMain/.../FlutterWasmEntry.kt` — Deleted (moved to `prism-flutter-demo`).
+
+`settings.gradle.kts` — Added `include(":prism-flutter-demo")`.
+
+`prism-flutter-demo/build.gradle.kts` — New KMP module: all targets, SKIE, macOS `PrismFlutterDemo` framework, wasmJs with `outputModuleName = "prism-flutter"`. Depends on `prism-flutter` + `prism-demo-core`.
+
+`prism-flutter-demo/src/commonMain/.../DemoBridge.kt` — Concrete `PrismBridge<DemoScene, DemoStore>` with `isPaused`/`dispatchFps`.
+
+`prism-flutter-demo/src/commonMain/.../FlutterMethodHandler.kt` — Full MethodChannel dispatcher; takes `PrismBridge<DemoScene, DemoStore>`.
+
+`prism-flutter-demo/src/androidMain/.../DemoAndroidBridge.kt` — Extends `PrismAndroidBridge` with demo scene factory/tick.
+
+`prism-flutter-demo/src/macosMain/.../DemoMacosBridge.kt` — Extends `PrismMetalBridge` with PBR sphere-grid scene; `surfacePreConfigured = true`.
+
+`prism-flutter-demo/src/wasmJsMain/.../FlutterWasmEntry.kt` — Moved from `prism-flutter`, package updated to `com.hyeonslab.prism.flutter.demo`.
+
+`prism-flutter/flutter_plugin/android/.../PrismFlutterPlugin.kt` — Now creates `DemoAndroidBridge()` + `FlutterMethodHandler(bridge)` from `prism-flutter-demo`. No demo store/intent imports.
+
+`prism-flutter/flutter_plugin/android/.../PrismPlatformView.kt` — Accepts `PrismAndroidBridge<*, *>`; zero demo imports. Delegates `onSurfaceReady`/`doFrame`/`shutdown` to bridge.
+
+`prism-flutter/flutter_plugin/android/build.gradle` — Replaced `prism-flutter-android` + `prism-demo-core-android` with `prism-flutter-demo-android`.
+
+`prism-flutter/flutter_plugin/macos/.../PrismMetalBridgeProtocol.swift` — New `@objc public protocol`: `attachMetalLayer`, `renderFrame`, `detachSurface`, `isInitialized`.
+
+`prism-flutter/flutter_plugin/macos/.../PrismMacOSPlatformView.swift` — Rewritten: `PrismMacOSPlatformViewFactory` takes a `bridgeFactory: () -> PrismMetalBridgeProtocol` closure; `PrismMetalView` drives any `PrismMetalBridgeProtocol`. No more `PrismNative` C API calls or engine handles.
+
+`prism-flutter/flutter_plugin/example/macos/Runner/AppDelegate.swift` — Imports `PrismFlutterDemo`; conforms `DemoMacosBridge: PrismMetalBridgeProtocol`; registers factory `{ DemoMacosBridge() }`.
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Frameworks/.gitignore` — Added `PrismFlutterDemo.xcframework`.
+
+## Decisions (Step 10)
+
+2026-02-21 Inverted dependency direction — `prism-flutter` must have zero demo deps; `prism-flutter-demo` is the proper consumer of both `prism-flutter` and `prism-demo-core`. This fixes the library/demo layering that was inverted since Step 6.
+
+2026-02-21 `PrismMacOSPlatformViewFactory` takes a factory closure instead of a fixed bridge type — enables any `PrismMetalBridgeProtocol` conformer to drive the view without the plugin package importing demo frameworks.
+
+2026-02-21 `outputModuleName` stays `"prism-flutter"` in `prism-flutter-demo` wasmJs — Dart loader expects this name; changing it would require coordinating with the Flutter plugin Dart side.
+
+### Step 11 — Post-refactor fixes (2026-02-21)
+
+Plan: `devlog/plans/000017-02-post-refactor-fixes.md`
+
+`prism-flutter/src/androidMain/.../PrismAndroidBridge.kt` — Made `createScene` and `onSurfaceReady` `suspend` (Fix 8: safe for GLB I/O inside scene creation). Added `open fun onDimensionsChanged(width, height)` hook (Fix 2). Added `resetFrameTiming()` to zero `lastMark` on resume and prevent multi-second delta spike (Fix 9).
+
+`prism-flutter/src/macosMain/.../PrismMetalBridge.kt` — Added `protected open val isPaused: Boolean get() = false`. Added `if (!isPaused)` guard in `renderFrame()` so the pause mechanism matches Android (Fix 10).
+
+`prism-flutter-demo/src/commonMain/.../DemoBridge.kt` — Added `override fun shutdown()` calling `scene?.shutdown()` then `super.shutdown()` (Fix 1). Removed `open` modifier — no subclasses exist (Fix 12).
+
+`prism-flutter-demo/src/androidMain/.../DemoAndroidBridge.kt` — Added `glbLoader: (() -> ByteArray?)? = null` constructor param; `createScene` is now `suspend` and tries GLTF first, falls back to procedural scene (Fix 8). Added `override fun onDimensionsChanged` → `scene?.updateAspectRatio(width, height)` (Fix 2). Added FPS smoothing dispatch in `tickScene` (Fix 3). Added `override fun shutdown()` (Fix 1).
+
+`prism-flutter-demo/src/macosMain/.../DemoMacosBridge.kt` — Changed `val isPaused` → `override val isPaused` so `PrismMetalBridge.renderFrame()` reads it (Fix 10). Removed inline `if (!isPaused)` guard from `tickScene` — guard now lives in the base (Fix 10). Added FPS smoothing dispatch in `tickScene` (Fix 3). Added `override fun shutdown()` (Fix 1).
+
+`prism-flutter/flutter_plugin/android/.../PrismFlutterPlugin.kt` — Introduced `PrismBridgeBundle(bridge, handler)` data class. Replaced two-factory `configure(bridgeFactory, handlerFactory)` with single `configure((Context) -> PrismBridgeBundle)` so host creates typed bridge+handler in the same scope with no unchecked cast (Fix 6). Added `if (::bridge.isInitialized) bridge.shutdown()` guard in `onDetachedFromEngine` (Fix 7).
+
+`prism-flutter/flutter_plugin/android/.../PrismPlatformView.kt` — `surfaceChanged` now calls `bridge.onDimensionsChanged(width, height)` when already initialized (Fix 2). `resumeRendering()` calls `bridge.resetFrameTiming()` before posting the Choreographer callback (Fix 9). Removed stale `@SuppressLint("ClickableViewAccessibility")` annotation and its import (Fix 11).
+
+`prism-flutter/flutter_plugin/macos/.../PrismFlutterPlugin.swift` — Added `private static var bridgeFactory` and `static func configure(bridgeFactory:)`. `register(with:)` now reads from `bridgeFactory` and fatal-errors with a clear message if not configured. Removes the no-arg `PrismMacOSPlatformViewFactory()` call that no longer exists (Fix 4).
+
+`prism-flutter/flutter_plugin/example/macos/Runner/AppDelegate.swift` — Removed manual `registrar.register(factory:withId:)` call that duplicated the `GeneratedPluginRegistrant` registration. Added `PrismFlutterPlugin.configure { DemoMacosBridge() }` before `super.applicationDidFinishLaunching` (Fix 5).
+
+## Decisions (Step 11)
+
+2026-02-21 `PrismBridgeBundle` single-factory replaces two-factory pattern — the old `handlerFactory: (PrismAndroidBridge<*, *>) -> AbstractFlutterMethodHandler` forced an unchecked cast because the concrete handler (`FlutterMethodHandler`) expects `PrismBridge<DemoScene, DemoStore>`. By moving bundle construction to the host app (which has full type info), both bridge and handler are created in a typed scope and the bundle fields upcast implicitly.
+
+2026-02-21 `configure` receives `Context` — the `glbLoader` closure needs `context.assets.open(...)` to load GLB bytes from Flutter's asset bundle. Passing `Context` through the factory avoids storing it as a global and keeps the plugin's API surface clean.
+
+2026-02-21 FPS smoothing lives in `tickScene` not `doFrame`/`renderFrame` — `tickScene` is already skipped when paused, so FPS is only updated when real frames are produced. This avoids a zero-fps reading during pause.
+
+2026-02-21 `resetFrameTiming` public, not called from base — `pauseRendering` can't call it because pausing removes the frame callback before the next frame, so the timing drift only manifests on resume. Calling it in `resumeRendering` (platform view) rather than base `doFrame` keeps the bridge class free of pause-state knowledge.
+
+### Step 12 — macOS demo runtime bug fixes (2026-02-21)
+
+The 11 macOS-specific post-refactor fixes landed cleanly. Running the demo revealed three new crashes unrelated to the refactor:
+
+**Bug 1 — `wgpu panicked: invalid rowsPerImage` in `WgpuRenderer.create1x1Texture`**
+
+`TexelCopyBufferLayout(bytesPerRow = N)` leaves `rowsPerImage = null`. The Kotlin/Native mapper (`TextureDataLayout.kt`) does `input.rowsPerImage?.let { output.rowsPerImage = it }` — when null the native `WGPUTexelCopyBufferLayout.rowsPerImage` stays at its zero-initialized default of `0`. wgpu-native's `conv.rs` validation rejects `rowsPerImage = 0` (must be `COPY_STRIDE_UNDEFINED = 0xFFFFFFFF` or `>= extent.height`).
+
+Fixed all six call sites by passing explicit `rowsPerImage`:
+- `WgpuRenderer.create1x1Texture`: `rowsPerImage = 1u`
+- `WgpuRenderer.createDefaultTextures` cubemap loop: `rowsPerImage = 1u`
+- `WgpuRenderer.writeTextureFromArrayBuffer`: `rowsPerImage = h`
+- `IblGenerator.uploadBrdfLut`: `rowsPerImage = size.toUInt()`
+- `IblGenerator.uploadCubemap` per-face loop: `rowsPerImage = size.toUInt()`
+- `IblGenerator.uploadPrefilteredCubemap` mip loop: `rowsPerImage = mipSize.toUInt()`
+
+Files: `prism-renderer/src/commonMain/kotlin/com/hyeonslab/prism/renderer/WgpuRenderer.kt`, `IblGenerator.kt`.
+
+**Bug 2 — WGSL shader parse error: truncated at multi-byte UTF-8 characters**
+
+wgpu-native (or the Kotlin/Native cinterop bridge) truncates the WGSL source string at the first multi-byte UTF-8 character. Root cause: the `WGPUStringView.length` field is set to the Kotlin `String.length` (character count) rather than the UTF-8 byte count. For a string containing e.g. `§` (2 bytes), the GPU receives `strlen("...") = charCount` bytes, which cuts off content that comes after the first multi-byte character.
+
+Three Unicode characters were inside WGSL shader strings:
+- `§` (U+00A7, 2 bytes) in `PBR_VERTEX_SHADER` comment → WGSL string truncated at line 75 of combined PBR shader
+- `→` (U+2192, 3 bytes) in `TONE_MAP_FRAGMENT_SHADER` comment → ToneMap shader truncated near end
+- `→` in `PBR_FRAGMENT_SHADER` spot-light comment (same character)
+
+Fixed by replacing all non-ASCII characters in WGSL shader source strings with ASCII equivalents:
+- `§13.4.1` → `13.4.1`
+- `→ fall back` → `: fall back`
+- `→ sRGB gamma` → `to sRGB gamma`, `γ ≈ 2.2` → `~2.2`
+
+File: `prism-renderer/src/commonMain/kotlin/com/hyeonslab/prism/renderer/Shaders.kt`.
+
+After all three fixes the macOS Flutter demo launches, initializes wgpu/Metal, and renders frames without crashing.
+
+## Issues (Step 12)
+
+2026-02-21 `wgpu4k` cinterop `WGPUStringView.length` uses char count instead of UTF-8 byte count — any WGSL shader string containing characters with codepoints > 0x7F will be silently truncated. Workaround: keep all WGSL source strings ASCII-only. Upstream fix would be to use `encodeToByteArray().size.toULong()` for the length field.
+
+## Decisions (Step 12)
+
+2026-02-21 Kept `rowsPerImage = h` (height) rather than `COPY_STRIDE_UNDEFINED = 0xFFFFFFFFu` for readability — the value must be >= extent.height per spec; using the actual height is the most informative and portable choice.
+
+2026-02-21 WGSL shader strings must be ASCII-only — added as a standing rule to prevent re-introduction of the truncation bug. Applies to all shader source string literals passed via wgpu4k Kotlin/Native cinterop.
+
+### Step 13 — Code review fixes + test coverage (2026-02-21)
+
+Plan: `devlog/plans/000017-03-code-review-test-coverage.md`
+
+`prism-flutter/src/macosMain/.../PrismMetalBridge.kt` — A1: added `ctx?.close()` at the top of `attachMetalLayer` before the null-ptr guard, so a previous wgpu context is always released on re-attachment. A2: narrowed `catch (e: IllegalStateException)` in `renderFrame` to only reconfigure when message contains "Outdated" or "fail to get texture"; all other ISEs are rethrown. A4: replaced `val config = surfaceConfig ?: return` early-exit with `surfaceConfig?.let { configure }` so `onResize` is always called even when the surface has not been configured yet.
+
+`prism-demo-core/src/macosMain/.../MacosDemoMain.kt` → `DemoMacosMain.kt` — A3: renamed file; wrapped the GLFW `while` loop in `try/finally` so `scene.shutdown()` and `surface.detach()` execute even when an unexpected exception escapes the render loop.
+
+`prism-flutter/src/commonTest/.../PrismBridgeTest.kt` — New: B2 tests for `PrismBridge` lifecycle. Covers `isInitialized` before/after `attachScene`, `detachScene`, `shutdown`, double-shutdown, and shutdown on uninitialised bridge.
+
+`prism-flutter-demo/src/commonTest/.../FlutterMethodHandlerTest.kt` — New: B1 tests for `FlutterMethodHandler` using a real `DemoBridge` with no scene attached. Covers all domain dispatch branches (togglePause, setRotationSpeed, setMetallic, setRoughness, setEnvIntensity), `getState` key/value verification, and `MethodNotImplementedException` for unknown methods.
+
+`prism-flutter-demo/src/commonTest/.../FpsSmoothingTest.kt` — New: B3 tests for the EMA smoothing formula used in `DemoMacosBridge.tickScene` / `DemoAndroidBridge.tickScene`. Uses `DemoStore` directly to exercise the formula without platform binaries. Covers cold start, convergence at steady rate, zero/negative dt guard, slow-frame damping, and very-small dt spike.
+
+`prism-flutter-demo/src/commonTest/.../DemoInputTest.kt` — New: B4 tests for zoom clamping and orbitBy sign convention. The `coerceIn(2f, 40f)` formula is extracted and tested for min/max clamp, mid-range, and boundary cases.
+
+`prism-flutter-demo/example/test/widget_test.dart` — B5: replaced counter placeholder with three widget tests. `debugDefaultTargetPlatformOverride = TargetPlatform.iOS` prevents AppKitView/AndroidView creation (which requires a registered factory). Tests: fps chip shows "0 fps" initially; loading overlay visible before engine initialises; overlay persists when channel `isInitialized` returns false.
+
+## Decisions (Step 13)
+
+2026-02-21 A4 always calls `onResize` — the original guard protected against calling `surface.configure` with a null config, but also silently dropped aspect-ratio updates during the first draw. Both concerns are now independent: `surfaceConfig?.let` only reconfigures when the config exists; `onResize` is unconditionally called (its null-safe `scene?.updateAspectRatio` is already safe with no scene).
+
+2026-02-21 B3 tests formula via DemoStore rather than tickScene directly — `tickScene` is macOsMain/androidMain and would require platform binaries in commonTest. Mirroring the EMA formula in the test exercises both the store dispatch pattern and the mathematical output without adding platform test targets.
+
+2026-02-21 B4 orbitBy sign tests are trivial but document the contract — the sign convention (dx positive → move right) is subtle and has been a bug source before. Trivial assertions serve as living documentation of the expected sign.
+
+2026-02-21 Dart widget test uses TargetPlatform.iOS override — prevents AppKitView (macOS) and AndroidView (Android) from being created during tests; PrismRenderView falls through to its "not yet available on this platform" Text branch, which needs no platform view factory registration.
+
+## Commits (Step 13)
+
+(see top-level Commits section — all steps land in one commit)

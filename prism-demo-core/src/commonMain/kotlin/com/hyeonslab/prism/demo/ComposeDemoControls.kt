@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -72,12 +71,6 @@ fun ComposeDemoControls(
         valueRange = 0f..1f,
         modifier = Modifier.fillMaxWidth(),
       )
-      Spacer(Modifier.height(16.dp))
-
-      // Pause / Resume
-      Button(onClick = { onIntent(DemoIntent.TogglePause) }, modifier = Modifier.fillMaxWidth()) {
-        Text(if (state.isPaused) "Resume" else "Pause")
-      }
     }
   }
 }

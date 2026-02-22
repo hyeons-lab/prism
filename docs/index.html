@@ -217,12 +217,12 @@
 <span class="hl-green">prism-renderer</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, macOS, Web)</span>
 
 <span class="hl">prism-js</span>     <span class="dim">@JsExport bridge &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/WASM)</span>
 <span class="hl">prism-native</span> <span class="dim">@CName bridge &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native)</span>
 
-<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid, glTF 2.0)</span></pre>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (glTF 2.0 — DamagedHelmet)</span></pre>
         </div>
       </div>
     </section>
@@ -311,7 +311,7 @@ console.log('dt:', engine.time.deltaTime);</pre>
             <div class="lang-label">Dart &middot; Flutter</div>
 <pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
 
-<span class="comment">// FFI on macOS/Linux/Windows · channel on iOS/Android · @JS on Web</span>
+<span class="comment">// MethodChannel on Android/macOS · FFI on iOS/Linux/Windows · @JS on Web</span>
 final engine = PrismEngine();
 await engine.initialize(appName: 'MyApp', targetFps: 60);
 
@@ -395,8 +395,8 @@ print('dt: \${state['deltaTime']}');</pre>
               </tr>
               <tr>
                 <td>Flutter macOS</td>
-                <td>Dart FFI &rarr; libprism.dylib via SPM XCFramework</td>
-                <td class="status-wip">In Progress</td>
+                <td>FlutterPlatformView + MethodChannel + KMP XCFramework</td>
+                <td class="status-done">Working</td>
               </tr>
               <tr>
                 <td>Flutter Desktop (Windows, Linux)</td>
@@ -479,7 +479,7 @@ print('dt: \${state['deltaTime']}');</pre>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>PrismSurface + macOS native</h4>
-              <p>Suspend factory, AppKit controls</p>
+              <p>Suspend factory, GLFW window, drag-to-orbit</p>
             </div>
           </div>
           <div class="milestone done">
@@ -522,6 +522,14 @@ print('dt: \${state['deltaTime']}');</pre>
               <p>prism-js: @JsExport &rarr; .d.mts &rarr; Dart @JS() bindings &middot; prism-native: @CName &rarr; libprism_api.h &rarr; dart:ffi bindings</p>
             </div>
           </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M13</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Flutter macOS</h4>
+              <p>FlutterPlatformView + MethodChannel + KMP XCFramework &middot; Metal rendering with drag-to-orbit camera</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -546,7 +554,7 @@ print('dt: \${state['deltaTime']}');</pre>
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">3</span> Run the demo</h3>
-            <pre class="code-block"><span class="comment"># GLFW window — PBR sphere grid (Metal on macOS)</span>
+            <pre class="code-block"><span class="comment"># GLFW window — DamagedHelmet glTF (Metal on macOS)</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:jvmRun
 
 <span class="comment"># Compose Desktop with embedded 3D + PBR sliders</span>

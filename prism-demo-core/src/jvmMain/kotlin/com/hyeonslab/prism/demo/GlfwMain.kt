@@ -3,6 +3,7 @@ package com.hyeonslab.prism.demo
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.createPrismSurface
 import ffi.LibraryLoader
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.lwjgl.glfw.GLFW.glfwPollEvents
 import org.lwjgl.glfw.GLFW.glfwShowWindow
@@ -17,7 +18,11 @@ fun main() = runBlocking {
   val surface = createPrismSurface(width = 800, height = 600, title = "Prism Demo")
   val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
   val windowHandler = checkNotNull(surface.windowHandler) { "GLFW window not available" }
-  val scene = createDemoScene(wgpuContext, width = 800, height = 600)
+
+  val glbData =
+    File("DamagedHelmet.glb").takeIf { it.exists() }?.readBytes()
+      ?: error("DamagedHelmet.glb not found — place the file in the working directory")
+  val scene = createGltfDemoScene(wgpuContext, width = 800, height = 600, glbData = glbData)
 
   glfwShowWindow(windowHandler)
   log.i { "Window opened — entering render loop" }

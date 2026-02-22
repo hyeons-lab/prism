@@ -14,6 +14,8 @@ import com.hyeonslab.prism.widget.AwtRenderingContext
 import com.hyeonslab.prism.widget.PrismPanel
 import ffi.LibraryLoader
 import java.awt.BorderLayout
+import java.io.File
+import kotlinx.coroutines.runBlocking
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
@@ -59,7 +61,13 @@ private fun createAndShowUi() {
     log.i { "PrismPanel ready \u2014 initializing scene" }
     val ctx = prismPanel.wgpuContext
     if (ctx != null) {
-      val s = createDemoScene(ctx, prismPanel.width, prismPanel.height, surfacePreConfigured = true)
+      val glbData =
+        File("DamagedHelmet.glb").takeIf { it.exists() }?.readBytes()
+          ?: error("DamagedHelmet.glb not found — place the file in the working directory")
+      val s = runBlocking {
+        createGltfDemoScene(ctx, prismPanel.width, prismPanel.height, glbData,
+          surfacePreConfigured = true)
+      }
       s.renderer.onResize = { w, h ->
         val rc = ctx.renderingContext
         if (rc is AwtRenderingContext) {
@@ -109,7 +117,7 @@ private fun createAndShowUi() {
             store.dispatch(DemoIntent.UpdateFps(smoothedFps))
           }
 
-          // Apply PBR slider values to sphere materials each frame.
+          // Apply PBR slider values each frame.
           s.setMaterialOverride(currentState.metallic, currentState.roughness)
           s.setEnvIntensity(currentState.envIntensity)
 

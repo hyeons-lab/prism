@@ -1,6 +1,6 @@
 # prism-demo-core
 
-Shared KMP library containing the demo application logic for all platforms. Renders a PBR sphere grid (7×7, metallic/roughness gradient) driven by the ECS, with interactive Compose UI controls on supported platforms.
+Shared KMP library containing the demo application logic for all platforms. Renders a Damaged Helmet glTF scene driven by the ECS, with interactive Compose UI controls on supported platforms.
 
 ## Module relationship
 
@@ -109,7 +109,7 @@ adb install prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.
 
 | File | Purpose |
 |---|---|
-| `DemoScene.kt` | Factory (`createDemoScene()`) that bootstraps an ECS world with camera, PBR sphere grid, lights, IBL, and `WgpuRenderer`. `tick()` advances the ECS world each frame. |
+| `DemoScene.kt` | `DemoScene` class — holds the ECS world, renderer, and camera. `tick()` advances the ECS world each frame. Scene instances are created by `createGltfDemoScene()` in `GltfDemoScene.kt`. |
 | `DemoSceneState.kt` | MVI store: `DemoUiState` (speed, pause, metallic, roughness, envIntensity, fps), `DemoIntent` (actions), `DemoStore` (pure reducer). |
 | `ComposeDemoControls.kt` | Material3 composable with rotation speed slider, pause/resume button, and PBR sliders (env intensity, metallic, roughness). Used by both JVM Compose and iOS Compose. |
 

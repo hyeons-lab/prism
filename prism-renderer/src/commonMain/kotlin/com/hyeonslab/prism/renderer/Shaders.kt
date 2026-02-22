@@ -72,7 +72,7 @@ object Shaders {
             _pad3 : f32,
         };
 
-        // mat3x3f is illegal in uniform address space (WGSL spec §13.4.1).
+        // mat3x3f is illegal in uniform address space (WGSL spec 13.4.1).
         // Store each column as a vec4f with one padding float; reconstruct in the shader.
         struct ObjectUniforms {
             model : mat4x4f,
@@ -329,7 +329,7 @@ object Shaders {
                         );
                         let outerAngRad = light.spotAngle * PI / 180.0;
                         let outerCos = cos(outerAngRad);
-                        // innerAngle < 0 → fall back to 80% of outer (legacy default)
+                        // innerAngle < 0: fall back to 80% of outer (legacy default)
                         let innerAngRad = select(
                             outerAngRad * 0.8,
                             light.innerAngle * PI / 180.0,
@@ -510,7 +510,7 @@ object Shaders {
             let hdr = textureSample(hdrTexture, hdrSampler, uv).rgb;
             var ldr = toneMapKhronosPbrNeutral(hdr);
             if (tmParams.applySrgb != 0u) {
-                // Linear → sRGB gamma encoding (γ ≈ 2.2) for non-sRGB swapchains
+                // Linear to sRGB gamma encoding (~2.2) for non-sRGB swapchains
                 ldr = pow(max(ldr, vec3f(0.0)), vec3f(1.0 / 2.2));
             }
             return vec4f(ldr, 1.0);
