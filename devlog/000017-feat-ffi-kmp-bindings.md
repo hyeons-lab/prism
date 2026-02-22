@@ -651,7 +651,8 @@ d2fa7f9 — fix: suppress two-finger orbit hint; update architecture diagram
 36d5065 — feat(prism-js): add TypeScript SDK with auto-generated types
 9b86bf0 — devlog: record TypeScript SDK implementation notes
 b7cdb04 — docs: update web snippet label to TypeScript · JavaScript · Web
-HEAD — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
+f47ff44 — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
+HEAD — refactor: consolidate demo asset into single canonical location (prism-demo-core/assets/)
 
 ---
 
@@ -690,3 +691,5 @@ Various `*.kt` and `build.gradle.kts` files — Code reformatted to project 2-sp
 2026-02-22 `nonNativeMain` instead of removing targets — Linux/Windows targets are needed so that dependent modules compile their `linuxX64`/`mingwX64` source sets. Compose cannot compile for those targets; isolating Compose in `nonNativeMain` (which excludes native targets) is cleaner than removing the targets.
 
 2026-02-22 Removed redundant `dependsOn` for iOS/macOS source sets — `iosArm64Main.dependsOn(appleMain)` etc. are already set by `applyDefaultHierarchyTemplate()`. The explicit calls produced a Gradle warning. Only `appleMain.dependsOn(nonNativeMain)` is kept (that one is NOT in the template).
+
+2026-02-22 Single canonical asset location (`prism-demo-core/assets/`) — previously the download task scattered one copy into three module locations (prism-demo-core root, prism-android-demo/src/main/assets/, prism-ios-demo/Sources/). Consolidating into one location and having each consuming module point to it is cleaner: JVM + macOS use `workingDir`, Android uses `assets.srcDirs`, iOS adds an optional xcodegen resource. The `.gitignore` entry and the download task both collapse from three paths to one.

@@ -19,6 +19,13 @@ android {
   kotlin { jvmToolchain(25) }
 
   buildFeatures { compose = true }
+
+  sourceSets {
+    getByName("main") {
+      // Serve the shared demo asset (downloaded by :downloadDemoAssets) as an APK asset.
+      assets.srcDirs(rootProject.file("prism-demo-core/assets"))
+    }
+  }
 }
 
 dependencies {

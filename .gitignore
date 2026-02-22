@@ -39,8 +39,9 @@ prism-js/package-lock.json
 local.properties
 .claude/
 
-# Demo assets (large binary, not committed — download from Khronos glTF-Sample-Assets)
-DamagedHelmet.glb
+# Demo assets (large binary, not committed — run `./gradlew downloadDemoAssets` to fetch)
+# Exceptions: prism-flutter-demo/example/assets/ and docs/ are intentionally committed.
+prism-demo-core/assets/DamagedHelmet.glb
 
 # Build output log
 .output.txt
