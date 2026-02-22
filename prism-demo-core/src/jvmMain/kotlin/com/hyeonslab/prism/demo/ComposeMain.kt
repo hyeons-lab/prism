@@ -14,13 +14,13 @@ import com.hyeonslab.prism.widget.AwtRenderingContext
 import com.hyeonslab.prism.widget.PrismPanel
 import ffi.LibraryLoader
 import java.awt.BorderLayout
-import java.io.File
-import kotlinx.coroutines.runBlocking
 import java.awt.Dimension
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.io.File
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
+import kotlinx.coroutines.runBlocking
 
 private val log = Logger.withTag("ComposeMain")
 
@@ -65,8 +65,13 @@ private fun createAndShowUi() {
         File("DamagedHelmet.glb").takeIf { it.exists() }?.readBytes()
           ?: error("DamagedHelmet.glb not found — place the file in the working directory")
       val s = runBlocking {
-        createGltfDemoScene(ctx, prismPanel.width, prismPanel.height, glbData,
-          surfacePreConfigured = true)
+        createGltfDemoScene(
+          ctx,
+          prismPanel.width,
+          prismPanel.height,
+          glbData,
+          surfacePreConfigured = true,
+        )
       }
       s.renderer.onResize = { w, h ->
         val rc = ctx.renderingContext

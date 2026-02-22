@@ -27,10 +27,7 @@ kotlin {
   linuxX64()
   mingwX64()
 
-  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-  wasmJs {
-    browser()
-  }
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 
   applyDefaultHierarchyTemplate()
 
@@ -61,29 +58,33 @@ kotlin {
 // Run: ./gradlew :prism-flutter:bundleNativeiOS
 // ---------------------------------------------------------------------------
 tasks.register<Exec>("bundleNativeiOS") {
-    val prismNative = project(":prism-native")
-    val iosArm64Dir = prismNative.layout.buildDirectory
-        .dir("bin/iosArm64/releaseShared").get().asFile
-    val iosSimDir = prismNative.layout.buildDirectory
-        .dir("bin/iosSimulatorArm64/releaseShared").get().asFile
-    val outDir = layout.projectDirectory
-        .dir("flutter_plugin/ios/prism_flutter/Frameworks").asFile
-    dependsOn(
-        ":prism-native:linkReleaseSharedIosArm64",
-        ":prism-native:linkReleaseSharedIosSimulatorArm64",
-    )
-    commandLine(
-        "xcodebuild", "-create-xcframework",
-        "-library", File(iosArm64Dir, "libprism.dylib").absolutePath,
-        "-headers", iosArm64Dir.absolutePath,
-        "-library", File(iosSimDir, "libprism.dylib").absolutePath,
-        "-headers", iosSimDir.absolutePath,
-        "-output", File(outDir, "PrismNative.xcframework").absolutePath,
-    )
-    doFirst {
-        File(outDir, "PrismNative.xcframework").deleteRecursively()
-        outDir.mkdirs()
-    }
+  val prismNative = project(":prism-native")
+  val iosArm64Dir = prismNative.layout.buildDirectory.dir("bin/iosArm64/releaseShared").get().asFile
+  val iosSimDir =
+    prismNative.layout.buildDirectory.dir("bin/iosSimulatorArm64/releaseShared").get().asFile
+  val outDir = layout.projectDirectory.dir("flutter_plugin/ios/prism_flutter/Frameworks").asFile
+  dependsOn(
+    ":prism-native:linkReleaseSharedIosArm64",
+    ":prism-native:linkReleaseSharedIosSimulatorArm64",
+  )
+  commandLine(
+    "xcodebuild",
+    "-create-xcframework",
+    "-library",
+    File(iosArm64Dir, "libprism.dylib").absolutePath,
+    "-headers",
+    iosArm64Dir.absolutePath,
+    "-library",
+    File(iosSimDir, "libprism.dylib").absolutePath,
+    "-headers",
+    iosSimDir.absolutePath,
+    "-output",
+    File(outDir, "PrismNative.xcframework").absolutePath,
+  )
+  doFirst {
+    File(outDir, "PrismNative.xcframework").deleteRecursively()
+    outDir.mkdirs()
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -91,76 +92,73 @@ tasks.register<Exec>("bundleNativeiOS") {
 // Run: ./gradlew :prism-flutter:generateDartJsBindings
 // ---------------------------------------------------------------------------
 tasks.register("generateDartJsBindings") {
-    dependsOn(":prism-js:compileProductionExecutableKotlinWasmJs")
-    val dtsSrcProvider =
-        project(":prism-js")
-            .layout
-            .buildDirectory
-            .file("compileSync/wasmJs/main/productionExecutable/kotlin/prism.d.mts")
-    val dartOutFile =
-        layout.projectDirectory
-            .file("flutter_plugin/lib/src/generated/prism_js_bindings.dart")
-            .asFile
-    inputs.file(dtsSrcProvider)
-    outputs.file(dartOutFile)
+  dependsOn(":prism-js:compileProductionExecutableKotlinWasmJs")
+  val dtsSrcProvider =
+    project(":prism-js")
+      .layout
+      .buildDirectory
+      .file("compileSync/wasmJs/main/productionExecutable/kotlin/prism.d.mts")
+  val dartOutFile =
+    layout.projectDirectory.file("flutter_plugin/lib/src/generated/prism_js_bindings.dart").asFile
+  inputs.file(dtsSrcProvider)
+  outputs.file(dartOutFile)
 
-    doLast {
-        val dtsContent = dtsSrcProvider.get().asFile.readText()
+  doLast {
+    val dtsContent = dtsSrcProvider.get().asFile.readText()
 
-        fun mapType(ts: String): String =
-            when (ts.trim()) {
-                "string" -> "String"
-                "number" -> "double"
-                "boolean" -> "bool"
-                "void" -> "void"
-                else -> "dynamic"
-            }
+    fun mapType(ts: String): String =
+      when (ts.trim()) {
+        "string" -> "String"
+        "number" -> "double"
+        "boolean" -> "bool"
+        "void" -> "void"
+        else -> "dynamic"
+      }
 
-        fun parseParams(raw: String): String {
-            if (raw.isBlank()) return ""
-            return raw
-                .split(",")
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .joinToString(", ") { p ->
-                    val parts = p.split(":")
-                    val name = parts[0].trim().trimEnd('?')
-                    val type = parts.getOrElse(1) { "string" }.trim()
-                    "${mapType(type)} $name"
-                }
+    fun parseParams(raw: String): String {
+      if (raw.isBlank()) return ""
+      return raw
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .joinToString(", ") { p ->
+          val parts = p.split(":")
+          val name = parts[0].trim().trimEnd('?')
+          val type = parts.getOrElse(1) { "string" }.trim()
+          "${mapType(type)} $name"
         }
-
-        val funcRegex = Regex("""export declare function (\w+)\((.*?)\): (\w+);""")
-        val functions =
-            funcRegex.findAll(dtsContent).map { m ->
-                Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3])
-            }.toList()
-
-        val sb = StringBuilder()
-        sb.appendLine("// AUTO GENERATED FILE, DO NOT EDIT.")
-        sb.appendLine(
-            "// Generated by :prism-flutter:generateDartJsBindings from prism.d.mts"
-        )
-        sb.appendLine("// ignore_for_file: type=lint")
-        sb.appendLine("import 'dart:js_interop';")
-        sb.appendLine()
-        sb.appendLine("/// Window-pinning names for all prism-js @JsExport functions.")
-        sb.appendLine("const List<String> prismJsExportNames = [")
-        functions.forEach { (name, _, _) -> sb.appendLine("  '$name',") }
-        sb.appendLine("];")
-        sb.appendLine()
-        functions.forEach { (name, rawParams, retType) ->
-            val dartParams = parseParams(rawParams)
-            val dartRet = mapType(retType)
-            sb.appendLine("@JS('$name')")
-            sb.appendLine("external $dartRet $name($dartParams);")
-            sb.appendLine()
-        }
-
-        dartOutFile.parentFile.mkdirs()
-        dartOutFile.writeText(sb.toString())
-        logger.lifecycle("Dart JS bindings written to $dartOutFile")
     }
+
+    val funcRegex = Regex("""export declare function (\w+)\((.*?)\): (\w+);""")
+    val functions =
+      funcRegex
+        .findAll(dtsContent)
+        .map { m -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+        .toList()
+
+    val sb = StringBuilder()
+    sb.appendLine("// AUTO GENERATED FILE, DO NOT EDIT.")
+    sb.appendLine("// Generated by :prism-flutter:generateDartJsBindings from prism.d.mts")
+    sb.appendLine("// ignore_for_file: type=lint")
+    sb.appendLine("import 'dart:js_interop';")
+    sb.appendLine()
+    sb.appendLine("/// Window-pinning names for all prism-js @JsExport functions.")
+    sb.appendLine("const List<String> prismJsExportNames = [")
+    functions.forEach { (name, _, _) -> sb.appendLine("  '$name',") }
+    sb.appendLine("];")
+    sb.appendLine()
+    functions.forEach { (name, rawParams, retType) ->
+      val dartParams = parseParams(rawParams)
+      val dartRet = mapType(retType)
+      sb.appendLine("@JS('$name')")
+      sb.appendLine("external $dartRet $name($dartParams);")
+      sb.appendLine()
+    }
+
+    dartOutFile.parentFile.mkdirs()
+    dartOutFile.writeText(sb.toString())
+    logger.lifecycle("Dart JS bindings written to $dartOutFile")
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -170,12 +168,14 @@ tasks.register("generateDartJsBindings") {
 // Run: ./gradlew :prism-flutter:bundleFlutterMacOS
 // ---------------------------------------------------------------------------
 tasks.register<Copy>("bundleFlutterMacOS") {
-    dependsOn("assemblePrismFlutterReleaseXCFramework")
-    val xcfDir = layout.buildDirectory
-        .dir("XCFrameworks/release/PrismFlutter.xcframework")
-    from(xcfDir)
-    into(layout.projectDirectory
-        .dir("flutter_plugin/macos/prism_flutter/Frameworks/PrismFlutter.xcframework"))
+  dependsOn("assemblePrismFlutterReleaseXCFramework")
+  val xcfDir = layout.buildDirectory.dir("XCFrameworks/release/PrismFlutter.xcframework")
+  from(xcfDir)
+  into(
+    layout.projectDirectory.dir(
+      "flutter_plugin/macos/prism_flutter/Frameworks/PrismFlutter.xcframework"
+    )
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -183,25 +183,26 @@ tasks.register<Copy>("bundleFlutterMacOS") {
 // Run: ./gradlew :prism-flutter:bundleNativeMacOS
 // ---------------------------------------------------------------------------
 tasks.register<Exec>("bundleNativeMacOS") {
-    val dylibDir = project(":prism-native").layout.buildDirectory
-        .dir("bin/macosArm64/releaseShared").get().asFile
-    val outDir = layout.projectDirectory
-        .dir("flutter_plugin/macos/prism_flutter/Frameworks").asFile
-    dependsOn(":prism-native:linkReleaseSharedMacosArm64")
-    commandLine(
-        "xcodebuild", "-create-xcframework",
-        "-library", File(dylibDir, "libprism.dylib").absolutePath,
-        "-headers", dylibDir.absolutePath,
-        "-output", File(outDir, "PrismNative.xcframework").absolutePath,
-    )
-    doFirst {
-        File(outDir, "PrismNative.xcframework").deleteRecursively()
-        outDir.mkdirs()
-        // Write module map into the headers dir so Swift can import PrismNative.
-        // xcodebuild copies the entire headers dir into the XCFramework.
-        File(dylibDir, "module.modulemap").writeText(
-            "module PrismNative {\n    umbrella header \"libprism_api.h\"\n    export *\n}\n"
-        )
-    }
+  val dylibDir =
+    project(":prism-native").layout.buildDirectory.dir("bin/macosArm64/releaseShared").get().asFile
+  val outDir = layout.projectDirectory.dir("flutter_plugin/macos/prism_flutter/Frameworks").asFile
+  dependsOn(":prism-native:linkReleaseSharedMacosArm64")
+  commandLine(
+    "xcodebuild",
+    "-create-xcframework",
+    "-library",
+    File(dylibDir, "libprism.dylib").absolutePath,
+    "-headers",
+    dylibDir.absolutePath,
+    "-output",
+    File(outDir, "PrismNative.xcframework").absolutePath,
+  )
+  doFirst {
+    File(outDir, "PrismNative.xcframework").deleteRecursively()
+    outDir.mkdirs()
+    // Write module map into the headers dir so Swift can import PrismNative.
+    // xcodebuild copies the entire headers dir into the XCFramework.
+    File(dylibDir, "module.modulemap")
+      .writeText("module PrismNative {\n    umbrella header \"libprism_api.h\"\n    export *\n}\n")
+  }
 }
-

@@ -227,7 +227,10 @@ object IblGenerator {
           ),
           ArrayBuffer.of(pixels),
           // RGBA16Float: 4 channels × 2 bytes each = 8 bytes/texel
-          TexelCopyBufferLayout(bytesPerRow = (mipSize * 8).toUInt(), rowsPerImage = mipSize.toUInt()),
+          TexelCopyBufferLayout(
+            bytesPerRow = (mipSize * 8).toUInt(),
+            rowsPerImage = mipSize.toUInt(),
+          ),
           Extent3D(mipSize.toUInt(), mipSize.toUInt()),
         )
       }

@@ -648,4 +648,45 @@ d2fa7f9 — fix: suppress two-finger orbit hint; update architecture diagram
 35335be — docs: rename Dart panel label
 8119f23 — docs: add supported Flutter platforms to Dart snippet label
 368fda6 — docs: add macOS to Swift snippet label
-HEAD — feat(prism-js): add TypeScript SDK with auto-generated types
+36d5065 — feat(prism-js): add TypeScript SDK with auto-generated types
+9b86bf0 — devlog: record TypeScript SDK implementation notes
+b7cdb04 — docs: update web snippet label to TypeScript · JavaScript · Web
+HEAD — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
+
+---
+
+### linuxX64/mingwX64 re-enablement + nonNativeMain Compose isolation (2026-02-22)
+
+#### What Changed
+
+`prism-audio/build.gradle.kts`, `prism-ecs/build.gradle.kts`, `prism-input/build.gradle.kts`, `prism-scene/build.gradle.kts`, `prism-assets/build.gradle.kts` — Re-added `linuxX64()` and `mingwX64()` targets (previously removed with comment "no platform code"). These targets now compile; all code is pure Kotlin with no platform-specific actuals needed.
+
+`prism-compose/build.gradle.kts` — Added `linuxX64()`, `mingwX64()`. Created `nonNativeMain` source set depending on `commonMain`; `jvmMain`, `androidMain`, `wasmJsMain`, `appleMain` all depend on `nonNativeMain`. Moved Compose dependencies (`compose.runtime`, `compose.foundation`, `compose.ui`, `lifecycle.runtime.compose`) from `commonMain` to `nonNativeMain`. Removed redundant `iosArm64Main.dependsOn(appleMain)` etc. (already set by hierarchy template).
+
+`prism-compose/src/commonMain/kotlin/com/hyeonslab/prism/compose/{EngineState,PrismOverlay,PrismTheme,PrismView}.kt` — Deleted from `commonMain`; all Compose-dependent code moved to `nonNativeMain`.
+
+`prism-compose/src/nonNativeMain/kotlin/com/hyeonslab/prism/compose/{EngineState,PrismOverlay,PrismTheme,PrismView}.kt` — New files (exact moves from `commonMain`); now compile only for targets that support Compose (JVM, Android, wasmJs, Apple).
+
+`prism-demo-core/build.gradle.kts` — Added `linuxX64()`, `mingwX64()`. Created `nonNativeMain` source set; moved `api(project(":prism-compose"))` and all Compose dependencies from `commonMain` to `nonNativeMain`. Removed redundant apple target `dependsOn` calls.
+
+`prism-demo-core/src/commonMain/kotlin/com/hyeonslab/prism/demo/{ComposeDemoApp,ComposeDemoControls,DemoSceneState}.kt` — Deleted from `commonMain`.
+
+`prism-demo-core/src/nonNativeMain/kotlin/com/hyeonslab/prism/demo/{ComposeDemoApp,ComposeDemoControls,DemoSceneState}.kt` — New files (exact moves from `commonMain`).
+
+`prism-assets/src/nativeMain/kotlin/com/hyeonslab/prism/assets/ImageDecoder.native.kt` — Deleted. Was a shared `actual` for all native targets.
+
+`prism-assets/src/appleMain/kotlin/com/hyeonslab/prism/assets/ImageDecoder.native.kt` — New: CoreGraphics implementation (moved from `nativeMain`).
+
+`prism-assets/src/linuxMain/kotlin/com/hyeonslab/prism/assets/ImageDecoder.native.kt` — New: stub (`TODO("Linux not yet implemented")`).
+
+`prism-assets/src/mingwMain/kotlin/com/hyeonslab/prism/assets/ImageDecoder.native.kt` — New: stub (`TODO("Windows not yet implemented")`).
+
+`.gitignore` — Added `DamagedHelmet.glb` (3.7 MB binary demo asset, not committed; download from Khronos glTF-Sample-Assets) and `.output.txt` (stale build log).
+
+Various `*.kt` and `build.gradle.kts` files — Code reformatted to project 2-space indent standard (no logic changes).
+
+#### Decisions
+
+2026-02-22 `nonNativeMain` instead of removing targets — Linux/Windows targets are needed so that dependent modules compile their `linuxX64`/`mingwX64` source sets. Compose cannot compile for those targets; isolating Compose in `nonNativeMain` (which excludes native targets) is cleaner than removing the targets.
+
+2026-02-22 Removed redundant `dependsOn` for iOS/macOS source sets — `iosArm64Main.dependsOn(appleMain)` etc. are already set by `applyDefaultHierarchyTemplate()`. The explicit calls produced a Gradle warning. Only `appleMain.dependsOn(nonNativeMain)` is kept (that one is NOT in the template).

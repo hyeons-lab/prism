@@ -19,6 +19,8 @@ kotlin {
     minSdk = libs.versions.minSdk.get().toInt()
   }
   macosArm64 { binaries { executable { entryPoint = "com.hyeonslab.prism.demo.main" } } }
+  linuxX64()
+  mingwX64()
 
   val xcf = XCFramework("PrismDemo")
   listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -50,6 +52,28 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   sourceSets {
+    val commonMain by getting
+    val jvmMain by getting
+    val androidMain by getting
+    val wasmJsMain by getting
+
+    val nonNativeMain by creating { dependsOn(commonMain) }
+
+    jvmMain.dependsOn(nonNativeMain)
+    androidMain.dependsOn(nonNativeMain)
+    wasmJsMain.dependsOn(nonNativeMain)
+
+    val appleMain by getting { dependsOn(nonNativeMain) }
+
+    nonNativeMain.dependencies {
+      api(project(":prism-compose"))
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.foundation)
+      implementation(libs.compose.ui)
+      implementation(libs.compose.material3)
+      implementation(libs.lifecycle.runtime.compose)
+    }
+
     commonMain.dependencies {
       api(project(":prism-math"))
       api(project(":prism-core"))
@@ -59,15 +83,9 @@ kotlin {
       api(project(":prism-input"))
       api(project(":prism-assets"))
       api(project(":prism-audio"))
-      api(project(":prism-compose"))
       api(project(":prism-native-widgets"))
-      implementation(libs.compose.runtime)
-      implementation(libs.compose.foundation)
-      implementation(libs.compose.ui)
-      implementation(libs.compose.material3)
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
-      implementation(libs.lifecycle.runtime.compose)
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
     }

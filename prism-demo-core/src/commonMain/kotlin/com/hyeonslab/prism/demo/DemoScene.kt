@@ -32,7 +32,10 @@ class DemoScene(
    */
   internal val pendingSetup: ArrayDeque<() -> Unit> = ArrayDeque()
 
-  /** Advances the scene by one frame: executes the next pending setup item (if any), then ticks the ECS world. */
+  /**
+   * Advances the scene by one frame: executes the next pending setup item (if any), then ticks the
+   * ECS world.
+   */
   fun tick(deltaTime: Float, elapsed: Float, frameCount: Long) {
     pendingSetup.removeFirstOrNull()?.invoke()
     val time = Time(deltaTime = deltaTime, totalTime = elapsed, frameCount = frameCount)

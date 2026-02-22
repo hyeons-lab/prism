@@ -64,7 +64,10 @@ fun main() {
     // 2. Load the glTF model.
     val glbFetch =
       fetchBytesWithNativeBuffer("DamagedHelmet.glb")
-        ?: run { showFatalError("DamagedHelmet.glb not found"); return@launch }
+        ?: run {
+          showFatalError("DamagedHelmet.glb not found")
+          return@launch
+        }
     val scene =
       createGltfDemoScene(
         surface.wgpuContext!!,
@@ -190,7 +193,10 @@ private suspend fun startGltfScene(canvasId: String) {
   }
   val fetch =
     cachedGlbFetch
-      ?: run { log.e { "DamagedHelmet.glb not found — cannot start glTF scene" }; return }
+      ?: run {
+        log.e { "DamagedHelmet.glb not found — cannot start glTF scene" }
+        return
+      }
   val scene =
     createGltfDemoScene(
       ctx,

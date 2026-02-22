@@ -107,7 +107,8 @@ fun main() = runBlocking {
       try {
         scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
       } catch (e: IllegalStateException) {
-        // Surface became Outdated (window resize, display change, etc.). Reconfigure and skip frame.
+        // Surface became Outdated (window resize, display change, etc.). Reconfigure and skip
+        // frame.
         log.w { "Surface Outdated: ${e.message} — reconfiguring" }
         wgpuContext.surface.configure(
           SurfaceConfiguration(
@@ -135,7 +136,8 @@ private fun loadGlbBytes(path: String): ByteArray? {
     return null
   }
   val bytes = ByteArray(size.toInt())
-  val bytesRead = bytes.usePinned { pinned -> fread(pinned.addressOf(0), 1uL, size.toULong(), file) }
+  val bytesRead =
+    bytes.usePinned { pinned -> fread(pinned.addressOf(0), 1uL, size.toULong(), file) }
   fclose(file)
   if (bytesRead.toLong() != size) {
     return null

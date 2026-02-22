@@ -28,8 +28,8 @@ private val log = Logger.withTag("PrismIOS")
 
 /**
  * Handle returned by [configureDemoWithGltf] that manages the lifecycle of the demo scene and GPU
- * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`)
- * to release the WGPU instance, adapter, device, and surface.
+ * resources. Swift must call [shutdown] when the view controller is torn down (e.g. in `deinit`) to
+ * release the WGPU instance, adapter, device, and surface.
  *
  * [renderDelegate] is stored here to prevent garbage collection — MTKView.delegate is a WEAK
  * reference in UIKit, so without a strong reference the K/N GC will collect the delegate.

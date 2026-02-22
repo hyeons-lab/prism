@@ -38,3 +38,9 @@ prism-js/package-lock.json
 # Local config
 local.properties
 .claude/
+
+# Demo assets (large binary, not committed — download from Khronos glTF-Sample-Assets)
+DamagedHelmet.glb
+
+# Build output log
+.output.txt
