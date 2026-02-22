@@ -13,7 +13,7 @@ class MethodNotImplementedException(method: String) : Exception("Unknown method:
 abstract class AbstractFlutterMethodHandler(protected val bridge: PrismBridge<*, *>) {
 
     fun handleMethodCall(method: String, args: Map<String, Any?>): Any? = when (method) {
-        "isInitialized" -> bridge.isInitialized()
+        "isInitialized" -> bridge.isInitialized
         "shutdown" -> { bridge.shutdown(); true }
         "getState" -> getState()
         else -> handleDomainCall(method, args)
@@ -21,7 +21,7 @@ abstract class AbstractFlutterMethodHandler(protected val bridge: PrismBridge<*,
 
     /** Returns the current state map for "getState". Override to include domain fields. */
     protected open fun getState(): Map<String, Any?> =
-        mapOf("initialized" to bridge.isInitialized())
+        mapOf("initialized" to bridge.isInitialized)
 
     /**
      * Override to handle domain-specific method calls. Access the typed store via

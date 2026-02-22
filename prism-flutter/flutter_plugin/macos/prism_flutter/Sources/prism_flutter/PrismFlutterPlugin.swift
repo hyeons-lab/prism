@@ -19,7 +19,8 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         guard let bridge = bridge else {
-            fatalError("Call PrismFlutterPlugin.configure(bridge:) before the Flutter engine starts")
+            assertionFailure("Call PrismFlutterPlugin.configure(bridge:) before the Flutter engine starts")
+            return
         }
 
         // Engine method channel — matches the Dart PrismEngine channel name.
@@ -32,12 +33,12 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
                 bridge.togglePause()
                 result(true)
             case "isInitialized":
-                result(bridge.isInitialized())
+                result(bridge.isInitialized)
             case "getState":
                 result([
                     "fps": bridge.getCurrentFps(),
                     "isPaused": bridge.getPauseState(),
-                    "initialized": bridge.isInitialized(),
+                    "initialized": bridge.isInitialized,
                 ])
             case "shutdown":
                 bridge.detachSurface()

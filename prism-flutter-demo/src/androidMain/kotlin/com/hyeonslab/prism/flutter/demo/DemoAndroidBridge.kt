@@ -8,8 +8,10 @@ import com.hyeonslab.prism.flutter.PrismAndroidBridge
 import io.ygdrasil.webgpu.WGPUContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 
 /**
  * Android demo bridge. Extends [PrismAndroidBridge] with the Damaged Helmet glTF scene,
@@ -36,6 +38,9 @@ class DemoAndroidBridge(
     }
 
     override fun shutdown() {
+        runBlocking {
+            backgroundScope.coroutineContext[Job]?.children?.forEach { it.join() }
+        }
         backgroundScope.cancel()
         scene?.shutdown()
         super.shutdown()

@@ -12,7 +12,7 @@ import Foundation
     @objc(resizeWidth:height:)
     func resize(width: Int32, height: Int32)
     func detachSurface()
-    func isInitialized() -> Bool
+    var isInitialized: Bool { get }
 
     // Engine control — used by the method channel handler in PrismFlutterPlugin.
     func togglePause()

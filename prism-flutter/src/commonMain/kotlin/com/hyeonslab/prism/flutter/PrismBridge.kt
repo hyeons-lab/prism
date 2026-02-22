@@ -16,8 +16,8 @@ open class PrismBridge<T : Any, S : Store<*, *>>(val store: S) {
     var scene: T? = null
         protected set
 
-    fun attachScene(scene: T) { this.scene = scene }
-    fun detachScene() { scene = null }
-    fun isInitialized(): Boolean = scene != null
+    internal fun attachScene(scene: T) { this.scene = scene }
+    internal fun detachScene() { scene = null }
+    val isInitialized: Boolean get() = scene != null
     open fun shutdown() { scene = null }
 }

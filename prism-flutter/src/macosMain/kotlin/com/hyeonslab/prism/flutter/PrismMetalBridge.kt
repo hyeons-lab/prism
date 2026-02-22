@@ -9,7 +9,6 @@ import io.ygdrasil.webgpu.MacosContext
 import io.ygdrasil.webgpu.SurfaceConfiguration
 import io.ygdrasil.webgpu.WGPUContext
 import io.ygdrasil.webgpu.macosContextRendererFromLayer
-import kotlin.time.TimeSource
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.runBlocking
@@ -31,9 +30,7 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
 
     private var ctx: MacosContext? = null
     private var surfaceConfig: SurfaceConfiguration? = null
-    private var start = TimeSource.Monotonic.markNow()
-    private var lastMark = TimeSource.Monotonic.markNow()
-    private var frameCount = 0L
+    private val frameTimer = FrameTimer()
 
     /** Called after the wgpu surface is configured. Return the fully initialised scene. */
     protected abstract fun createScene(wgpuContext: WGPUContext, width: Int, height: Int): T
@@ -52,32 +49,39 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
     /**
      * Creates a wgpu [MacosContext] from [layerPtr] (raw `CAMetalLayer*`), configures the
      * surface, creates the scene via [createScene], and attaches it to this bridge.
+     *
+     * If [createScene] throws, the newly allocated [MacosContext] is closed before
+     * rethrowing so that GPU resources are not leaked.
      */
     fun attachMetalLayer(layerPtr: COpaquePointer?, width: Int, height: Int) {
         ctx?.close()
         val ptr = layerPtr ?: return
-        val ctx = runBlocking { macosContextRendererFromLayer(NativeAddress(ptr), width, height) }
-        val surface = ctx.wgpuContext.surface
-        val alphaMode = CompositeAlphaMode.Inherit
-            .takeIf { surface.supportedAlphaMode.contains(it) }
-            ?: CompositeAlphaMode.Opaque
-        val surfaceConfig = SurfaceConfiguration(
-            device = ctx.wgpuContext.device,
-            format = ctx.wgpuContext.renderingContext.textureFormat,
-            alphaMode = alphaMode,
-        )
-        surface.configure(surfaceConfig)
-        val scene = createScene(ctx.wgpuContext, width, height)
-        // Re-apply surface config after scene creation: createScene() blocks the main
-        // thread (runBlocking), which can allow the CAMetalLayer size to change and
-        // mark the surface as Outdated. Re-configuring clears the Outdated status.
-        surface.configure(surfaceConfig)
+        val newCtx = runBlocking { macosContextRendererFromLayer(NativeAddress(ptr), width, height) }
+        val (surfaceConfig, scene) = try {
+            val surface = newCtx.wgpuContext.surface
+            val alphaMode = CompositeAlphaMode.Inherit
+                .takeIf { surface.supportedAlphaMode.contains(it) }
+                ?: CompositeAlphaMode.Opaque
+            val config = SurfaceConfiguration(
+                device = newCtx.wgpuContext.device,
+                format = newCtx.wgpuContext.renderingContext.textureFormat,
+                alphaMode = alphaMode,
+            )
+            surface.configure(config)
+            val s = createScene(newCtx.wgpuContext, width, height)
+            // Re-apply surface config after scene creation: createScene() blocks the main
+            // thread (runBlocking), which can allow the CAMetalLayer size to change and
+            // mark the surface as Outdated. Re-configuring clears the Outdated status.
+            surface.configure(config)
+            config to s
+        } catch (t: Throwable) {
+            newCtx.close()
+            throw t
+        }
         attachScene(scene)
-        this.ctx = ctx
+        this.ctx = newCtx
         this.surfaceConfig = surfaceConfig
-        this.start = TimeSource.Monotonic.markNow()
-        this.lastMark = TimeSource.Monotonic.markNow()
-        this.frameCount = 0L
+        frameTimer.reset()
     }
 
     /**
@@ -95,12 +99,11 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
     /** Computes delta/elapsed time and delegates to [tickScene] (skipped when [isPaused]). */
     fun renderFrame() {
         val s = scene ?: return
-        val now = TimeSource.Monotonic.markNow()
-        val deltaTime = (now - lastMark).inWholeNanoseconds / 1_000_000_000f
-        lastMark = now
-        val elapsed = (now - start).inWholeNanoseconds / 1_000_000_000f
-        frameCount++
+        // advanceTiming always updates lastMark so resume doesn't see a huge delta.
+        val (deltaTime, elapsed) = frameTimer.advanceTiming()
         if (isPaused) return
+        // nextFrame increments only when we actually render, keeping frameCount accurate.
+        val frameCount = frameTimer.nextFrame()
         try {
             tickScene(s, deltaTime, elapsed, frameCount)
         } catch (e: IllegalStateException) {
@@ -121,5 +124,6 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
         shutdown()
         ctx?.close()
         ctx = null
+        surfaceConfig = null
     }
 }

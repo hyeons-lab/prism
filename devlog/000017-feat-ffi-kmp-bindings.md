@@ -451,3 +451,100 @@ Plan: `devlog/plans/000017-03-code-review-test-coverage.md`
 
 71c7e02 — feat: surface PrismFlutter.xcframework and fix docs code snippets
 HEAD — docs: add HEAD commit tracking rule to AGENTS.md and CONVENTIONS.md
+
+---
+
+### Step 15 — Critical review fixes (2026-02-21)
+
+Plan: `devlog/plans/000017-04-critical-review-fixes.md`
+
+`wgpu4k/wgpu4k/src/commonMain/kotlin/SurfaceOutdatedException.kt` — New: typed exception
+extending `IllegalStateException` so existing catch blocks work during migration. (F7)
+
+`wgpu4k/wgpu4k/src/commonNativeMain/kotlin/Surface.native.kt` — `getCurrentTexture()` now
+reads the status before accessing the texture pointer; throws `SurfaceOutdatedException` when
+`status == SurfaceTextureStatus.outdated` instead of crashing on a null texture. (F7)
+Version not bumped (fork not yet published to Maven local).
+
+`prism-flutter/src/commonMain/.../FrameTimer.kt` — New: `FrameTimer` class encapsulating
+start/lastMark/frameCount; used by both `PrismMetalBridge` and `PrismAndroidBridge` to
+eliminate the duplicated timing boilerplate. (M-8)
+
+`prism-flutter/src/commonMain/.../PrismBridge.kt` — F6: `attachScene`/`detachScene` →
+`internal` (callers are same-module only). m-1: `fun isInitialized(): Boolean` →
+`val isInitialized: Boolean` (pure property, no side effects).
+
+`prism-flutter/src/macosMain/.../PrismMetalBridge.kt` — F1: wrapped surface-config+scene-
+creation in try-catch; closes new `MacosContext` on exception to prevent GPU resource leak.
+F3: added `surfaceConfig = null` in `detachSurface()`. F10: moved `frameCount++` after
+`if (isPaused) return` so the counter reflects rendered frames only. Uses `FrameTimer`.
+
+`prism-flutter/src/androidMain/.../PrismAndroidBridge.kt` — Uses `FrameTimer`; removed
+manual start/lastMark/frameCount fields.
+
+`prism-flutter/src/commonMain/.../FlutterMethodHandler.kt` — m-1: updated
+`bridge.isInitialized()` → `bridge.isInitialized`.
+
+`prism-flutter/src/commonTest/.../PrismBridgeTest.kt` — m-1: updated all
+`bridge.isInitialized()` → `bridge.isInitialized`.
+
+`prism-flutter/src/commonTest/.../AbstractFlutterMethodHandlerTest.kt` — New: 7 tests for
+`AbstractFlutterMethodHandler` dispatch contract using `FakeBridge`/`PassThroughHandler`.
+Covers isInitialized before/after attach, shutdown, getState, domain forwarding, unknown
+method exception, and shutdown→isInitialized regression.
+
+`prism-flutter/flutter_plugin/macos/.../PrismMetalBridgeProtocol.swift` — m-1: updated
+`func isInitialized() -> Bool` → `var isInitialized: Bool { get }`.
+
+`prism-flutter/flutter_plugin/macos/.../PrismFlutterPlugin.swift` — F5: replaced
+`fatalError` with `assertionFailure` + `return` so release builds no-op instead of crashing
+when bridge is unconfigured. m-1: updated `bridge.isInitialized()` → `bridge.isInitialized`.
+
+`prism-flutter/flutter_plugin/macos/.../PrismMacOSPlatformView.swift` — F11: `deinit`
+now dispatches `detachSurface()` to the main thread via `DispatchQueue.main.async` to prevent
+race with ARC deallocation on a background thread. m-1: `bridge.isInitialized()` →
+`bridge.isInitialized`. m-4: corrected sensitivity comment (628 pts/revolution, not 314).
+
+`prism-flutter/flutter_plugin/android/.../PrismPlatformView.kt` — m-1: updated
+`bridge.isInitialized()` → `bridge.isInitialized`.
+
+`prism-demo-core/src/macosMain/.../DemoMacosMain.kt` — F2: `fread` return value captured;
+returns `null` on short read. F4: added `@Volatile` to `lastMouseX`, `lastMouseY`,
+`mouseButtonDown` + explanatory comment about GLFW's synchronous dispatch model.
+
+`prism-flutter-demo/src/macosMain/.../DemoMacosBridge.kt` — F2: `fread` return value
+captured; returns `null` + warning log on short read. F8: `shutdown()` now joins all
+background-scope children via `runBlocking` before cancelling, so in-flight texture
+uploads complete before `scene.shutdown()` tears down GPU state.
+
+`prism-flutter-demo/src/androidMain/.../DemoAndroidBridge.kt` — F8: same shutdown-order
+fix as DemoMacosBridge.
+
+`prism-flutter-demo/src/commonMain/.../FlutterMethodHandler.kt` — m-2: `setRotationSpeed`
+now throws `IllegalArgumentException` when `args["speed"]` is absent (previously silently
+defaulted to 45f).
+
+`prism-flutter-demo/src/commonMain/.../DemoBridge.kt` — m-3: removed public `dispatchFps()`
+dead-code method (FPS is dispatched inline in `tickScene`).
+
+`prism-flutter-demo/src/commonTest/.../FlutterMethodHandlerTest.kt` — Updated for m-1
+(`bridge.isInitialized`) and m-2 (test now expects `IllegalArgumentException` on missing
+speed arg, not a default value).
+
+## Decisions (Step 15)
+
+2026-02-21 wgpu4k version not bumped — fork not yet published to Maven local; the
+`SurfaceOutdatedException` class is added to the fork but Prism's catch blocks still use
+the string-matching ISE check until the fork is published (F7 Prism-side deferred to Phase B).
+
+2026-02-21 F9 (getState routing) deferred to Phase B — requires Swift protocol changes and
+SKIE export adjustments; isolated from Phase A fixes.
+
+2026-02-21 FrameTimer `nextFrame` vs Android frameCount semantics — macOS (post F10): calls
+`nextFrame()` only when not paused, so `frameCount` is a rendered-frame counter. Android:
+calls `nextFrame()` unconditionally before the `if (!isPaused)` guard, preserving the
+pre-existing behavior (deemed non-buggy per the review).
+
+## Commits (Step 15)
+
+HEAD — fix: critical review fixes (F1-F12, new test, wgpu4k SurfaceOutdatedException)

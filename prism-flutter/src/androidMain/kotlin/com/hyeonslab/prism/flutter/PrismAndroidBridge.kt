@@ -2,7 +2,6 @@ package com.hyeonslab.prism.flutter
 
 import com.hyeonslab.prism.core.Store
 import io.ygdrasil.webgpu.WGPUContext
-import kotlin.time.TimeSource
 
 /**
  * Android-specific [PrismBridge] base that manages the wgpu SurfaceView lifecycle.
@@ -18,9 +17,7 @@ import kotlin.time.TimeSource
  */
 abstract class PrismAndroidBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridge<T, S>(store) {
 
-    private var start = TimeSource.Monotonic.markNow()
-    private var lastMark = TimeSource.Monotonic.markNow()
-    private var frameCount = 0L
+    private val frameTimer = FrameTimer()
 
     protected open val isPaused: Boolean get() = false
 
@@ -40,25 +37,20 @@ abstract class PrismAndroidBridge<T : Any, S : Store<*, *>>(store: S) : PrismBri
     suspend fun onSurfaceReady(wgpuContext: WGPUContext, width: Int, height: Int) {
         val scene = createScene(wgpuContext, width, height)
         attachScene(scene)
-        start = TimeSource.Monotonic.markNow()
-        lastMark = TimeSource.Monotonic.markNow()
-        frameCount = 0L
+        frameTimer.reset()
     }
 
     /** Resets the frame-timing baseline. Call after a pause so the first resumed frame
      *  does not compute a multi-second delta. */
     fun resetFrameTiming() {
-        lastMark = TimeSource.Monotonic.markNow()
+        frameTimer.resetLastMark()
     }
 
     /** Called by [PrismPlatformView] on every Choreographer frame. */
     fun doFrame() {
         val s = scene ?: return
-        val now = TimeSource.Monotonic.markNow()
-        val deltaTime = (now - lastMark).inWholeNanoseconds / 1_000_000_000f
-        lastMark = now
-        val elapsed = (now - start).inWholeNanoseconds / 1_000_000_000f
-        frameCount++
+        val (deltaTime, elapsed) = frameTimer.advanceTiming()
+        val frameCount = frameTimer.nextFrame()
         if (!isPaused) tickScene(s, deltaTime, elapsed, frameCount)
     }
 }

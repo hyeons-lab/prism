@@ -13,6 +13,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
@@ -93,6 +94,9 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
     }
 
     override fun shutdown() {
+        runBlocking {
+            backgroundScope.coroutineContext[Job]?.children?.forEach { it.join() }
+        }
         backgroundScope.cancel()
         scene?.shutdown()
         super.shutdown()
@@ -140,10 +144,14 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
             return null
         }
         val bytes = ByteArray(size.toInt())
-        bytes.usePinned { pinned ->
+        val bytesRead = bytes.usePinned { pinned ->
             fread(pinned.addressOf(0), 1uL, size.toULong(), file)
         }
         fclose(file)
+        if (bytesRead.toLong() != size) {
+            log.w { "Short read for DamagedHelmet.glb: expected $size bytes, got $bytesRead" }
+            return null
+        }
         log.i { "Loaded DamagedHelmet.glb ($size bytes) from app bundle" }
         return bytes
     }

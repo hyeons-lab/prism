@@ -14,9 +14,6 @@ class DemoBridge : PrismBridge<DemoScene, DemoStore>(DemoStore()) {
     /** True when the demo is paused — check this in the platform render loop. */
     val isPaused: Boolean get() = store.state.value.isPaused
 
-    /** Push a new smoothed FPS reading into the store from the platform render loop. */
-    fun dispatchFps(fps: Float) = store.dispatch(DemoIntent.UpdateFps(fps))
-
     override fun shutdown() {
         scene?.shutdown()
         super.shutdown()

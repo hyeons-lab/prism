@@ -59,9 +59,10 @@ class FlutterMethodHandlerTest {
     }
 
     @Test
-    fun setRotationSpeedUsesDefaultWhenArgMissing() {
-        handler.handleMethodCall("setRotationSpeed", emptyMap())
-        assertEquals(45f, bridge.store.state.value.rotationSpeed)
+    fun setRotationSpeedThrowsWhenArgMissing() {
+        assertFailsWith<IllegalArgumentException> {
+            handler.handleMethodCall("setRotationSpeed", emptyMap())
+        }
     }
 
     @Test
@@ -95,6 +96,6 @@ class FlutterMethodHandlerTest {
     @Test
     fun shutdownCallSetsSceneNull() {
         handler.handleMethodCall("shutdown", emptyMap())
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
     }
 }

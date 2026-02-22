@@ -29,7 +29,9 @@ class FlutterMethodHandler(private val demoBridge: PrismBridge<DemoScene, DemoSt
     override fun handleDomainCall(method: String, args: Map<String, Any?>): Any? = when (method) {
         "togglePause" -> { demoBridge.store.dispatch(DemoIntent.TogglePause); true }
         "setRotationSpeed" -> {
-            demoBridge.store.dispatch(DemoIntent.SetRotationSpeed((args["speed"] as? Number)?.toFloat() ?: 45f))
+            val speed = (args["speed"] as? Number)?.toFloat()
+                ?: throw IllegalArgumentException("setRotationSpeed requires a 'speed' argument")
+            demoBridge.store.dispatch(DemoIntent.SetRotationSpeed(speed))
             true
         }
         "setMetallic" -> {

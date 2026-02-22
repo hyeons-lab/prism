@@ -40,14 +40,17 @@ class PrismMetalView: MTKView, MTKViewDelegate {
 
     required init(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
-    deinit { bridge.detachSurface() }
+    deinit {
+        let b = bridge
+        DispatchQueue.main.async { b.detachSurface() }
+    }
 
     // MARK: MTKViewDelegate
 
     func draw(in view: MTKView) {
         let size = view.drawableSize
         guard size.width > 0 && size.height > 0 else { return }
-        if !bridge.isInitialized() {
+        if !bridge.isInitialized {
             guard let metalLayer = view.layer as? CAMetalLayer else { return }
             let rawPtr = Unmanaged.passUnretained(metalLayer).toOpaque()
             bridge.attachMetalLayer(
@@ -73,7 +76,7 @@ class PrismMetalView: MTKView, MTKViewDelegate {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     /// Orbit the camera: horizontal drag → azimuth, vertical drag → elevation.
-    /// Sensitivity of 0.01 rad/pt gives roughly 314 px per full revolution.
+    /// Sensitivity of 0.01 rad/pt gives roughly 628 px per full revolution (2π / 0.01).
     /// Both axes are negated so dragging right/up feels like grabbing the scene.
     /// No-op when the bridge does not conform to PrismInputDelegate.
     override func mouseDragged(with event: NSEvent) {

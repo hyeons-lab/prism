@@ -67,7 +67,7 @@ class PrismPlatformView(
   override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     log.i { "surfaceChanged: ${width}x${height}" }
 
-    if (bridge.isInitialized()) {
+    if (bridge.isInitialized) {
       bridge.onDimensionsChanged(width, height)
       return
     }

@@ -19,20 +19,20 @@ class PrismBridgeTest {
 
     @Test
     fun isInitializedFalseBeforeAttach() {
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
     }
 
     @Test
     fun isInitializedTrueAfterAttach() {
         bridge.attachScene("hello")
-        assertTrue(bridge.isInitialized())
+        assertTrue(bridge.isInitialized)
     }
 
     @Test
     fun detachSceneSetsSceneNull() {
         bridge.attachScene("hello")
         bridge.detachScene()
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
         assertNull(bridge.scene)
     }
 
@@ -41,7 +41,7 @@ class PrismBridgeTest {
         bridge.attachScene("world")
         bridge.shutdown()
         assertNull(bridge.scene)
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
     }
 
     @Test
@@ -49,12 +49,12 @@ class PrismBridgeTest {
         bridge.attachScene("world")
         bridge.shutdown()
         bridge.shutdown()
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
     }
 
     @Test
     fun shutdownOnUninitializedBridgeIsSafe() {
         bridge.shutdown()
-        assertFalse(bridge.isInitialized())
+        assertFalse(bridge.isInitialized)
     }
 }

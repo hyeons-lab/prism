@@ -13,6 +13,7 @@ import glfw.glfwShowWindow
 import glfw.glfwWindowShouldClose
 import io.ygdrasil.webgpu.CompositeAlphaMode
 import io.ygdrasil.webgpu.SurfaceConfiguration
+import kotlin.concurrent.Volatile
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.staticCFunction
@@ -33,10 +34,14 @@ private val log = Logger.withTag("PrismMacOS")
 private const val ORBIT_SENSITIVITY = 0.005f
 
 // Top-level state shared with staticCFunction callbacks (which cannot capture locals).
+// glfwPollEvents() dispatches mouse/cursor callbacks synchronously on the macOS main
+// thread. Callbacks complete before scene.tick() runs — no mutex needed. @Volatile
+// ensures Kotlin/Native's memory model treats writes as visible to subsequent reads on
+// the same thread across function boundaries.
 private lateinit var orbitScene: DemoScene
-private var lastMouseX = 0.0
-private var lastMouseY = 0.0
-private var mouseButtonDown = false
+@Volatile private var lastMouseX = 0.0
+@Volatile private var lastMouseY = 0.0
+@Volatile private var mouseButtonDown = false
 
 fun main() = runBlocking {
   log.i { "Starting Prism macOS Native Demo..." }
@@ -130,8 +135,11 @@ private fun loadGlbBytes(path: String): ByteArray? {
     return null
   }
   val bytes = ByteArray(size.toInt())
-  bytes.usePinned { pinned -> fread(pinned.addressOf(0), 1uL, size.toULong(), file) }
+  val bytesRead = bytes.usePinned { pinned -> fread(pinned.addressOf(0), 1uL, size.toULong(), file) }
   fclose(file)
+  if (bytesRead.toLong() != size) {
+    return null
+  }
   log.i { "Loaded $path ($size bytes)" }
   return bytes
 }
