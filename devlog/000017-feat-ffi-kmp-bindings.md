@@ -268,8 +268,9 @@ c02201f — feat: migrate iOS plugin from CocoaPods to SPM
 5c7bdac — chore: update devlog with SPM migration decisions and fixes
 e66a7a4 — feat: switch iOS to prism-native FFI and add macOS Metal platform view
 5e8d0b1 — chore: update devlog
-5e8d0b1 — chore: update devlog (replaced HEAD above)
- HEAD — fix: address critical review findings; resource management; thread safety; docker CI
+ 5e8d0b1 — chore: update devlog (replaced HEAD above)
+ d5c86f4 — fix: address critical review findings; resource management; thread safety; docker CI
+ HEAD — commit and push changes
 
 ### Resource Management & Thread Safety (2026-02-22)
 
@@ -688,8 +689,9 @@ d2fa7f9 — fix: suppress two-finger orbit hint; update architecture diagram
 36d5065 — feat(prism-js): add TypeScript SDK with auto-generated types
 9b86bf0 — devlog: record TypeScript SDK implementation notes
 b7cdb04 — docs: update web snippet label to TypeScript · JavaScript · Web
-f47ff44 — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
- HEAD — fix: address critical review findings; resource management; thread safety; docker CI
+ f47ff44 — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
+ d5c86f4 — fix: address critical review findings; resource management; thread safety; docker CI
+ HEAD — commit and push changes
 
 ---
 
