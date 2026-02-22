@@ -5,7 +5,7 @@
 // _FpsChip and PrismDemoPage are tested through PrismDemoApp:
 //  - On macOS host, PrismEngine uses the method channel (no-op initialize,
 //    channel returns null → isInitialized() returns false, getState() returns {}).
-//  - defaultTargetPlatform is overridden to TargetPlatform.iOS so PrismRenderView
+//  - TargetPlatformVariant.only(TargetPlatform.iOS) ensures PrismRenderView
 //    falls through to its "not yet available" fallback instead of creating an
 //    AppKitView or AndroidView (which require a registered platform view factory).
 
@@ -17,31 +17,22 @@ import 'package:prism_flutter_example/main.dart';
 void main() {
   testWidgets('fps chip shows 0 fps before first engine tick',
       (WidgetTester tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-
     await tester.pumpWidget(const PrismDemoApp());
 
     // _FpsChip renders fps.toStringAsFixed(0) + ' fps'; initial _fps == 0.0.
     expect(find.text('0 fps'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('loading overlay is visible before engine initializes',
       (WidgetTester tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-
     await tester.pumpWidget(const PrismDemoApp());
 
     // The overlay (CircularProgressIndicator) is shown while _isInitialized == false.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('loading overlay disappears once isInitialized becomes true',
       (WidgetTester tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
-
     await tester.pumpWidget(const PrismDemoApp());
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
@@ -51,5 +42,5 @@ void main() {
     // alone does not prematurely hide it.
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 }
