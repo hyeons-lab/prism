@@ -172,7 +172,8 @@
             <h3>Native Surfaces</h3>
             <p>
               PrismSurface with suspend factory across JVM (GLFW), iOS
-              (MTKView), macOS (GLFW), WASM (Canvas), and more.
+              (MTKView), Android (SurfaceView), macOS (GLFW + AppKitView),
+              Flutter, and WASM (Canvas).
             </p>
           </div>
           <div class="feature-card">
@@ -207,23 +208,28 @@
           <pre>
 <span class="hl">prism-math</span>              <span class="dim">Vector/matrix math, transforms</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl">prism-core</span>        <span class="dim">Engine core, subsystems, game loop</span>
-       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-green">prism-renderer</span>    <span class="dim">wgpu4k rendering + WGSL shaders</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-scene       <span class="dim">Scene graph</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-ecs         <span class="dim">Entity-Component-System</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-assets      <span class="dim">Asset loading</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-green">prism-renderer</span>    <span class="dim">wgpu4k PBR pipeline + WGSL shaders</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-scene       <span class="dim">Scene graph &mdash; MeshNode, CameraNode, LightNode</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-ecs         <span class="dim">Entity-Component-System, query iteration</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-assets      <span class="dim">glTF 2.0 loader, asset pipeline</span>
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-input       <span class="dim">Cross-platform input</span>
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-audio       <span class="dim">Audio engine (stub)</span>
 
-<span class="hl-green">prism-renderer</span>
-  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
-       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Generic Flutter plugin &mdash; PrismBridge&lt;T,S&gt;, PrismMetalBridge, PrismAndroidBridge</span>
+<span class="hl-green">prism-renderer</span> + <span class="hl">prism-core</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform surfaces &mdash; GLFW, MTKView, SurfaceView, Canvas/Wasm</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform 3D surface + MVI</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Generic Flutter bridge &mdash; PrismBridge&lt;T,S&gt;, PrismMetalBridge, PrismAndroidBridge</span>
 
-<span class="hl">prism-js</span>     <span class="dim">@JsExport bridge &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/WASM)</span>
-<span class="hl">prism-native</span> <span class="dim">@CName bridge &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native)</span>
+<span class="dim">Bindings</span>
+<span class="hl">prism-js</span>       <span class="dim">@JsExport &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/Wasm)</span>
+<span class="hl">prism-native</span>   <span class="dim">@CName &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native &mdash; macOS, iOS, Linux, Windows)</span>
+<span class="hl">prism-ios</span>      <span class="dim">iOS XCFramework umbrella &mdash; <code>import Prism</code> from Swift  (Kotlin/Native &#x2192; XCFramework)</span>
 
-<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo scene (glTF 2.0 — DamagedHelmet)</span>
-  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter demo consumer &mdash; DemoMacosBridge, DemoAndroidBridge, FlutterMethodHandler</span></pre>
+<span class="dim">Demo &amp; Consumer</span>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared PBR scene &mdash; glTF 2.0, IBL, ECS instantiation</span>
+  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter consumer &mdash; DemoMacosBridge, DemoAndroidBridge, FlutterMethodHandler</span>
+  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-android-demo   <span class="dim">Android standalone demo app</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-ios-demo       <span class="dim">iOS demo app (Xcode, links prism-ios XCFramework)</span></pre>
         </div>
       </div>
     </section>
