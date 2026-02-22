@@ -296,14 +296,15 @@ print("dt: \(engine.time.deltaTime)")</pre>
           </div>
 
           <div class="lang-card">
-            <div class="lang-label">JavaScript &middot; Web</div>
-<pre class="code-block">import { Engine, World, Scene, MeshNode, CameraNode,
+            <div class="lang-label">TypeScript &middot; JavaScript &middot; Web</div>
+<pre class="code-block"><span class="comment">// prism-sdk.d.mts ships alongside prism-sdk.mjs for full TS type coverage</span>
+import { Engine, World, Scene, MeshNode, CameraNode,
          EngineConfig, TransformComponent, Vec3 } from './prism-sdk.mjs';
 
 <span class="comment">// Create engine and ECS world</span>
 const engine = new Engine(new EngineConfig({ targetFps: 60 }));
 const world  = new World();
-const entity = world.createEntity();
+const entity: number = world.createEntity();
 world.addComponent(entity, new TransformComponent({ position: new Vec3(0, 0, -5) }));
 
 <span class="comment">// Scene graph: mesh node + camera</span>
