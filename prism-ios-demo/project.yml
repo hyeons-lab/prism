@@ -15,6 +15,11 @@ targets:
     platform: iOS
     sources:
       - Sources
+      # DamagedHelmet.glb is not committed; run `./gradlew downloadDemoAssets` first,
+      # then re-run `xcodegen generate` to include it in the bundle.
+      - path: ../prism-demo-core/assets/DamagedHelmet.glb
+        optional: true
+        buildPhase: resources
     settings:
       base:
         INFOPLIST_FILE: Sources/Info.plist

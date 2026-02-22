@@ -61,21 +61,22 @@ fun main() {
     // 1. Create a WebGPU surface from the HTML canvas element.
     val surface = createPrismSurface("prismCanvas")
 
-    // 2. Load the glTF model (falls back to PBR sphere-grid if unavailable).
-    val glbFetch = fetchBytesWithNativeBuffer("DamagedHelmet.glb")
+    // 2. Load the glTF model.
+    val glbFetch =
+      fetchBytesWithNativeBuffer("DamagedHelmet.glb")
+        ?: run {
+          showFatalError("DamagedHelmet.glb not found")
+          return@launch
+        }
     val scene =
-      if (glbFetch != null) {
-        createGltfDemoScene(
-          surface.wgpuContext!!,
-          surface.width,
-          surface.height,
-          glbFetch.bytes,
-          progressiveScope = GlobalScope,
-          nativeGlbBuffer = glbFetch.nativeBuffer,
-        )
-      } else {
-        createDemoScene(surface.wgpuContext!!, surface.width, surface.height)
-      }
+      createGltfDemoScene(
+        surface.wgpuContext!!,
+        surface.width,
+        surface.height,
+        glbFetch.bytes,
+        progressiveScope = GlobalScope,
+        nativeGlbBuffer = glbFetch.nativeBuffer,
+      )
 
     // 3. Drag to orbit the camera.
     surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
@@ -190,19 +191,21 @@ private suspend fun startGltfScene(canvasId: String) {
   if (cachedGlbFetch == null) {
     cachedGlbFetch = fetchBytesWithNativeBuffer("DamagedHelmet.glb")
   }
+  val fetch =
+    cachedGlbFetch
+      ?: run {
+        log.e { "DamagedHelmet.glb not found — cannot start glTF scene" }
+        return
+      }
   val scene =
-    if (cachedGlbFetch != null) {
-      createGltfDemoScene(
-        ctx,
-        surface.width,
-        surface.height,
-        cachedGlbFetch!!.bytes,
-        progressiveScope = GlobalScope,
-        nativeGlbBuffer = cachedGlbFetch!!.nativeBuffer,
-      )
-    } else {
-      createDemoScene(ctx, surface.width, surface.height)
-    }
+    createGltfDemoScene(
+      ctx,
+      surface.width,
+      surface.height,
+      fetch.bytes,
+      progressiveScope = GlobalScope,
+      nativeGlbBuffer = fetch.nativeBuffer,
+    )
 
   surface.onPointerDrag { dx, dy -> scene.orbitBy(-dx * 0.005f, dy * 0.005f) }
   surface.onResize { w, h ->

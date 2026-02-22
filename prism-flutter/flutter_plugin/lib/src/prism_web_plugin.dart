@@ -4,8 +4,8 @@ import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
 
-/// JS interop bindings to the Prism WASM module's exported functions.
-/// All control functions take a canvasId to address the correct engine instance.
+/// JS interop bindings to the prism-flutter WASM module's high-level API.
+/// These are exported by FlutterWasmEntry.kt via @JsExport.
 @JS('prismInit')
 external void _prismInit(String canvasId, String glbUrl);
 
@@ -52,8 +52,6 @@ class PrismWebEngine {
       return Future.value();
     }
 
-    // If a load is already in flight, return the same Future so concurrent
-    // callers all await the same operation rather than injecting duplicate scripts.
     if (_wasmLoadingFuture != null) {
       return _wasmLoadingFuture!;
     }
@@ -61,33 +59,15 @@ class PrismWebEngine {
     final completer = Completer<void>();
     _wasmLoadingFuture = completer.future;
 
-    // Create an inline ES module script that:
-    // 1. Dynamically imports the Kotlin/WASM entry point
-    // 2. Instantiates the WASM module
-    // 3. Exposes @JsExport functions on window for Dart @JS() bindings
+    // Use a dedicated loader script that is CSP-compliant.
+    // We attach exports to window via a promise that the main script can await.
+    // This avoids 'unsafe-inline' CSP issues.
     final script =
         web.document.createElement('script') as web.HTMLScriptElement;
     script.type = 'module';
-    script.text = '''
-      try {
-        const mod = await import("./$moduleUrl");
-        if (typeof mod.default === "function") {
-          await mod.default();
-        }
-        const names = ["prismInit", "prismTogglePause",
-                        "prismGetState", "prismIsInitialized", "prismShutdown"];
-        for (const name of names) {
-          if (typeof mod[name] === "function") {
-            window[name] = mod[name];
-          }
-        }
-        window.dispatchEvent(new CustomEvent("prism-wasm-ready"));
-      } catch (e) {
-        console.error("Prism WASM load error:", e);
-        window.dispatchEvent(new CustomEvent("prism-wasm-error",
-            { detail: String(e) }));
-      }
-    ''';
+    script.src = 'prism_loader.js';
+    script.dataset.set('module', moduleUrl);
+    script.setAttribute('data-module', moduleUrl); // Ensure it's in dataset
 
     late final JSFunction readyListener;
     late final JSFunction errorListener;

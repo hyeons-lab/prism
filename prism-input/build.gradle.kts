@@ -15,7 +15,8 @@ kotlin {
   iosArm64()
   iosSimulatorArm64()
   macosArm64()
-  // linuxX64/mingwX64 removed — no platform code. Re-add when needed.
+  linuxX64()
+  mingwX64()
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 

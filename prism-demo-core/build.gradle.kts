@@ -18,7 +18,23 @@ kotlin {
     compileSdk = libs.versions.compileSdk.get().toInt()
     minSdk = libs.versions.minSdk.get().toInt()
   }
-  macosArm64 { binaries { executable { entryPoint = "com.hyeonslab.prism.demo.main" } } }
+  macosArm64 {
+    binaries {
+      executable {
+        entryPoint = "com.hyeonslab.prism.demo.main"
+        // Run the macOS binary with assets/ as the working directory so
+        // loadGlbBytes("DamagedHelmet.glb") resolves to the canonical location.
+        runTask?.workingDir(project.file("assets"))
+        runTask?.dependsOn(":downloadDemoAssets")
+      }
+    }
+  }
+
+  val isMac = System.getProperty("os.name").startsWith("Mac")
+  if (!isMac) {
+    linuxX64()
+    mingwX64()
+  }
 
   val xcf = XCFramework("PrismDemo")
   listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -50,6 +66,28 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   sourceSets {
+    val commonMain by getting
+    val jvmMain by getting
+    val androidMain by getting
+    val wasmJsMain by getting
+
+    val nonNativeMain by creating { dependsOn(commonMain) }
+
+    jvmMain.dependsOn(nonNativeMain)
+    androidMain.dependsOn(nonNativeMain)
+    wasmJsMain.dependsOn(nonNativeMain)
+
+    val appleMain by getting { dependsOn(nonNativeMain) }
+
+    nonNativeMain.dependencies {
+      api(project(":prism-compose"))
+      implementation(libs.compose.runtime)
+      implementation(libs.compose.foundation)
+      implementation(libs.compose.ui)
+      implementation(libs.compose.material3)
+      implementation(libs.lifecycle.runtime.compose)
+    }
+
     commonMain.dependencies {
       api(project(":prism-math"))
       api(project(":prism-core"))
@@ -59,15 +97,9 @@ kotlin {
       api(project(":prism-input"))
       api(project(":prism-assets"))
       api(project(":prism-audio"))
-      api(project(":prism-compose"))
       api(project(":prism-native-widgets"))
-      implementation(libs.compose.runtime)
-      implementation(libs.compose.foundation)
-      implementation(libs.compose.ui)
-      implementation(libs.compose.material3)
       implementation(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
-      implementation(libs.lifecycle.runtime.compose)
       implementation(libs.wgpu4k)
       implementation(libs.wgpu4k.toolkit)
     }
@@ -91,6 +123,12 @@ val isMacOs = providers.systemProperty("os.name").map { it.contains("Mac", ignor
 
 tasks.withType<JavaExec>().configureEach {
   javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+  // Scope workingDir and asset download to demo entry-point tasks only, so other
+  // JavaExec tasks (code-gen, formatters, etc.) are not affected.
+  if (name == "jvmRun" || name == "runCompose") {
+    workingDir = project.file("assets")
+    dependsOn(":downloadDemoAssets")
+  }
   jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/sun.awt=ALL-UNNAMED")

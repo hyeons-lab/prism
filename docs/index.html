@@ -29,6 +29,7 @@
         <ul class="nav-links">
           <li><a href="#demo">Demo</a></li>
           <li><a href="#features">Features</a></li>
+          <li><a href="#api">API</a></li>
           <li><a href="#architecture">Architecture</a></li>
           <li><a href="#platforms">Platforms</a></li>
           <li><a href="#milestones">Milestones</a></li>
@@ -171,7 +172,8 @@
             <h3>Native Surfaces</h3>
             <p>
               PrismSurface with suspend factory across JVM (GLFW), iOS
-              (MTKView), macOS (GLFW), WASM (Canvas), and more.
+              (MTKView), Android (SurfaceView), macOS (GLFW + AppKitView),
+              Flutter, and WASM (Canvas).
             </p>
           </div>
           <div class="feature-card">
@@ -206,25 +208,34 @@
           <pre>
 <span class="hl">prism-math</span>              <span class="dim">Vector/matrix math, transforms</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl">prism-core</span>        <span class="dim">Engine core, subsystems, game loop</span>
-       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-green">prism-renderer</span>    <span class="dim">wgpu4k rendering + WGSL shaders</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-scene       <span class="dim">Scene graph</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-ecs         <span class="dim">Entity-Component-System</span>
-       <span class="dim">&#x2502;</span>    <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-assets      <span class="dim">Asset loading</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-green">prism-renderer</span>    <span class="dim">wgpu4k PBR pipeline + WGSL shaders</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-scene       <span class="dim">Scene graph &mdash; MeshNode, CameraNode, LightNode</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-ecs         <span class="dim">Entity-Component-System, query iteration</span>
+       <span class="dim">&#x2502;</span>    <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-assets      <span class="dim">glTF 2.0 loader, asset pipeline</span>
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-input       <span class="dim">Cross-platform input</span>
        <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-audio       <span class="dim">Audio engine (stub)</span>
 
-<span class="hl-green">prism-renderer</span>
-  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
-       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, Web)</span>
+<span class="hl-green">prism-renderer</span> + <span class="hl">prism-core</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform surfaces &mdash; GLFW, MTKView, SurfaceView, Canvas/Wasm</span>
+       <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform 3D surface + MVI</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Generic Flutter bridge &mdash; PrismBridge&lt;T,S&gt;, PrismMetalBridge, PrismAndroidBridge</span>
 
-<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (PBR sphere grid, glTF 2.0)</span></pre>
+<span class="dim">Bindings</span>
+<span class="hl">prism-js</span>       <span class="dim">@JsExport &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/Wasm)</span>
+<span class="hl">prism-native</span>   <span class="dim">@CName &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native &mdash; macOS, iOS, Linux, Windows)</span>
+<span class="hl">prism-ios</span>      <span class="dim">iOS XCFramework umbrella &mdash; <code>import Prism</code> from Swift  (Kotlin/Native &#x2192; XCFramework)</span>
+
+<span class="dim">Demo &amp; Consumer</span>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared PBR scene &mdash; glTF 2.0, IBL, ECS instantiation</span>
+  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter consumer &mdash; DemoMacosBridge, DemoAndroidBridge, FlutterMethodHandler</span>
+  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-android-demo   <span class="dim">Android standalone demo app</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-ios-demo       <span class="dim">iOS demo app (Xcode, links prism-ios XCFramework)</span></pre>
         </div>
       </div>
     </section>
 
-    <!-- API Examples — hidden until unified wrapper API is ready -->
-    <section id="api" style="display:none">
+    <!-- API Examples -->
+    <section id="api">
       <div class="container">
         <p class="section-label">API</p>
         <h2 class="section-title">Simple from every language</h2>
@@ -234,52 +245,99 @@
         </p>
         <div class="lang-grid">
 
-          <details class="lang-card">
-            <summary class="lang-label">Kotlin &middot; Android</summary>
-<pre class="code-block"><span class="comment">// Parse glTF — geometry, PBR materials, textures</span>
-val asset = GltfLoader().load("model.glb", glb)
-renderer.upload(asset)
-asset.instantiateInWorld(world)
+          <div class="lang-card">
+            <div class="lang-label">Kotlin &middot; JVM / Android</div>
+<pre class="code-block">import com.hyeonslab.prism.core.Engine
+import com.hyeonslab.prism.core.EngineConfig
+import com.hyeonslab.prism.ecs.World
+import com.hyeonslab.prism.ecs.components.TransformComponent
+import com.hyeonslab.prism.math.Vec3
+import com.hyeonslab.prism.scene.Scene
+import com.hyeonslab.prism.scene.MeshNode
+import com.hyeonslab.prism.scene.CameraNode
 
-<span class="comment">// Drive the render loop</span>
-surface.startRenderLoop { dt, elapsed, _ -&gt;
-    world.update(Time(dt, elapsed)) }</pre>
-          </details>
+<span class="comment">// Create engine and ECS world</span>
+val engine = Engine(EngineConfig(targetFps = 60))
+val world  = World()
+val entity = world.createEntity()
+world.addComponent(entity, TransformComponent(position = Vec3(0f, 0f, -5f)))
 
-          <details class="lang-card">
-            <summary class="lang-label">Swift &middot; iOS</summary>
-<pre class="code-block">import PrismDemo
+<span class="comment">// Scene graph: mesh node + camera</span>
+val scene = Scene("main")
+val mesh  = MeshNode("helmet")
+val cam   = CameraNode("cam")
+scene.addNode(mesh)
+scene.activeCamera = cam
 
-<span class="comment">// Parse glTF — suspend fun → async via SKIE</span>
-let asset = try await GltfLoader().load(path: "model.glb", data: glb)
-renderer.upload(asset: asset)
-asset.instantiateInWorld(world: world)
+<span class="comment">// Query state</span>
+println("dt: ${engine.time.deltaTime}")</pre>
+          </div>
 
-<span class="comment">// Drive the render loop</span>
-surface.startRenderLoop { dt, elapsed, _ in
-    world.update(Time(dt: dt, elapsed: elapsed)) }</pre>
-          </details>
+          <div class="lang-card">
+            <div class="lang-label">Swift &middot; iOS &middot; macOS</div>
+<pre class="code-block">import Prism
 
-          <details class="lang-card">
-            <summary class="lang-label">JavaScript &middot; Web</summary>
-<pre class="code-block"><span class="comment">// Module loads DamagedHelmet.glb and starts rendering on import</span>
-await import('./prism-demo-core.mjs');
+<span class="comment">// Create engine and ECS world</span>
+let engine = Engine(config: EngineConfig(targetFps: 60))
+let world  = World()
+let entity = world.createEntity()
+world.addComponent(entity: entity,
+    component: TransformComponent(position: Vec3(x: 0, y: 0, z: -5)))
 
-<span class="comment">// Switch scenes at runtime</span>
-window.prismNextScene = 'gltf'; <span class="comment">// 'gltf' | 'cornell' | 'hero'</span></pre>
-          </details>
+<span class="comment">// Scene graph: mesh node + camera</span>
+let scene = Scene(name: "main")
+let mesh  = MeshNode(name: "helmet")
+let cam   = CameraNode(name: "cam")
+scene.addNode(node: mesh)
+scene.activeCamera = cam
 
-          <details class="lang-card">
-            <summary class="lang-label">Dart &middot; Flutter</summary>
-<pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
+<span class="comment">// Query state</span>
+print("dt: \(engine.time.deltaTime)")</pre>
+          </div>
 
-<span class="comment">// Embed the GPU surface — renders the glTF scene immediately</span>
-PrismRenderView(engine: engine)
+          <div class="lang-card">
+            <div class="lang-label">TypeScript &middot; JavaScript &middot; Web</div>
+<pre class="code-block"><span class="comment">// prism-sdk.d.mts ships alongside prism-sdk.mjs for full TS type coverage</span>
+import { Engine, World, Scene, MeshNode, CameraNode,
+         EngineConfig, TransformComponent, Vec3 } from './prism-sdk.mjs';
 
-<span class="comment">// Control from Dart</span>
-await engine.togglePause();
-final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</span></pre>
-          </details>
+<span class="comment">// Create engine and ECS world</span>
+const engine = new Engine(new EngineConfig({ targetFps: 60 }));
+const world  = new World();
+const entity: number = world.createEntity();
+world.addComponent(entity, new TransformComponent({ position: new Vec3(0, 0, -5) }));
+
+<span class="comment">// Scene graph: mesh node + camera</span>
+const scene = new Scene('main');
+const mesh  = new MeshNode('helmet');
+const cam   = new CameraNode('cam');
+scene.addNode(mesh);
+scene.activeCamera = cam;
+
+<span class="comment">// Query state</span>
+console.log('dt:', engine.time.deltaTime);</pre>
+          </div>
+
+          <div class="lang-card">
+            <div class="lang-label">Dart · Flutter · iOS · Android · macOS · Web</div>
+<pre class="code-block">import 'package:prism_flutter/prism_sdk.dart';
+
+<span class="comment">// Create engine and ECS world</span>
+final engine = Engine(EngineConfig(targetFps: 60));
+final world  = World();
+final entity = world.createEntity();
+world.addComponent(entity, TransformComponent(position: Vec3(0, 0, -5)));
+
+<span class="comment">// Scene graph: mesh node + camera</span>
+final scene = Scene('main');
+final mesh  = MeshNode('helmet');
+final cam   = CameraNode('cam');
+scene.addNode(mesh);
+scene.activeCamera = cam;
+
+<span class="comment">// Query state</span>
+print('dt: \${engine.time.deltaTime}');</pre>
+          </div>
 
         </div>
       </div>
@@ -355,8 +413,13 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
                 <td class="status-done">Working</td>
               </tr>
               <tr>
-                <td>Flutter Desktop (macOS, Windows, Linux)</td>
-                <td>Native rendering via platform channels</td>
+                <td>Flutter macOS</td>
+                <td>PrismMetalBridge (KMP) + PrismMetalBridgeProtocol (Swift) + PrismFlutter.xcframework</td>
+                <td class="status-done">Working</td>
+              </tr>
+              <tr>
+                <td>Flutter Desktop (Windows, Linux)</td>
+                <td>Dart FFI &rarr; libprism.so / prism.dll</td>
                 <td class="status-planned">Planned</td>
               </tr>
             </tbody>
@@ -435,7 +498,7 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>PrismSurface + macOS native</h4>
-              <p>Suspend factory, AppKit controls</p>
+              <p>Suspend factory, GLFW window, drag-to-orbit</p>
             </div>
           </div>
           <div class="milestone done">
@@ -470,6 +533,30 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
               <p>Platform channels, native rendering, and Flutter Web via Kotlin/WASM</p>
             </div>
           </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M12</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Auto-generated bindings</h4>
+              <p>prism-js: @JsExport &rarr; .d.mts &rarr; Dart @JS() bindings &middot; prism-native: @CName &rarr; libprism_api.h &rarr; dart:ffi bindings</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M13</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Flutter macOS</h4>
+              <p>FlutterPlatformView + MethodChannel + KMP XCFramework &middot; Metal rendering with drag-to-orbit camera</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M14</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Generalized Flutter plugin</h4>
+              <p>prism-flutter-demo consumer module &middot; PrismBridge&lt;T,S&gt; generic architecture &middot; 20+ unit tests across KMP + Dart</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -494,7 +581,7 @@ final state = await engine.getState(); <span class="comment">// { fps: 60.0 }</s
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">3</span> Run the demo</h3>
-            <pre class="code-block"><span class="comment"># GLFW window — PBR sphere grid (Metal on macOS)</span>
+            <pre class="code-block"><span class="comment"># GLFW window — DamagedHelmet glTF (Metal on macOS)</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:jvmRun
 
 <span class="comment"># Compose Desktop with embedded 3D + PBR sliders</span>

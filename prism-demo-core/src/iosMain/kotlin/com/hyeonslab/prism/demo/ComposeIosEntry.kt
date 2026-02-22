@@ -117,7 +117,11 @@ private fun IosComposeDemoContent() {
           val s = createPrismSurface(view, width, height)
           surface = s
           val wgpuCtx = checkNotNull(s.wgpuContext) { "wgpu context not available" }
-          val sc = createDemoScene(wgpuCtx, width = width, height = height)
+          val glbBytes =
+            checkNotNull(loadBundleAssetBytes("DamagedHelmet.glb")) {
+              "DamagedHelmet.glb not found in app bundle"
+            }
+          val sc = createGltfDemoScene(wgpuCtx, width = width, height = height, glbData = glbBytes)
           scene = sc
 
           val delegate =

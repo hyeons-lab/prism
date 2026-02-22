@@ -19,6 +19,19 @@ android {
   kotlin { jvmToolchain(25) }
 
   buildFeatures { compose = true }
+
+  sourceSets {
+    getByName("main") {
+      // Serve the shared demo asset (downloaded by :downloadDemoAssets) as an APK asset.
+      assets.srcDirs(rootProject.file("prism-demo-core/assets"))
+    }
+  }
+}
+
+// Download the shared demo asset before AGP merges assets into the APK.
+// Scoped to merge*Assets (not preBuild) so lint/unit-test runs are unaffected.
+tasks.matching { it.name.matches(Regex("merge(Debug|Release)Assets")) }.configureEach {
+  dependsOn(":downloadDemoAssets")
 }
 
 dependencies {

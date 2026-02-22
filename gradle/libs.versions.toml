@@ -1,25 +1,26 @@
 [versions]
-agp = "8.13.0"
+agp = "8.13.2"
 composeMaterial3 = "1.10.0-alpha05"
 composeMultiplatform = "1.10.1"
 detekt = "1.23.8"
 kermit = "2.0.8"
-kotest = "6.0.7"
-kotlin = "2.3.0"
+kotest = "6.1.3"
+kotlin = "2.3.10"
 kotlinpoet = "2.2.0"
 kotlinxCoroutines = "1.10.2"
-kotlinxIo = "0.8.2"
-kotlinxSerialization = "1.9.0"
+kotlinxAtomicfu = "0.31.0"
+kotlinxIo = "0.9.0"
+kotlinxSerialization = "1.10.0"
 ktfmt = "0.25.0"
 skie = "0.10.10"
-lifecycleCompose = "2.8.4"
+lifecycleCompose = "2.9.6"
 mavenPublish = "0.36.0"
 wgpu4k = "0.2.0-SNAPSHOT"
-wgpu4kCommit = "0ee61438c5c1c0d48d38807f994677d03b8d3fba"
+wgpu4kCommit = "c8bc79db72e16bdc4c82f51c98e283d53db56fb8"
 wgpu4kRepo = "hyeons-lab/wgpu4k"
 wgpu4kNativeCommit = "1b1578a1a9c8c8447763125c6de03c9bcb18af38"
 wgpu4kNativeRepo = "hyeons-lab/wgpu4k-native"
-webgpuKtypesCommit = "213ff3d22213e58cc4f2f59e69b1c42e0816c4d1"
+webgpuKtypesCommit = "cb5beb3d3b850ac533a16e0453a6f3eb1abefa59"
 webgpuKtypesRepo = "hyeons-lab/webgpu-ktypes"
 
 # SDK versions
@@ -40,6 +41,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "kotlinxAtomicfu" }
 kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleCompose" }
