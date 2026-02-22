@@ -14,6 +14,11 @@ echo "Running build for all targets (Linux, Windows, WASM, Android) in Docker...
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 
+# Ensure cache directories exist and are owned by the current user before mounting.
+# If they don't exist, Docker creates them as root-owned, making them unwritable
+# inside the container when running with -u "$USER_ID:$GROUP_ID".
+mkdir -p "$HOME/.gradle" "$HOME/.konan"
+
 docker run --rm \
     -u "$USER_ID:$GROUP_ID" \
     -v "$(pwd):/app" \

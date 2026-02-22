@@ -211,6 +211,11 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
       - name: Cache Kotlin/Native toolchain
         uses: actions/cache@v4
         with:
