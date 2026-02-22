@@ -732,3 +732,15 @@ Various `*.kt` and `build.gradle.kts` files — Code reformatted to project 2-sp
 2026-02-22 Removed redundant `dependsOn` for iOS/macOS source sets — `iosArm64Main.dependsOn(appleMain)` etc. are already set by `applyDefaultHierarchyTemplate()`. The explicit calls produced a Gradle warning. Only `appleMain.dependsOn(nonNativeMain)` is kept (that one is NOT in the template).
 
 2026-02-22 Single canonical asset location (`prism-demo-core/assets/`) — previously the download task scattered one copy into three module locations (prism-demo-core root, prism-android-demo/src/main/assets/, prism-ios-demo/Sources/). Consolidating into one location and having each consuming module point to it is cleaner: JVM + macOS use `workingDir`, Android uses `assets.srcDirs`, iOS adds an optional xcodegen resource. The `.gitignore` entry and the download task both collapse from three paths to one.
+
+#### Commits
+
+HEAD — fix: update wgpu4kNativeCommit to correct full hash after force-push
+
+---
+
+### CI fix — wgpu4kNativeCommit hash collision (2026-02-22)
+
+CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref f2bba093a61fa14fb57e7765bff5028f40f7eb5f`. Root cause: the commit was amended/force-pushed after it was pinned, producing a new full hash (`f2bba093c1c93feabdf89e3bbe02527616cd3c90`) that shares the same 8-char short hash but is a different object. GitHub refuses to serve the old (now unreachable) object.
+
+**Fix:** Updated `wgpu4kNativeCommit` in `gradle/libs.versions.toml` from the old hash to the current remote tip: `f2bba093c1c93feabdf89e3bbe02527616cd3c90`.
