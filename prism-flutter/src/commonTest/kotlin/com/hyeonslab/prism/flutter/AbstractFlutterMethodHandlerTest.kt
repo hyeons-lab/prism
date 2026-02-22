@@ -9,12 +9,12 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-private class FakeStore : Store<Unit, Nothing> {
+private class FakeHandlerStore : Store<Unit, Nothing> {
     override val state: StateFlow<Unit> = MutableStateFlow(Unit)
     override fun dispatch(event: Nothing) = error("no events")
 }
 
-private class FakeBridge : PrismBridge<String, FakeStore>(FakeStore())
+private class FakeBridge : PrismBridge<String, FakeHandlerStore>(FakeHandlerStore())
 
 /**
  * Concrete handler that records domain-call invocations.

@@ -65,8 +65,10 @@ class FpsSmoothingTest {
         val before = store.state.value.fps
         tickFps(1f / 30f)
         val after = store.state.value.fps
-        // Old value (≈60) has 90% weight; new instant (30) has 10% → result > 57
-        assertTrue(after > 57f, "EMA should retain most of previous value; got $after")
+        // Old value (≈60) has 90% weight; new instant (30) has 10% → result ≈ 57.
+        // Use 56.9 not 57 to tolerate float-precision of 0.9f (≈0.89999997) which causes
+        // the converged value to settle fractionally below 60, making the result ≈56.9999.
+        assertTrue(after > 56.9f, "EMA should retain most of previous value; got $after")
         assertTrue(after < before, "Single slow frame should pull average down; got $after vs $before")
     }
 
