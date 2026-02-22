@@ -575,7 +575,27 @@ the Dart method channel. The cast is safe since the values (Double, Bool) are NS
 2026-02-21 `open fun getState()` on base class rather than abstract — future non-demo bridges
 get a working default (initialized only) without being forced to implement domain-specific fields.
 
+## What Changed (test plan fixes)
+
+`prism-flutter/src/commonTest/.../AbstractFlutterMethodHandlerTest.kt` — Renamed
+`FakeStore` → `FakeHandlerStore` to avoid Kotlin redeclaration clash with `PrismBridgeTest.kt`;
+both private classes live in the same `commonTest` compilation unit and package.
+
+`prism-flutter-demo/src/commonTest/.../FpsSmoothingTest.kt` — Relaxed
+`emaWeightsOldValueMoreThanInstantaneous` bound from `> 57f` to `> 56.9f`; `0.9f` is
+0.89999997… in IEEE 754 float, so the EMA converges to ~59.9999 and one 30-fps tick
+yields ~56.99997, just under the original strict bound.
+
+## Test Plan Results
+
+- `./gradlew :prism-flutter:macosArm64Test` — PASSED (8 tests including new AbstractFlutterMethodHandlerTest)
+- `./gradlew :prism-flutter-demo:macosArm64Test` — PASSED (26 tests)
+- `flutter test` in `prism-flutter-demo/example` — PASSED (3 widget tests)
+- `./gradlew :prism-flutter:bundleFlutterMacOS` — BUILD SUCCESSFUL
+- `./gradlew :prism-flutter:bundleNativeMacOS` — BUILD SUCCESSFUL
+
 ## Commits (Step 16)
 
 ad1f24c — fix(F9): route getState through Kotlin; macOS+Android getState now return same fields
-HEAD — devlog: record commit hashes for Steps 15–16
+8e4a3e8 — devlog: record commit hashes for Steps 15–16
+HEAD — test: fix test compilation and float-precision failures
