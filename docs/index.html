@@ -217,12 +217,13 @@
 <span class="hl-green">prism-renderer</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform rendering surfaces</span>
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform integration</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin (Android, iOS, macOS, Web)</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Generic Flutter plugin &mdash; PrismBridge&lt;T,S&gt;, PrismMetalBridge, PrismAndroidBridge</span>
 
 <span class="hl">prism-js</span>     <span class="dim">@JsExport bridge &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/WASM)</span>
 <span class="hl">prism-native</span> <span class="dim">@CName bridge &#x2192; libprism_api.h &#x2192; dart:ffi bindings (Kotlin/Native)</span>
 
-<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo (glTF 2.0 — DamagedHelmet)</span></pre>
+<span class="hl">prism-demo-core</span>              <span class="dim">Shared demo scene (glTF 2.0 — DamagedHelmet)</span>
+  <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter demo consumer &mdash; DemoMacosBridge, DemoAndroidBridge, FlutterMethodHandler</span></pre>
         </div>
       </div>
     </section>
@@ -395,7 +396,7 @@ print('dt: \${state['deltaTime']}');</pre>
               </tr>
               <tr>
                 <td>Flutter macOS</td>
-                <td>FlutterPlatformView + MethodChannel + KMP XCFramework</td>
+                <td>PrismMetalBridge (KMP) + PrismMetalBridgeProtocol (Swift) + PrismFlutterDemo.xcframework</td>
                 <td class="status-done">Working</td>
               </tr>
               <tr>
@@ -528,6 +529,14 @@ print('dt: \${state['deltaTime']}');</pre>
             <div class="milestone-text">
               <h4>Flutter macOS</h4>
               <p>FlutterPlatformView + MethodChannel + KMP XCFramework &middot; Metal rendering with drag-to-orbit camera</p>
+            </div>
+          </div>
+          <div class="milestone done">
+            <span class="milestone-tag">M14</span>
+            <div class="milestone-dot"></div>
+            <div class="milestone-text">
+              <h4>Generalized Flutter plugin</h4>
+              <p>prism-flutter-demo consumer module &middot; PrismBridge&lt;T,S&gt; generic architecture &middot; 20+ unit tests across KMP + Dart</p>
             </div>
           </div>
         </div>
