@@ -593,6 +593,8 @@ yields ~56.99997, just under the original strict bound.
 - `flutter test` in `prism-flutter-demo/example` — PASSED (3 widget tests)
 - `./gradlew :prism-flutter:bundleFlutterMacOS` — BUILD SUCCESSFUL
 - `./gradlew :prism-flutter:bundleNativeMacOS` — BUILD SUCCESSFUL
+- `./gradlew :prism-flutter-demo:bundleFlutterDemoMacOS` — BUILD SUCCESSFUL
+- macOS Flutter demo (`open prism_flutter_example.app`) — RUNS; user confirmed demo works
 
 ## Commits (Step 16)
 
