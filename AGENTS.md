@@ -395,7 +395,7 @@ One flat file per branch: `devlog/NNNNNN-<branch-name>.md`. Update proactively a
 - **What Changed:** `timestamp path/to/file — what and why` (record final state, not iterations; group similar files)
 - **Decisions:** `timestamp Decision — reasoning`
 - **Issues:** Problems, failed attempts, and resolutions. Log what you tried, why it failed, and what you learned.
-- **Commits:** `hash — message`
+- **Commits:** `hash — message`. The very latest commit must always be recorded as `HEAD — message` (never the real hash — a commit cannot reference its own hash without amending, which changes it). When making the *next* commit, replace the previous `HEAD` entry with the real hash in that same new commit, then record the new commit as `HEAD`.
 
 **Optional sections** (omit if empty): Progress, Research & Discoveries, Lessons Learned, Next Steps
 

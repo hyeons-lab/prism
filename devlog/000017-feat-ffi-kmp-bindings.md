@@ -449,4 +449,5 @@ Plan: `devlog/plans/000017-03-code-review-test-coverage.md`
 
 ## Commits (Step 14)
 
-HEAD — feat: surface PrismFlutter.xcframework and fix docs code snippets
+71c7e02 — feat: surface PrismFlutter.xcframework and fix docs code snippets
+HEAD — docs: add HEAD commit tracking rule to AGENTS.md and CONVENTIONS.md
