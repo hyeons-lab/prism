@@ -8,7 +8,7 @@ actual object ImageDecoder {
   actual suspend fun decodeFromNativeBuffer(
     nativeBuffer: Any,
     offset: Int,
-    length: Int
+    length: Int,
   ): ImageData? {
     return null
   }
