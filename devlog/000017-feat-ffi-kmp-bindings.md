@@ -746,3 +746,9 @@ CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref 
 **Fix 1:** Updated `wgpu4kNativeCommit` in `gradle/libs.versions.toml` from the stale hash to `f2bba093c1c93feabdf89e3bbe02527616cd3c90` (current remote tip). CI still failed — this new tip itself had a compile error.
 
 **Fix 2:** `f2bba093c1c9` accidentally dropped `import kotlinx.cinterop.reinterpret` and `.reinterpret()` on the `wgpuDevicePoll` `wrappedSubmissionIndex` argument, causing `CPointer<COpaque>?` vs `CValuesRef<ULongVarOf<ULong>>?` type mismatch. Fixed in `wgpu4k-native` (`a5905eb3`), then updated `wgpu4kNativeCommit` to `a5905eb37c0aea1c64cac33a61cc5b4132543d66`.
+
+**Fix 3:** `prism-flutter-demo/build.gradle.kts` failed `ktfmtCheckScripts` — ran `ktfmtFormat`.
+
+**Fix 4:** Docker container failed with `Failed to apply plugin 'com.android.internal.application' > /home/gradle/.android` — AGP requires the `.android` directory to exist. Added `mkdir -p "$HOME/.android"` and `-v "$HOME/.android:/home/gradle/.android"` to `build-all-docker.sh`.
+
+#### HEAD — fix: ktfmt prism-flutter-demo build.gradle.kts; mount .android in Docker
