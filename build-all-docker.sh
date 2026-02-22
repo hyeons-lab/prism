@@ -1,29 +1,41 @@
 #!/bin/bash
 set -e
 
-# Build the Docker image
-echo "Building Docker image 'prism-builder'..."
-docker build -t prism-builder -f Dockerfile.build .
+# Build the Docker image (skip if PRISM_SKIP_DOCKER_BUILD=1, e.g. when CI builds
+# the image separately with layer caching via docker/build-push-action).
+if [ -z "$PRISM_SKIP_DOCKER_BUILD" ]; then
+  echo "Building Docker image 'prism-builder'..."
+  docker build -t prism-builder -f Dockerfile.build .
+else
+  echo "Skipping Docker image build (PRISM_SKIP_DOCKER_BUILD is set)."
+fi
 
-# Run the build inside the Docker container
-# We mount the project root to /app
-# We also mount the Gradle home and Konan (K/N toolchain) home to cache downloads
+# Run the build inside the Docker container.
+# Mounts:
+#   /app            — project source (bind mount)
+#   /home/gradle    — all per-user caches; HOME is set to this path so that
+#                     Gradle, Konan, and Maven Local all resolve correctly:
+#     .gradle       — Gradle wrapper, dependency & build caches
+#     .konan        — Kotlin/Native toolchain
+#     .m2           — Maven Local (wgpu4k and webgpu-ktypes klibs/JARs)
 echo "Running build for all targets (Linux, Windows, WASM, Android) in Docker..."
 
-# Use current user's UID/GID to avoid permission issues with mounted volumes
+# Use current user's UID/GID to avoid permission issues with mounted volumes.
 USER_ID=$(id -u)
 GROUP_ID=$(id -g)
 
 # Ensure cache directories exist and are owned by the current user before mounting.
-# If they don't exist, Docker creates them as root-owned, making them unwritable
-# inside the container when running with -u "$USER_ID:$GROUP_ID".
-mkdir -p "$HOME/.gradle" "$HOME/.konan"
+# Docker creates missing bind-mount sources as root-owned, making them unwritable
+# inside the container when running as a non-root UID.
+mkdir -p "$HOME/.gradle" "$HOME/.konan" "$HOME/.m2"
 
 docker run --rm \
     -u "$USER_ID:$GROUP_ID" \
     -v "$(pwd):/app" \
     -v "$HOME/.gradle:/home/gradle/.gradle" \
     -v "$HOME/.konan:/home/gradle/.konan" \
+    -v "$HOME/.m2:/home/gradle/.m2" \
+    -e HOME=/home/gradle \
     -e GRADLE_USER_HOME=/home/gradle/.gradle \
     -e KONAN_DATA_DIR=/home/gradle/.konan \
     prism-builder \

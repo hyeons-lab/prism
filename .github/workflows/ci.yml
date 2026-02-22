@@ -216,18 +216,44 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
+      - name: Get Kotlin version
+        id: kotlin-version
+        run: |
+          KOTLIN=$(grep '^kotlin ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$KOTLIN" ]; then
+            echo "::error::Failed to extract Kotlin version from libs.versions.toml"
+            exit 1
+          fi
+          echo "version=$KOTLIN" >> "$GITHUB_OUTPUT"
+
       - name: Cache Kotlin/Native toolchain
         uses: actions/cache@v4
         with:
           path: ~/.konan
-          key: ${{ runner.os }}-konan-docker-${{ github.sha }}
+          key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
           restore-keys: |
-            ${{ runner.os }}-konan-docker-
+            ${{ runner.os }}-konan-
+
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.build
+          tags: prism-builder:latest
+          load: true
+          cache-from: type=gha,scope=docker-build
+          cache-to: type=gha,scope=docker-build,mode=max
 
       - name: Build all via Docker
         run: |
           chmod +x build-all-docker.sh
-          ./build-all-docker.sh
+          PRISM_SKIP_DOCKER_BUILD=1 ./build-all-docker.sh
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
