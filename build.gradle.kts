@@ -33,13 +33,12 @@ tasks.register("downloadDemoAssets") {
     outputs.file(dest)
 
     doLast {
-        if (dest.exists()) {
-            logger.lifecycle("Demo asset already present — nothing to do.")
-            return@doLast
-        }
         val url = "https://github.com/KhronosGroup/glTF-Sample-Assets/raw/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
         logger.lifecycle("Downloading DamagedHelmet.glb …")
-        val bytes = java.net.URI(url).toURL().openStream().use { it.readBytes() }
+        val conn = java.net.URI(url).toURL().openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 15_000
+        conn.readTimeout = 60_000
+        val bytes = conn.inputStream.use { it.readBytes() }
         logger.lifecycle("  ${bytes.size / 1024} KB downloaded.")
         dest.parentFile.mkdirs()
         dest.writeBytes(bytes)

@@ -118,10 +118,13 @@ kotlin {
 val isMacOs = providers.systemProperty("os.name").map { it.contains("Mac", ignoreCase = true) }
 
 tasks.withType<JavaExec>().configureEach {
-  // Run from the shared asset directory so File("DamagedHelmet.glb") resolves correctly.
-  workingDir = project.file("assets")
-  dependsOn(":downloadDemoAssets")
   javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+  // Scope workingDir and asset download to demo entry-point tasks only, so other
+  // JavaExec tasks (code-gen, formatters, etc.) are not affected.
+  if (name == "jvmRun" || name == "runCompose") {
+    workingDir = project.file("assets")
+    dependsOn(":downloadDemoAssets")
+  }
   jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/sun.awt=ALL-UNNAMED")
