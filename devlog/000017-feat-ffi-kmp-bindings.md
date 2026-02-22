@@ -755,6 +755,10 @@ CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref 
 
 **Fix 6:** Docker failed with `Could not resolve io.ygdrasil:wgpu4k:0.2.0-SNAPSHOT` for `macosArm64CompilationDependenciesMetadata`. Root cause: `assemble` triggers `transformCommonMainDependenciesMetadata` which resolves ALL declared targets' dependencies including `macosArm64`; macosArm64 wgpu4k klibs only exist in Maven Local on macOS. Fix: (a) switched Docker tasks from `assemble` to explicit `linkReleaseSharedLinuxX64`, `linkReleaseSharedMingwX64`, `wasmJsBrowserDistribution`, `generateSdkTypes`; (b) made `macosArm64()` conditional on `isMac` in all 10 KMP modules so metadata resolution on Linux skips the Apple target entirely.
 
+**Fix 7 (2026-02-22T15:30-08:00):** Apple Targets job failed — `error: lstat(prism-demo-core/assets/DamagedHelmet.glb): No such file or directory`. Root cause: `DamagedHelmet.glb` is gitignored; CI clones a clean repo with no local asset. The `project.yml` `optional: true` only prevents xcodegen from failing at generation time — Xcode still includes the file in the Copy Bundle Resources phase and fails at build time. Fix: added `./gradlew downloadDemoAssets` step in `ci.yml` before `xcodegen generate`.
+
+**Fix 8 (2026-02-22T15:30-08:00):** Docker Build job failed with `docker: 'docker run' requires at least 1 argument`. Root cause: `build-all-docker.sh` had bash comments (`# ...`) embedded inside the `docker run` multi-line command. In bash, a `#` comment following a `\` line continuation terminates the command at that point; `prism-builder` ended up as a standalone command, leaving `docker run` with no IMAGE argument. Fix: moved the comment block above the `docker run` invocation.
+
 bfec04e — fix: update wgpu4kNativeCommit to correct full hash after force-push
 9d9faa7 — fix: update wgpu4kNativeCommit to fix reinterpret() compile error
 55f6226 — devlog: record wgpu4kNative compile fix
@@ -762,4 +766,5 @@ bfec04e — fix: update wgpu4kNativeCommit to correct full hash after force-push
 b511f53 — devlog: record CI fixes 3 and 4
 d42e346 — chore: ktfmtFormat prism-native MacosBridge and NativeBridge
 6cb8e41 — fix: pass ANDROID_HOME into Docker container for Android build
-HEAD — fix: make macosArm64 conditional on host OS across all KMP modules
+525e485 — fix: make macosArm64 conditional on host OS across all KMP modules
+HEAD — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)

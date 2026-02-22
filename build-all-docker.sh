@@ -35,6 +35,10 @@ if [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME" ]; then
   ANDROID_ARGS=(-v "$ANDROID_HOME:$ANDROID_HOME:ro" -e "ANDROID_HOME=$ANDROID_HOME")
 fi
 
+# Build only the Linux/Windows/WASM outputs.
+# Avoid 'assemble' — it triggers macosArm64 metadata resolution on modules that
+# unconditionally declare that target, but macosArm64 wgpu4k klibs are only built
+# on macOS runners. Native Apple targets are built by the Apple CI job instead.
 docker run --rm \
     -u "$USER_ID:$GROUP_ID" \
     -v "$(pwd):/app" \
@@ -46,11 +50,7 @@ docker run --rm \
     -e HOME=/home/gradle \
     -e GRADLE_USER_HOME=/home/gradle/.gradle \
     -e KONAN_DATA_DIR=/home/gradle/.konan \
-    # Build only the Linux/Windows/WASM outputs.
-# Avoid 'assemble' — it triggers macosArm64 metadata resolution on modules that
-# unconditionally declare that target, but macosArm64 wgpu4k klibs are only built
-# on macOS runners. Native Apple targets are built by the Apple CI job instead.
-prism-builder \
+    prism-builder \
     :prism-native:linkReleaseSharedLinuxX64 \
     :prism-native:linkReleaseSharedMingwX64 \
     :prism-js:wasmJsBrowserDistribution \
