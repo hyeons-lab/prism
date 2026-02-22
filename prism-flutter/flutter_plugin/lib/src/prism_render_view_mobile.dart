@@ -19,6 +19,12 @@ class PrismRenderView extends StatelessWidget {
         viewType: 'engine.prism.flutter/render_view',
         onPlatformViewCreated: _onPlatformViewCreated,
       );
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return UiKitView(
+        viewType: 'engine.prism.flutter/render_view',
+        creationParams: {'engineHandle': engine.handle},
+        creationParamsCodec: const StandardMessageCodec(),
+      );
     } else if (defaultTargetPlatform == TargetPlatform.macOS) {
       return AppKitView(
         viewType: 'engine.prism.flutter/render_view',

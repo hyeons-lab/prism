@@ -12,5 +12,6 @@
 library prism_sdk;
 
 export 'src/prism_sdk_types.dart';
-export 'src/prism_sdk_stub.dart'
-    if (dart.library.js_interop) 'src/prism_sdk_web.dart';
+export 'src/prism_sdk_ffi.dart'
+    if (dart.library.js_interop) 'src/prism_sdk_web.dart'
+    if (dart.library.ffi) 'src/prism_sdk_ffi.dart';

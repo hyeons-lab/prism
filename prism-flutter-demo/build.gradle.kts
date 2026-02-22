@@ -95,6 +95,7 @@ tasks.register<Copy>("copyWasmToFlutterWeb") {
     include("prism.wasm")
   }
   from(project(":prism-js").layout.buildDirectory.dir("sdk")) { include("prism-sdk.mjs") }
+  from(project(":prism-flutter").layout.projectDirectory.file("flutter_plugin/lib/src/prism_loader.js"))
   // Skiko runtime (Compose/Skiko transitive dependency for WASM)
   from(rootProject.layout.buildDirectory.dir("wasm/packages_imported/skiko-js-wasm-runtime")) {
     include("**/skiko.mjs")

@@ -4,7 +4,13 @@ plugins {
 }
 
 kotlin {
-  val nativeTargets = listOf(iosArm64(), iosSimulatorArm64(), macosArm64(), linuxX64(), mingwX64())
+  val isMac = System.getProperty("os.name").startsWith("Mac")
+  val nativeTargets =
+    if (isMac) {
+      listOf(iosArm64(), iosSimulatorArm64(), macosArm64())
+    } else {
+      listOf(iosArm64(), iosSimulatorArm64(), macosArm64(), linuxX64(), mingwX64())
+    }
 
   nativeTargets.forEach { target -> target.binaries.sharedLib { baseName = "prism" } }
 
@@ -12,6 +18,9 @@ kotlin {
     nativeMain.dependencies {
       implementation(project(":prism-math"))
       implementation(project(":prism-core"))
+      implementation(project(":prism-ecs"))
+      implementation(project(":prism-scene"))
+      implementation(libs.kotlinx.atomicfu)
     }
     macosMain.dependencies {
       implementation(libs.wgpu4k.toolkit)

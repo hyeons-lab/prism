@@ -77,6 +77,10 @@ export class Engine {
   readonly #h: string;
   readonly time: EngineTime;
 
+  static readonly #registry = new FinalizationRegistry((h: string) => {
+    prismDestroyEngine(h);
+  });
+
   constructor(config: EngineConfig = new EngineConfig()) {
     this.#h = prismCreateEngine(config.appName, config.targetFps);
     prismEngineInitialize(this.#h);
@@ -85,17 +89,28 @@ export class Engine {
       get deltaTime() { return prismEngineGetDeltaTime(h); },
       get totalTime() { return prismEngineGetTotalTime(h); },
     };
+    Engine.#registry.register(this, this.#h);
   }
 
   get isAlive(): boolean { return prismEngineIsAlive(this.#h); }
-  destroy(): void        { prismDestroyEngine(this.#h); }
+  destroy(): void {
+    Engine.#registry.unregister(this);
+    prismDestroyEngine(this.#h);
+  }
 }
 
 // ── ECS World ─────────────────────────────────────────────────────────────────
 
 export class World {
   readonly #h: string;
-  constructor() { this.#h = prismCreateWorld(); }
+  static readonly #registry = new FinalizationRegistry((h: string) => {
+    prismDestroyWorld(h);
+  });
+
+  constructor() {
+    this.#h = prismCreateWorld();
+    World.#registry.register(this, this.#h);
+  }
 
   /** Creates a new entity and returns its numeric ID. */
   createEntity(): number                              { return prismWorldCreateEntity(this.#h); }
@@ -116,14 +131,24 @@ export class World {
     );
   }
 
-  destroy(): void { prismDestroyWorld(this.#h); }
+  destroy(): void {
+    World.#registry.unregister(this);
+    prismDestroyWorld(this.#h);
+  }
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────────
 
 export class Scene {
   readonly #h: string;
-  constructor(name: string = 'Scene') { this.#h = prismCreateScene(name); }
+  static readonly #registry = new FinalizationRegistry((h: string) => {
+    prismDestroyScene(h);
+  });
+
+  constructor(name: string = 'Scene') {
+    this.#h = prismCreateScene(name);
+    Scene.#registry.register(this, this.#h);
+  }
 
   addNode(node: Node): void              { prismSceneAddNode(this.#h, node._handle); }
   set activeCamera(camNode: CameraNode) {
@@ -135,14 +160,24 @@ export class Scene {
     prismSceneSetActiveCamera(this.#h, camNode._handle);
   }
   update(deltaTime: number): void        { prismSceneUpdate(this.#h, deltaTime); }
-  destroy(): void                        { prismDestroyScene(this.#h); }
+  destroy(): void {
+    Scene.#registry.unregister(this);
+    prismDestroyScene(this.#h);
+  }
 }
 
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 
 export class Node {
   readonly #h: string;
-  constructor(h: string) { this.#h = h; }
+  static readonly #registry = new FinalizationRegistry((h: string) => {
+    prismDestroyNode(h);
+  });
+
+  constructor(h: string) {
+    this.#h = h;
+    Node.#registry.register(this, this.#h);
+  }
 
   /**
    * @internal Library-private handle; do not use outside of prism-sdk.
@@ -153,7 +188,10 @@ export class Node {
   setPosition(x: number, y: number, z: number): void          { prismNodeSetPosition(this.#h, x, y, z); }
   setRotation(x: number, y: number, z: number, w: number): void { prismNodeSetRotation(this.#h, x, y, z, w); }
   setScale(x: number, y: number, z: number): void             { prismNodeSetScale(this.#h, x, y, z); }
-  destroy(): void                                             { prismDestroyNode(this.#h); }
+  destroy(): void {
+    Node.#registry.unregister(this);
+    prismDestroyNode(this.#h);
+  }
 }
 
 export class MeshNode   extends Node { constructor(name: string = 'MeshNode')   { super(prismCreateMeshNode(name));   } }

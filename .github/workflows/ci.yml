@@ -189,3 +189,67 @@ jobs:
             -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -30 || EXIT=$?
           echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
+          
+  docker:
+    name: Docker Build (Linux, Windows, WASM, Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-konan-docker-
+
+      - name: Build all via Docker
+        run: |
+          chmod +x build-all-docker.sh
+          ./build-all-docker.sh
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-native-linux
+          path: prism-native/build/bin/linuxX64/releaseShared/libprism.so
+          retention-days: 14
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-native-windows
+          path: prism-native/build/bin/mingwX64/releaseShared/prism.dll
+          retention-days: 14
+
+      - name: Upload WASM/JS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-js-wasm
+          path: |
+            prism-js/build/compileSync/wasmJs/main/productionExecutable/kotlin/
+            prism-js/build/sdk/
+          retention-days: 14
+
+      - name: Upload Android Demo APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-android-demo
+          path: prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.apk
+          retention-days: 14

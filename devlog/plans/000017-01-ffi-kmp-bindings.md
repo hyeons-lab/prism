@@ -30,93 +30,39 @@ Key findings from codebase exploration:
 
 ## Plan
 
-### Step 1 — Annotate clean types with `@JsExport` in existing modules
+### Step 1 — Annotate clean types with `@JsExport` in existing modules [DONE]
 
-Add `@JsExport` (with `@OptIn(ExperimentalJsExport::class)`) directly to types that have only
-primitive fields — these are clean for both surfaces and trigger no `allWarningsAsErrors` warnings.
+### Step 2 — Create `prism-js` module (WASM/TypeScript SDK) [DONE]
 
-- **prism-math/src/commonMain/** — Vec2, Vec3, Vec4, Mat3, Mat4, Quaternion, Transform, Color
-- **prism-core/src/commonMain/** — Time, EngineConfig
-- **prism-ecs/src/commonMain/** — TransformComponent, LightComponent, CameraComponent
-- **prism-renderer/src/commonMain/** — All enums (LightType, BlendMode, CullMode, etc.), LightData, VertexAttribute, RenderPassDescriptor
+### Step 3 — Create `prism-native` module (C API bridge) [DONE]
 
-For Entity: `id: UInt` has no C or TypeScript equivalent. Add `@JsName("id") val jsId: Int get() = id.toInt()` for WASM; the C API will use `long` handles instead.
+### Step 4 — Auto-generate Dart FFI bindings from C header (`ffigen`) [DONE]
 
-Skip any type that contains wgpu4k opaque handles (`GpuBuffer`, `RenderPipeline`, `Texture`,
-`ShaderModule`) — those stay Kotlin-side only.
+### Step 5 — Auto-generate Dart `@JS()` bindings from `.d.ts` (WASM surface) [DONE]
+
+### Step 6 — Update `prism-flutter` to use generated bindings [DONE]
 
 ---
 
-### Step 2 — Create `prism-js` module (WASM/TypeScript SDK)
+### Recent Improvements
 
-**`settings.gradle.kts`**: add `include(":prism-js")`
+#### 1. Resource Management & Memory Leak Prevention
+- **Dart (FFI):** Added `NativeFinalizer` to `Engine`, `World`, `Node`, and `Scene` in `prism_sdk_ffi.dart`.
+- **TypeScript (WASM):** Added `FinalizationRegistry` to SDK classes in `prism-sdk.mts`.
+This ensures Kotlin objects are automatically released from the `Registry` when garbage collected on the consumer side.
 
-**`prism-js/build.gradle.kts`**:
-```kotlin
-plugins { id("prism-quality"); kotlin("multiplatform") }
+#### 2. Thread Safety (macOS)
+- Replaced `mutableMapOf` with `AtomicRef<Map<...>>` in `MacosBridge.kt`.
+- Uses `kotlinx-atomicfu` to ensure safe concurrent access between Flutter UI (main thread) and Metal render loop.
 
-kotlin {
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
-        outputModuleName.set("prism")
-        generateTypeScriptDefinitions()   // ← auto-generates prism.d.ts
-    }
-    sourceSets {
-        wasmJsMain.dependencies {
-            implementation(project(":prism-math"))
-            implementation(project(":prism-core"))
-            implementation(project(":prism-scene"))
-            implementation(project(":prism-ecs"))
-            implementation(project(":prism-renderer"))
-        }
-    }
-}
-```
+#### 3. Architectural Consolidation
+- Standardized macOS to use FFI for engine control, reducing reliance on `MethodChannel`.
+- Renamed `prism_sdk_stub.dart` to `prism_sdk_ffi.dart` for clarity.
 
-Bridge files under `prism-js/src/wasmJsMain/kotlin/engine/prism/js/`:
-- **`EngineApi.kt`** — `prismCreateEngine`, `prismDestroyEngine`, `prismEngineInitialize`, `prismEngineGetTime`, `prismEngineIsInitialized`
-- **`SceneApi.kt`** — `prismCreateScene`, `prismCreate{Node,MeshNode,CameraNode,LightNode}`, `prismSceneAddNode`, `prismNodeSetPosition/Rotation/Scale`, `prismSetActiveCamera`
-- **`EcsApi.kt`** — `prismCreateWorld`, `prismWorldCreateEntity`, per-component-type add/get/query
-- **`RendererApi.kt`** — `prismInitSurface`, `prismSurfaceRenderFrame`, `prismSurfaceSetMaterial`, `prismSurfaceResize`, `prismSurfaceDestroy`
-- **`MeshApi.kt`** — `prismMeshTriangle/Quad/Cube/Sphere`, `prismMeshFromArrays`
+#### 4. Robustness & Debugging
+- Added `kermit` logging to `Registry.get` in `prism-native` to warn when an object is not found for a given handle.
 
----
-
-### Step 3 — Create `prism-native` module (C API bridge)
-
-**`settings.gradle.kts`**: add `include(":prism-native")`
-
-Targets: `iosArm64`, `iosSimulatorArm64`, `macosArm64`, `linuxX64`, `mingwX64` — each with `binaries.sharedLib("prism")`.
-
-Note: `prism-ecs` does not support linuxX64/mingwX64, so `prism-native` will depend on prism-scene
-and prism-core only, mirroring the API without ECS on desktop Linux/Windows targets, OR we re-enable
-those targets in prism-ecs. Evaluate during implementation.
-
-Bridge files under `prism-native/src/nativeMain/kotlin/engine/prism/native/`:
-- **`Registry.kt`** — `HandleRegistry<T>` mapping `Long` IDs to Kotlin objects
-- **`NativeBridge.kt`** — `@CName`-annotated C API surface
-
----
-
-### Step 4 — Auto-generate Dart FFI bindings from C header (`ffigen`)
-
-Add `prism-flutter/flutter_plugin/ffigen.yaml`. Wire `generateFfiBindings` Gradle task in
-`prism-native/build.gradle.kts`. Add `ffiPlugin: true` to pubspec.yaml.
-
----
-
-### Step 5 — Auto-generate Dart `@JS()` bindings from `.d.ts` (WASM surface)
-
-Add `generateDartJsBindings` Gradle task to `prism-flutter/build.gradle.kts`. Remove hand-written
-`@JS()` declarations from `prism_web_plugin.dart`.
-
----
-
-### Step 6 — Update `prism-flutter` to use generated bindings
-
-- Keep MethodChannel for Android
-- Use generated `@JS()` bindings for web
-- New `prism_engine_ffi.dart` for iOS/macOS/Linux/Windows
-- Conditional export in `prism_engine.dart`
+#### 5. CI/CD & Multi-platform Artifacts
+- Added a `docker` job to `.github/workflows/ci.yml` using `build-all-docker.sh`.
+- Automated builds for Linux (.so), Windows (.dll), WASM/JS, and Android APK.
+- Uploads all artifacts to GitHub Actions for verification.

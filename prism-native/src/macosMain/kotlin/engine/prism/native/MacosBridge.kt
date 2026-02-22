@@ -17,15 +17,19 @@ import io.ygdrasil.webgpu.beginRenderPass
 import io.ygdrasil.webgpu.macosContextRendererFromLayer
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.update
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 // ---------------------------------------------------------------------------
 // Per-engine Metal surface storage
 // ---------------------------------------------------------------------------
 
-private val macosSurfaces = mutableMapOf<Long, MacosContext>()
+private val macosSurfaces: AtomicRef<Map<Long, MacosContext>> = atomic(mapOf())
 
 // ---------------------------------------------------------------------------
 // macOS Metal surface API
@@ -46,7 +50,9 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
   val engine = Registry.get<Engine>(engineHandle) ?: return
   val ptr = layerPtr ?: return
 
-  val ctx = runBlocking { macosContextRendererFromLayer(NativeAddress(ptr), width, height) }
+  val ctx = runBlocking(Dispatchers.Default) {
+    macosContextRendererFromLayer(NativeAddress(ptr), width, height)
+  }
 
   val surface = ctx.wgpuContext.surface
   val alphaMode =
@@ -61,7 +67,7 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
   )
 
   engine.gameLoop.startExternal()
-  macosSurfaces[engineHandle] = ctx
+  macosSurfaces.update { it + (engineHandle to ctx) }
 }
 
 /**
@@ -74,7 +80,7 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
 @CName("prism_render_frame")
 fun prismRenderFrame(engineHandle: Long) {
   val engine = Registry.get<Engine>(engineHandle) ?: return
-  val ctx = macosSurfaces[engineHandle] ?: return
+  val ctx = macosSurfaces.value[engineHandle] ?: return
 
   engine.gameLoop.tick()
 
@@ -121,5 +127,12 @@ fun prismRenderFrame(engineHandle: Long) {
 fun prismDetachSurface(engineHandle: Long) {
   val engine = Registry.get<Engine>(engineHandle)
   engine?.gameLoop?.stop()
-  macosSurfaces.remove(engineHandle)?.close()
+
+  var closedCtx: MacosContext? = null
+  macosSurfaces.update {
+    val ctx = it[engineHandle]
+    closedCtx = ctx
+    it - engineHandle
+  }
+  closedCtx?.close()
 }

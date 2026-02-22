@@ -20,6 +20,10 @@ class PrismEngine {
   int _engineHandle = 0;
   bool _initialized = false;
 
+  static final NativeFinalizer _finalizer = NativeFinalizer(
+    _loadBindings().prism_destroy_engine.cast(),
+  );
+
   static PrismNativeBindings _loadBindings() {
     // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
     // target and auto-loaded by dyld before Dart code runs — use process() to
@@ -43,7 +47,9 @@ class PrismEngine {
     if (_initialized) return;
     final nativeName = appName.toNativeUtf8();
     try {
-      _engineHandle = _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
+      _engineHandle =
+          _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
+      _finalizer.attach(this, Pointer.fromAddress(_engineHandle), detach: this);
       _bindings.prism_engine_initialize(_engineHandle);
       _initialized = true;
     } catch (_) {

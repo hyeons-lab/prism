@@ -1,0 +1,30 @@
+# Use a base image with JDK 21 (required for Gradle and toolchain bootstrapping)
+# The project uses JDK 25 as a toolchain, which Gradle will download if not present.
+FROM eclipse-temurin:21-jdk-jammy
+
+# Install dependencies for Kotlin/Native, GLFW, and cross-compilation
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libglfw3-dev \
+    libvulkan-dev \
+    libx11-dev \
+    libxcursor-dev \
+    libxinerama-dev \
+    libxrandr-dev \
+    libxi-dev \
+    libgl1-mesa-dev \
+    curl \
+    unzip \
+    git \
+    pkg-config \
+    mingw-w64 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# The user can mount their project root to /app
+# Example: docker run -v $(pwd):/app prism-builder ./gradlew assemble
+
+ENTRYPOINT ["./gradlew"]
+CMD ["assemble"]

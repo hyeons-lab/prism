@@ -29,8 +29,12 @@ kotlin {
       }
     }
   }
-  linuxX64()
-  mingwX64()
+
+  val isMac = System.getProperty("os.name").startsWith("Mac")
+  if (!isMac) {
+    linuxX64()
+    mingwX64()
+  }
 
   val xcf = XCFramework("PrismDemo")
   listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->

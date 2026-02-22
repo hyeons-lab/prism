@@ -15,6 +15,8 @@
 - [x] Step 8 — Refactor iOS plugin to prism-native FFI; add macOS Metal platform view
 - [x] Step 9 — Wire macOS AppKitView to wgpu via prism-native C API (wgpu4k fork)
 - [x] Step 10 — Generalize `prism-flutter` + create `prism-flutter-demo` consumer module
+- [x] Step 11 — Resource Management & Thread Safety improvements (Review fixes)
+- [x] Step 12 — Docker-based Multi-platform CI pipeline
 
 ## What Changed
 
@@ -267,7 +269,37 @@ c02201f — feat: migrate iOS plugin from CocoaPods to SPM
 e66a7a4 — feat: switch iOS to prism-native FFI and add macOS Metal platform view
 5e8d0b1 — chore: update devlog
 5e8d0b1 — chore: update devlog (replaced HEAD above)
-HEAD — feat: generalize prism-flutter, add prism-flutter-demo, runtime fixes, test coverage (Steps 10–13)
+ HEAD — fix: address critical review findings; resource management; thread safety; docker CI
+
+### Resource Management & Thread Safety (2026-02-22)
+
+#### What Changed
+
+`prism-native/src/nativeMain/kotlin/engine/prism/native/Registry.kt` — Added `Logger.w` from `kermit` to `get(id)` when an object is not found, helping debug invalid handles.
+
+`prism-native/src/macosMain/kotlin/engine/prism/native/MacosBridge.kt` — Replaced `mutableMapOf` with `AtomicRef<Map<Long, MacosContext>>` from `kotlinx-atomicfu`. Ensures thread-safe access to Metal contexts from the Flutter UI thread and Metal render loop.
+
+`prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — Renamed from `prism_sdk_stub.dart`. Added `NativeFinalizer` to `Engine`, `World`, `Node`, and `Scene` classes. These finalizers call the corresponding C `prism_destroy_*` functions automatically when Dart objects are garbage collected, preventing memory leaks of the underlying Kotlin objects in `Registry`.
+
+`prism-js/prism-sdk.mts` — Added `FinalizationRegistry` to `Engine`, `World`, `Scene`, and `Node` classes. Achieves automatic resource management in WASM/JS environments by calling `prismDestroy*` on GC.
+
+`.github/workflows/ci.yml` — Added `docker` job that runs `build-all-docker.sh` on `ubuntu-latest`. It builds Linux, Windows, WASM, and Android artifacts and uploads them.
+
+`Dockerfile.build` — New: Ubuntu-based build environment with JDK 21, GLFW, and cross-compilation tools.
+
+`build-all-docker.sh` — New: Script to run the build process inside the `prism-builder` Docker container.
+
+`prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — Standardized macOS to use FFI (`ffi.PrismEngine()`) instead of `MethodChannel` for core engine state and control.
+
+#### Decisions
+
+2026-02-22 Use `NativeFinalizer` (Dart) and `FinalizationRegistry` (TS) — Manual `.destroy()` calls are error-prone in higher-level SDKs. Automatic cleanup of opaque handles in the Kotlin `Registry` is essential for stability.
+
+2026-02-22 `AtomicRef` for macOS surface map — The Flutter MethodChannel and the Metal render loop run on different threads. `mutableMapOf` is not thread-safe; `AtomicRef` with an immutable map provides a safe, lock-free way to manage this state.
+
+2026-02-22 Docker-based CI for native targets — Building Linux and Windows shared libraries is difficult on macOS/Ubuntu runners without complex toolchain setup. Containerizing the build environment ensures reproducibility and simplifies CI configuration.
+
+2026-02-22 rename `prism_sdk_stub.dart` to `prism_sdk_ffi.dart` — The "stub" name was confusing. It now provides a real FFI-based implementation for native platforms while still being conditionally exported.
 
 ### Step 10 — Generalize `prism-flutter` + `prism-flutter-demo` (2026-02-21)
 
@@ -451,6 +483,11 @@ Plan: `devlog/plans/000017-03-code-review-test-coverage.md`
 
 71c7e02 — feat: surface PrismFlutter.xcframework and fix docs code snippets
 HEAD — docs: add HEAD commit tracking rule to AGENTS.md and CONVENTIONS.md
+1bb48d0 — fix: address critical review findings in demo asset setup
+f63eeaf — fix: auto-download DamagedHelmet.glb before demo run/build tasks
+6cde928 — refactor: consolidate demo asset into single canonical location (prism-demo-core/assets/)
+f47ff44 — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
+b7cdb04 — docs: update web snippet label to TypeScript · JavaScript · Web; add entity type annotation
 
 ---
 
@@ -652,7 +689,7 @@ d2fa7f9 — fix: suppress two-finger orbit hint; update architecture diagram
 9b86bf0 — devlog: record TypeScript SDK implementation notes
 b7cdb04 — docs: update web snippet label to TypeScript · JavaScript · Web
 f47ff44 — refactor: add linuxX64/mingwX64 targets; nonNativeMain for Compose isolation
-HEAD — refactor: consolidate demo asset into single canonical location (prism-demo-core/assets/)
+ HEAD — fix: address critical review findings; resource management; thread safety; docker CI
 
 ---
 
