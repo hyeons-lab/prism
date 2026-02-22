@@ -15,9 +15,10 @@ kotlin {
     compileSdk = libs.versions.compileSdk.get().toInt()
     minSdk = libs.versions.minSdk.get().toInt()
   }
+  val isMac = System.getProperty("os.name").startsWith("Mac")
   iosArm64()
   iosSimulatorArm64()
-  macosArm64()
+  if (isMac) macosArm64()
   linuxX64()
   mingwX64()
 

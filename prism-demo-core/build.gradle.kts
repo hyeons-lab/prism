@@ -18,20 +18,20 @@ kotlin {
     compileSdk = libs.versions.compileSdk.get().toInt()
     minSdk = libs.versions.minSdk.get().toInt()
   }
-  macosArm64 {
-    binaries {
-      executable {
-        entryPoint = "com.hyeonslab.prism.demo.main"
-        // Run the macOS binary with assets/ as the working directory so
-        // loadGlbBytes("DamagedHelmet.glb") resolves to the canonical location.
-        runTask?.workingDir(project.file("assets"))
-        runTask?.dependsOn(":downloadDemoAssets")
+  val isMac = System.getProperty("os.name").startsWith("Mac")
+  if (isMac) {
+    macosArm64 {
+      binaries {
+        executable {
+          entryPoint = "com.hyeonslab.prism.demo.main"
+          // Run the macOS binary with assets/ as the working directory so
+          // loadGlbBytes("DamagedHelmet.glb") resolves to the canonical location.
+          runTask?.workingDir(project.file("assets"))
+          runTask?.dependsOn(":downloadDemoAssets")
+        }
       }
     }
-  }
-
-  val isMac = System.getProperty("os.name").startsWith("Mac")
-  if (!isMac) {
+  } else {
     linuxX64()
     mingwX64()
   }

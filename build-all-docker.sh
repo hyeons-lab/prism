@@ -46,5 +46,13 @@ docker run --rm \
     -e HOME=/home/gradle \
     -e GRADLE_USER_HOME=/home/gradle/.gradle \
     -e KONAN_DATA_DIR=/home/gradle/.konan \
-    prism-builder \
-    assemble --no-daemon
+    # Build only the Linux/Windows/WASM outputs.
+# Avoid 'assemble' — it triggers macosArm64 metadata resolution on modules that
+# unconditionally declare that target, but macosArm64 wgpu4k klibs are only built
+# on macOS runners. Native Apple targets are built by the Apple CI job instead.
+prism-builder \
+    :prism-native:linkReleaseSharedLinuxX64 \
+    :prism-native:linkReleaseSharedMingwX64 \
+    :prism-js:wasmJsBrowserDistribution \
+    :prism-js:generateSdkTypes \
+    --no-daemon

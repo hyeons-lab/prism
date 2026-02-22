@@ -5,11 +5,12 @@ plugins {
 
 kotlin {
   val isMac = System.getProperty("os.name").startsWith("Mac")
+  // Apple targets can only be compiled on macOS; Linux/Windows targets are built in Docker CI.
   val nativeTargets =
     if (isMac) {
       listOf(iosArm64(), iosSimulatorArm64(), macosArm64())
     } else {
-      listOf(iosArm64(), iosSimulatorArm64(), macosArm64(), linuxX64(), mingwX64())
+      listOf(linuxX64(), mingwX64())
     }
 
   nativeTargets.forEach { target -> target.binaries.sharedLib { baseName = "prism" } }
