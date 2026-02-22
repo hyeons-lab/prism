@@ -547,4 +547,4 @@ pre-existing behavior (deemed non-buggy per the review).
 
 ## Commits (Step 15)
 
-HEAD — fix: critical review fixes (F1-F12, new test, wgpu4k SurfaceOutdatedException)
+adf657f — fix: critical review fixes (F1-F12, new test, wgpu4k SurfaceOutdatedException)
