@@ -600,4 +600,52 @@ yields ~56.99997, just under the original strict bound.
 
 ad1f24c — fix(F9): route getState through Kotlin; macOS+Android getState now return same fields
 8e4a3e8 — devlog: record commit hashes for Steps 15–16
-HEAD — test: fix test compilation and float-precision failures
+4a68f5c — test: fix test compilation and float-precision failures
+
+## CI / Docs / SDK fixes (post-Step-16)
+
+2026-02-22T00:00-08:00
+
+### What Changed
+
+`gradle/libs.versions.toml` — `wgpu4kCommit` updated to `c8bc79db...` (pushed HEAD); `webgpuKtypesCommit` updated to `cb5beb3d...`
+
+`webgpu-ktypes/buildSrc/build.gradle.kts` — fixed Kotlin version mismatch: `alias(libs.plugins.kotlin.serialization)` → `kotlin("plugin.serialization") version embeddedKotlinVersion`
+
+`prism-native-widgets/src/wasmJsMain/.../WasmInterop.kt` — two-finger orbit hint fix: 80 ms delay before showing hint, cancelled if second finger arrives within that window
+
+`docs/index.html` — architecture diagram updated (added prism-ios, prism-android-demo, prism-ios-demo; fixed module grouping); Dart panel label updated to "Dart · Flutter · iOS · Android · macOS · Web"; Swift label updated to "Swift · iOS · macOS"
+
+`prism-js/prism-sdk.mts` (NEW) — typed OO façade: Engine, World, Scene, Node subtypes, MeshBuilder, Vec3, EngineConfig, TransformComponent
+
+`prism-js/tsconfig.sdk.json` (NEW) — `module: nodenext`, `declaration: true`, `outDir: build/sdk`
+
+`prism-js/package.json` (NEW) — `typescript ^5.8.0` dev dependency, managed via Kotlin's managed Node.js
+
+`prism-js/build.gradle.kts` — `generateSdkTypes` Gradle task (3 custom tasks: CopyPrismDmtsTask, SdkNpmInstallTask, GenerateSdkTypesTask) using `@Inject ExecOperations` + `NodeDirValueSource`; replaces hand-rolled `prism-sdk.mjs`
+
+`prism-flutter-demo/build.gradle.kts` — `copyWasmToFlutterWeb` now reads `prism-sdk.mjs` from `build/sdk/` (generated) and depends on `:prism-js:generateSdkTypes`
+
+`.gitignore` — added `prism-js/prism.d.mts`, `prism-js/node_modules/`, `prism-js/package-lock.json`
+
+### Decisions
+
+2026-02-22T00:00-08:00 `moduleResolution: bundler` + `paths` for relative imports — TypeScript `paths` cannot redirect relative imports (`./prism.mjs`); it only works for non-relative specifiers. Switched to `moduleResolution: nodenext` which looks for `prism.d.mts` next to the source naturally; `prism.d.mts` is copied from the Kotlin build via `CopyPrismDmtsTask`.
+
+2026-02-22T00:00-08:00 `gradle-node-plugin` rejected — it adds a project-level Ivy repo for Node.js downloads that conflicts with `dependencyResolutionManagement` (project repos shadow settings repos, causing kotlin-stdlib/binaryen resolution failures). Using Kotlin's managed Node.js (`NodeDirValueSource`) avoids a second Node.js download and repository conflicts.
+
+2026-02-22T00:00-08:00 `devNpm("typescript")` in `wasmJsMain.dependencies` doesn't appear in the Kotlin yarn workspace's package.json for production builds — only test source sets pick it up. Workaround: dedicated `prism-js/package.json` + `SdkNpmInstallTask`.
+
+2026-02-22T00:00-08:00 `CopyPrismDmtsTask` uses `@OutputFile` (specific file) instead of `Copy` task with `into(projectDir)` — declaring a specific `@OutputFile` avoids Gradle's implicit-dependency validation error that fires when a Copy task's `into()` destination is a parent directory of another task's inputs.
+
+2026-02-22T00:00-08:00 `bin/npm` in Kotlin's Node.js is a Node.js script (`#!/usr/bin/env node`), not a shell script — must invoke it as `node bin/npm install` to avoid `env: node: No such file or directory` when node is not on PATH.
+
+### Commits
+
+b69969b — fix: update wgpu4kCommit to pushed HEAD (was local-only)
+bfaa2ff — fix: update webgpuKtypesCommit to fix buildSrc Kotlin version warning
+d2fa7f9 — fix: suppress two-finger orbit hint; update architecture diagram
+35335be — docs: rename Dart panel label
+8119f23 — docs: add supported Flutter platforms to Dart snippet label
+368fda6 — docs: add macOS to Swift snippet label
+HEAD — feat(prism-js): add TypeScript SDK with auto-generated types
