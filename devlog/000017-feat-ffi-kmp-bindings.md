@@ -428,3 +428,25 @@ Plan: `devlog/plans/000017-03-code-review-test-coverage.md`
 ## Commits (Step 13)
 
 (see top-level Commits section — all steps land in one commit)
+
+---
+
+### Step 14 — Surface PrismFlutter.xcframework + docs fixes (2026-02-21)
+
+`prism-flutter/build.gradle.kts` — Added SKIE plugin; added `XCFramework("PrismFlutter")` + `macosArm64 { binaries.framework { baseName = "PrismFlutter" } }`; added `bundleFlutterMacOS` Copy task that depends on `assemblePrismFlutterReleaseXCFramework` and copies the output into `flutter_plugin/macos/prism_flutter/Frameworks/PrismFlutter.xcframework`.
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Package.swift` — Added `PrismFlutter` binary target referencing the new framework; added it as a dependency of the `prism_flutter` Swift target alongside `PrismNative`.
+
+`prism-flutter/flutter_plugin/macos/prism_flutter/Frameworks/.gitignore` — Added `PrismFlutter.xcframework` (pre-built output, not committed).
+
+`docs/index.html` — Platform table: corrected Flutter macOS row from `PrismFlutterDemo.xcframework` (demo-specific) to `PrismFlutter.xcframework` (generic consumer framework). Code snippets: split `scene.addNode(...); scene.activeCamera = cam` onto two lines in all four language panels (Kotlin, Swift, JS, Dart).
+
+## Decisions (Step 14)
+
+2026-02-21 Separate `PrismFlutter.xcframework` from `PrismFlutterDemo.xcframework` — the demo framework bundles demo-specific scene code; a consumer app should link the generic bridge (`PrismFlutter.xcframework`) and supply their own scene. This mirrors how the `PrismNative.xcframework` (C++ core) is already separated from the demo. SKIE is applied to `prism-flutter` too so that `PrismMetalBridge` exposes ObjC selectors that match `PrismMetalBridgeProtocol`.
+
+2026-02-21 `Package.swift` now declares both `PrismNative` and `PrismFlutter` as binary targets — consumers of the `prism_flutter` Swift Package get both the C++ core and the Kotlin bridge automatically, which is the minimum set needed to subclass `PrismMetalBridge` in their own framework.
+
+## Commits (Step 14)
+
+HEAD — feat: surface PrismFlutter.xcframework and fix docs code snippets

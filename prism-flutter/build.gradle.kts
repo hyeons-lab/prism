@@ -1,7 +1,10 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
+
 plugins {
   id("prism-quality")
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.android.kotlin.multiplatform.library)
+  alias(libs.plugins.skie)
 }
 
 kotlin {
@@ -13,7 +16,14 @@ kotlin {
   }
   iosArm64()
   iosSimulatorArm64()
-  macosArm64()
+  val xcf = XCFramework("PrismFlutter")
+  macosArm64 {
+    binaries.framework {
+      baseName = "PrismFlutter"
+      isStatic = false
+      xcf.add(this)
+    }
+  }
   linuxX64()
   mingwX64()
 
@@ -151,6 +161,21 @@ tasks.register("generateDartJsBindings") {
         dartOutFile.writeText(sb.toString())
         logger.lifecycle("Dart JS bindings written to $dartOutFile")
     }
+}
+
+// ---------------------------------------------------------------------------
+// Assemble PrismFlutter.xcframework (Kotlin/Native bridge) and copy into the
+// generic plugin's Frameworks directory so SPM can declare it as a binary target.
+// Consumers link against this instead of the demo-specific PrismFlutterDemo.xcframework.
+// Run: ./gradlew :prism-flutter:bundleFlutterMacOS
+// ---------------------------------------------------------------------------
+tasks.register<Copy>("bundleFlutterMacOS") {
+    dependsOn("assemblePrismFlutterReleaseXCFramework")
+    val xcfDir = layout.buildDirectory
+        .dir("XCFrameworks/release/PrismFlutter.xcframework")
+    from(xcfDir)
+    into(layout.projectDirectory
+        .dir("flutter_plugin/macos/prism_flutter/Frameworks/PrismFlutter.xcframework"))
 }
 
 // ---------------------------------------------------------------------------

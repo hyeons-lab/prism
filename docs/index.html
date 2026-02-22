@@ -260,7 +260,8 @@ world.addComponent(entity, TransformComponent(position = Vec3(0f, 0f, -5f)))
 val scene = Scene("main")
 val mesh  = MeshNode("helmet")
 val cam   = CameraNode("cam")
-scene.addNode(mesh);  scene.activeCamera = cam
+scene.addNode(mesh)
+scene.activeCamera = cam
 
 <span class="comment">// Query state</span>
 println("dt: ${engine.time.deltaTime}")</pre>
@@ -281,7 +282,8 @@ world.addComponent(entity: entity,
 let scene = Scene(name: "main")
 let mesh  = MeshNode(name: "helmet")
 let cam   = CameraNode(name: "cam")
-scene.addNode(node: mesh);  scene.activeCamera = cam
+scene.addNode(node: mesh)
+scene.activeCamera = cam
 
 <span class="comment">// Query state</span>
 print("dt: \(engine.time.deltaTime)")</pre>
@@ -302,23 +304,32 @@ world.addComponent(entity, new TransformComponent({ position: new Vec3(0, 0, -5)
 const scene = new Scene('main');
 const mesh  = new MeshNode('helmet');
 const cam   = new CameraNode('cam');
-scene.addNode(mesh);  scene.activeCamera = cam;
+scene.addNode(mesh);
+scene.activeCamera = cam;
 
 <span class="comment">// Query state</span>
 console.log('dt:', engine.time.deltaTime);</pre>
           </div>
 
           <div class="lang-card">
-            <div class="lang-label">Dart &middot; Flutter</div>
-<pre class="code-block">import 'package:prism_flutter/prism_flutter.dart';
+            <div class="lang-label">Dart · Web</div>
+<pre class="code-block">import 'package:prism_flutter/prism_sdk.dart';
 
-<span class="comment">// MethodChannel on Android/macOS · FFI on iOS/Linux/Windows · @JS on Web</span>
-final engine = PrismEngine();
-await engine.initialize(appName: 'MyApp', targetFps: 60);
+<span class="comment">// Create engine and ECS world</span>
+final engine = Engine(EngineConfig(targetFps: 60));
+final world  = World();
+final entity = world.createEntity();
+world.addComponent(entity, TransformComponent(position: Vec3(0, 0, -5)));
+
+<span class="comment">// Scene graph: mesh node + camera</span>
+final scene = Scene('main');
+final mesh  = MeshNode('helmet');
+final cam   = CameraNode('cam');
+scene.addNode(mesh);
+scene.activeCamera = cam;
 
 <span class="comment">// Query state</span>
-final state = await engine.getState();
-print('dt: \${state['deltaTime']}');</pre>
+print('dt: \${engine.time.deltaTime}');</pre>
           </div>
 
         </div>
@@ -396,7 +407,7 @@ print('dt: \${state['deltaTime']}');</pre>
               </tr>
               <tr>
                 <td>Flutter macOS</td>
-                <td>PrismMetalBridge (KMP) + PrismMetalBridgeProtocol (Swift) + PrismFlutterDemo.xcframework</td>
+                <td>PrismMetalBridge (KMP) + PrismMetalBridgeProtocol (Swift) + PrismFlutter.xcframework</td>
                 <td class="status-done">Working</td>
               </tr>
               <tr>
