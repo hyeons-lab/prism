@@ -29,6 +29,12 @@ GROUP_ID=$(id -g)
 # inside the container when running as a non-root UID.
 mkdir -p "$HOME/.gradle" "$HOME/.konan" "$HOME/.m2" "$HOME/.android"
 
+# Pass Android SDK into the container if available on the host.
+ANDROID_ARGS=()
+if [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME" ]; then
+  ANDROID_ARGS=(-v "$ANDROID_HOME:$ANDROID_HOME:ro" -e "ANDROID_HOME=$ANDROID_HOME")
+fi
+
 docker run --rm \
     -u "$USER_ID:$GROUP_ID" \
     -v "$(pwd):/app" \
@@ -36,6 +42,7 @@ docker run --rm \
     -v "$HOME/.konan:/home/gradle/.konan" \
     -v "$HOME/.m2:/home/gradle/.m2" \
     -v "$HOME/.android:/home/gradle/.android" \
+    "${ANDROID_ARGS[@]}" \
     -e HOME=/home/gradle \
     -e GRADLE_USER_HOME=/home/gradle/.gradle \
     -e KONAN_DATA_DIR=/home/gradle/.konan \
