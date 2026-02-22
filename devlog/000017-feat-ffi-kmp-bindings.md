@@ -743,4 +743,6 @@ HEAD — fix: update wgpu4kNativeCommit to correct full hash after force-push
 
 CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref f2bba093a61fa14fb57e7765bff5028f40f7eb5f`. Root cause: the commit was amended/force-pushed after it was pinned, producing a new full hash (`f2bba093c1c93feabdf89e3bbe02527616cd3c90`) that shares the same 8-char short hash but is a different object. GitHub refuses to serve the old (now unreachable) object.
 
-**Fix:** Updated `wgpu4kNativeCommit` in `gradle/libs.versions.toml` from the old hash to the current remote tip: `f2bba093c1c93feabdf89e3bbe02527616cd3c90`.
+**Fix 1:** Updated `wgpu4kNativeCommit` in `gradle/libs.versions.toml` from the stale hash to `f2bba093c1c93feabdf89e3bbe02527616cd3c90` (current remote tip). CI still failed — this new tip itself had a compile error.
+
+**Fix 2:** `f2bba093c1c9` accidentally dropped `import kotlinx.cinterop.reinterpret` and `.reinterpret()` on the `wgpuDevicePoll` `wrappedSubmissionIndex` argument, causing `CPointer<COpaque>?` vs `CValuesRef<ULongVarOf<ULong>>?` type mismatch. Fixed in `wgpu4k-native` (`a5905eb3`), then updated `wgpu4kNativeCommit` to `a5905eb37c0aea1c64cac33a61cc5b4132543d66`.
