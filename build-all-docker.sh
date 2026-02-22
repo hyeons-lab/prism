@@ -27,7 +27,7 @@ GROUP_ID=$(id -g)
 # Ensure cache directories exist and are owned by the current user before mounting.
 # Docker creates missing bind-mount sources as root-owned, making them unwritable
 # inside the container when running as a non-root UID.
-mkdir -p "$HOME/.gradle" "$HOME/.konan" "$HOME/.m2"
+mkdir -p "$HOME/.gradle" "$HOME/.konan" "$HOME/.m2" "$HOME/.android"
 
 docker run --rm \
     -u "$USER_ID:$GROUP_ID" \
@@ -35,6 +35,7 @@ docker run --rm \
     -v "$HOME/.gradle:/home/gradle/.gradle" \
     -v "$HOME/.konan:/home/gradle/.konan" \
     -v "$HOME/.m2:/home/gradle/.m2" \
+    -v "$HOME/.android:/home/gradle/.android" \
     -e HOME=/home/gradle \
     -e GRADLE_USER_HOME=/home/gradle/.gradle \
     -e KONAN_DATA_DIR=/home/gradle/.konan \
