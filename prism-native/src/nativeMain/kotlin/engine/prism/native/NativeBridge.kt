@@ -72,8 +72,7 @@ fun prismDestroyEngine(handle: Long) {
 // ---------------------------------------------------------------------------
 
 /** Creates an ECS World and returns its handle. */
-@CName("prism_create_world")
-fun prismCreateWorld(): Long = Registry.put(World())
+@CName("prism_create_world") fun prismCreateWorld(): Long = Registry.put(World())
 
 /** Creates a new entity in the world. Returns its integer ID, or -1 if the handle is invalid. */
 @CName("prism_world_create_entity")
@@ -153,7 +152,8 @@ fun prismDestroyScene(handle: Long) {
 
 /** Creates a plain Node and returns its handle. */
 @CName("prism_create_node")
-fun prismCreateNode(name: CPointer<ByteVar>?): Long = Registry.put(Node(name?.toKString() ?: "Node"))
+fun prismCreateNode(name: CPointer<ByteVar>?): Long =
+  Registry.put(Node(name?.toKString() ?: "Node"))
 
 /** Creates a MeshNode and returns its handle. */
 @CName("prism_create_mesh_node")

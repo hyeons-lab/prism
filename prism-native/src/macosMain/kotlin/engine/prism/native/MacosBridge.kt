@@ -50,9 +50,10 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
   val engine = Registry.get<Engine>(engineHandle) ?: return
   val ptr = layerPtr ?: return
 
-  val ctx = runBlocking(Dispatchers.Default) {
-    macosContextRendererFromLayer(NativeAddress(ptr), width, height)
-  }
+  val ctx =
+    runBlocking(Dispatchers.Default) {
+      macosContextRendererFromLayer(NativeAddress(ptr), width, height)
+    }
 
   val surface = ctx.wgpuContext.surface
   val alphaMode =
