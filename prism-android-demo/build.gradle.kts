@@ -28,6 +28,9 @@ android {
   }
 }
 
+// Download the shared demo asset before any Android build task runs.
+tasks.named("preBuild") { dependsOn(":downloadDemoAssets") }
+
 dependencies {
   implementation(project(":prism-demo-core"))
   implementation(project(":prism-native-widgets"))

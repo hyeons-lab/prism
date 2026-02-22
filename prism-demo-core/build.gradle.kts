@@ -25,6 +25,7 @@ kotlin {
         // Run the macOS binary with assets/ as the working directory so
         // loadGlbBytes("DamagedHelmet.glb") resolves to the canonical location.
         runTask?.workingDir(project.file("assets"))
+        runTask?.dependsOn(":downloadDemoAssets")
       }
     }
   }
@@ -119,6 +120,7 @@ val isMacOs = providers.systemProperty("os.name").map { it.contains("Mac", ignor
 tasks.withType<JavaExec>().configureEach {
   // Run from the shared asset directory so File("DamagedHelmet.glb") resolves correctly.
   workingDir = project.file("assets")
+  dependsOn(":downloadDemoAssets")
   javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
   jvmArgs("--add-opens=java.base/java.lang=ALL-UNNAMED")
   jvmArgs("--add-opens=java.desktop/java.awt=ALL-UNNAMED")
