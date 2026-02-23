@@ -763,6 +763,10 @@ CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref 
 
 **Fix 10 (2026-02-23T00:00-08:00):** Docker Build CI job uploaded "prism-android-demo" artifact but produced a warning `No files were found with the provided path: prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.apk`. Root cause: `build-all-docker.sh` only ran Linux/Windows/WASM Gradle tasks — no Android task was ever invoked. The ANDROID_HOME passthrough and `.android` mount were already in place from Fix 4/5. Fix: added `:prism-android-demo:assembleDebug` to the Gradle tasks list in `build-all-docker.sh`.
 
+**Fix 11 (2026-02-22T15:00-08:00):** Apple Targets job still at risk of timing out at the new 60-minute limit. Cold build breakdown: ~12-15 min setup + ~25-30 min Kotlin/Native compilation + ~5-8 min XCFramework link + ~10-15 min verify/xcodebuild = ~65-68 min total. Bumped `timeout-minutes` from 60 to 70 to give adequate buffer.
+
+**Fix 12 (2026-02-22T15:00-08:00):** PR CI runs recompile all Kotlin/Native klibs from scratch (~25 min) on every push because `cache-read-only: true` on PRs prevented writing build cache entries. Gradle's build cache is content-addressable (keyed by task input hash), so concurrent writes produce identical entries — no corruption risk. Set `cache-read-only: false` on all three `Setup Gradle` steps (ci, apple, docker jobs). Additionally, added `restore-keys: ${{ runner.os }}-konan-` fallback to the Apple job's Kotlin/Native toolchain cache (the Docker job already had this; the Apple job was missing it). This ensures Kotlin version bumps fall back to a partial cache instead of downloading ~500 MB fresh.
+
 bfec04e — fix: update wgpu4kNativeCommit to correct full hash after force-push
 9d9faa7 — fix: update wgpu4kNativeCommit to fix reinterpret() compile error
 55f6226 — devlog: record wgpu4kNative compile fix
@@ -772,4 +776,7 @@ d42e346 — chore: ktfmtFormat prism-native MacosBridge and NativeBridge
 6cb8e41 — fix: pass ANDROID_HOME into Docker container for Android build
 525e485 — fix: make macosArm64 conditional on host OS across all KMP modules
 ad2435b — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)
-HEAD — fix: bump Apple Targets timeout to 60 min; build Android APK in Docker
+83527a0 — fix: bump Apple Targets timeout to 60 min; build Android APK in Docker
+356a772 — devlog: record CI fixes 9–10 (Apple timeout, Android APK)
+3343a3a — ci: improve Apple Targets build time (timeout, cache writability, Konan restore-keys)
+HEAD — devlog: record CI fixes 11–12 (timeout 70 min, cache-read-only, Konan restore-keys)
