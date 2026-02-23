@@ -1,6 +1,5 @@
 package com.hyeonslab.prism.demo
 
-import com.hyeonslab.prism.math.MathUtils
 import kotlinx.coroutines.sync.Mutex
 import platform.Foundation.NSOperationQueue
 import platform.QuartzCore.CACurrentMediaTime
@@ -9,7 +8,7 @@ import platform.QuartzCore.CACurrentMediaTime
 internal const val IOS_DEFAULT_WIDTH = 800
 internal const val IOS_DEFAULT_HEIGHT = 600
 
-/** Shared [DemoStore] so Native and Compose tabs share pause, speed, and state. */
+/** Shared [DemoStore] so Native and Compose tabs share pause and state. */
 internal val sharedDemoStore: DemoStore = DemoStore()
 
 /**
@@ -17,9 +16,8 @@ internal val sharedDemoStore: DemoStore = DemoStore()
  *
  * All state is synchronized via a [Mutex] because both MTKView delegates may run on separate
  * display-link threads. The single [tick] method acquires the lock once per frame to sync pause
- * state, compute elapsed time, and compute the rotation angle atomically. When the lock is
- * contended, cached values from the previous frame are returned — at 60fps the worst case is a
- * single frame of staleness, which is imperceptible.
+ * state and compute elapsed time atomically. When the lock is contended, the cached value from the
+ * previous frame is returned — at 60fps the worst case is a single frame of staleness.
  */
 internal object SharedDemoTime {
   private val mutex = Mutex()
@@ -27,37 +25,14 @@ internal object SharedDemoTime {
   private var accumulatedElapsed = 0.0
   private var paused = false
 
-  // Angle tracking — accumulates an offset when speed changes so rotation doesn't jump.
-  private var angleOffset = 0.0
-  private var elapsedAtSpeedChange = 0.0
-  private var lastSpeed = Double.NaN
-
-  // Cached last-known-good values returned when the lock is contended. At 60fps, a single
-  // frame of staleness is imperceptible, so no @Volatile annotation is needed.
   private var cachedElapsed = 0.0
-  private var cachedAngle = 0f
 
-  private fun elapsedUnsafe(): Double {
-    return if (paused) accumulatedElapsed
-    else accumulatedElapsed + (CACurrentMediaTime() - baseTime)
-  }
-
-  /**
-   * Combined per-frame tick: syncs pause state, computes elapsed time, and computes the rotation
-   * angle — all atomically under a single lock acquisition. When the lock is contended, [block]
-   * receives cached values from the previous frame instead.
-   *
-   * @param isPaused current pause state from the store
-   * @param speedRadians rotation speed in radians per second
-   * @param block receives (elapsed seconds, rotation angle in radians)
-   */
-  inline fun tick(isPaused: Boolean, speedRadians: Float, block: (Float, Float) -> Unit) {
+  inline fun tick(isPaused: Boolean, block: (Float) -> Unit) {
     if (!mutex.tryLock()) {
-      block(cachedElapsed.toFloat(), cachedAngle)
+      block(cachedElapsed.toFloat())
       return
     }
     try {
-      // Sync pause state
       if (isPaused && !paused) {
         accumulatedElapsed += CACurrentMediaTime() - baseTime
         paused = true
@@ -65,25 +40,10 @@ internal object SharedDemoTime {
         baseTime = CACurrentMediaTime()
         paused = false
       }
-
-      // Compute elapsed
-      val currentElapsed = elapsedUnsafe()
-
-      // Compute angle (smooth speed transitions via offset accumulation)
-      val speed = speedRadians.toDouble()
-      if (lastSpeed.isNaN()) {
-        lastSpeed = speed
-        elapsedAtSpeedChange = currentElapsed
-      } else if (speed != lastSpeed) {
-        angleOffset += (currentElapsed - elapsedAtSpeedChange) * lastSpeed
-        elapsedAtSpeedChange = currentElapsed
-        lastSpeed = speed
-      }
-      val angle = (angleOffset + (currentElapsed - elapsedAtSpeedChange) * speed).toFloat()
-
+      val currentElapsed =
+        if (paused) accumulatedElapsed else accumulatedElapsed + (CACurrentMediaTime() - baseTime)
       cachedElapsed = currentElapsed
-      cachedAngle = angle
-      block(currentElapsed.toFloat(), angle)
+      block(currentElapsed.toFloat())
     } finally {
       mutex.unlock()
     }
@@ -92,21 +52,14 @@ internal object SharedDemoTime {
 
 /**
  * Shared per-frame update logic for both Native and Compose iOS render delegates. Reads the current
- * [DemoStore] state, ticks [SharedDemoTime] for synchronized elapsed/angle values, dispatches
- * smoothed FPS, and runs the ECS world update.
+ * [DemoStore] state, ticks [SharedDemoTime] for synchronized elapsed values, dispatches smoothed
+ * FPS, and runs the ECS world update.
  */
 internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float, frameCount: Long) {
   val currentState = store.state.value
 
   var elapsed = 0f
-  var angle = 0f
-  SharedDemoTime.tick(
-    isPaused = currentState.isPaused,
-    speedRadians = MathUtils.toRadians(currentState.rotationSpeed),
-  ) { e, a ->
-    elapsed = e
-    angle = a
-  }
+  SharedDemoTime.tick(isPaused = currentState.isPaused) { e -> elapsed = e }
 
   // Update FPS (smoothed) — dispatch on main queue for thread-safe Compose state updates
   if (deltaTime > 0f) {
@@ -116,11 +69,9 @@ internal fun tickDemoFrame(scene: DemoScene, store: DemoStore, deltaTime: Float,
     }
   }
 
-  // ECS update via shared DemoScene method (sphere grid is static; angle is unused)
-  scene.tickWithAngle(
+  scene.tick(
     deltaTime = if (currentState.isPaused) 0f else deltaTime,
     elapsed = elapsed,
     frameCount = frameCount,
-    angle = angle,
   )
 }

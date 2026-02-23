@@ -14,6 +14,12 @@ class PrismEngine {
     _canvasId = canvasId;
   }
 
+  /// No-op on web: the WASM module drives itself via requestAnimationFrame.
+  Future<void> initialize({String appName = 'Prism', int targetFps = 60}) async {}
+
+  /// No native handle on web; returns 0 as the sentinel "not initialized" value.
+  int get handle => 0;
+
   /// Toggle pause/resume of the render loop.
   Future<void> togglePause() async {
     final id = _canvasId;

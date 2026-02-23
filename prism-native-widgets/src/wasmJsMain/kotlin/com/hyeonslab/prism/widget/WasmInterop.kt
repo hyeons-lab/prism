@@ -66,11 +66,18 @@ internal external fun jsNotifyFirstFrameReady()
     'opacity:0;transition:opacity 0.2s;white-space:nowrap;z-index:20;';
   (canvas.parentElement || document.body).appendChild(hint);
   let hintTimer = null;
+  let hintShowTimer = null;
   const showHint = () => {
     clearTimeout(hintTimer);
     hint.style.opacity = '1';
     hintTimer = setTimeout(() => { hint.style.opacity = '0'; }, 1400);
   };
+  // Schedule hint with a brief delay so it can be cancelled if a second finger arrives.
+  const scheduleHint = () => {
+    clearTimeout(hintShowTimer);
+    hintShowTimer = setTimeout(showHint, 80);
+  };
+  const cancelHint = () => { clearTimeout(hintShowTimer); };
 
   const touches = new Set(); // active touch pointer IDs
   let orbitId = null, lastX = 0, lastY = 0;
@@ -78,8 +85,9 @@ internal external fun jsNotifyFirstFrameReady()
   canvas.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') {
       touches.add(e.pointerId);
-      if (touches.size === 1) { showHint(); return; } // single finger — let browser scroll
+      if (touches.size === 1) { scheduleHint(); return; } // single finger — let browser scroll
       if (touches.size >= 2 && orbitId === null) {    // second finger — start orbit
+        cancelHint(); // user has two fingers; suppress the hint
         orbitId = e.pointerId; lastX = e.clientX; lastY = e.clientY;
         canvas.setPointerCapture(e.pointerId); e.preventDefault();
       }
@@ -97,14 +105,14 @@ internal external fun jsNotifyFirstFrameReady()
   }, { passive: false });
 
   canvas.addEventListener('pointerup', e => {
-    if (e.pointerType === 'touch') touches.delete(e.pointerId);
+    if (e.pointerType === 'touch') { touches.delete(e.pointerId); if (touches.size === 0) cancelHint(); }
     if (e.pointerId === orbitId) {
       orbitId = null;
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
     }
   });
   canvas.addEventListener('pointercancel', e => {
-    if (e.pointerType === 'touch') touches.delete(e.pointerId);
+    if (e.pointerType === 'touch') { touches.delete(e.pointerId); if (touches.size === 0) cancelHint(); }
     if (e.pointerId === orbitId) orbitId = null;
   });
 }"""

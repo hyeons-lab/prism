@@ -11,6 +11,9 @@ class PrismEngine {
   /// No-op on mobile — canvas binding is only needed for web multi-instance support.
   void attachCanvas(String canvasId) {}
 
+  /// No-op on mobile — engine is initialized natively when the platform view is created.
+  Future<void> initialize({String appName = 'Prism', int targetFps = 60}) async {}
+
   /// Toggle pause/resume of the render loop.
   Future<void> togglePause() async {
     await _channel.invokeMethod('togglePause');

@@ -1,0 +1,5 @@
+# Auto-generated Dart bindings — do not commit.
+# Run generation steps before building:
+#   JS bindings:     ./gradlew :prism-flutter:generateDartJsBindings
+#   Native bindings: ./gradlew :prism-native:generateFfiBindings
+*.dart

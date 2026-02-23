@@ -15,26 +15,45 @@ kotlin {
     compileSdk = libs.versions.compileSdk.get().toInt()
     minSdk = libs.versions.minSdk.get().toInt()
   }
+  val isMac = System.getProperty("os.name").startsWith("Mac")
   iosArm64()
   iosSimulatorArm64()
-  macosArm64()
+  if (isMac) macosArm64()
+  linuxX64()
+  mingwX64()
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 
   applyDefaultHierarchyTemplate()
 
   sourceSets {
+    val commonMain by getting
+    val jvmMain by getting
+    val androidMain by getting
+    val wasmJsMain by getting
+
     commonMain.dependencies {
       api(project(":prism-core"))
       api(project(":prism-renderer"))
       api(project(":prism-native-widgets"))
+      implementation(libs.kermit)
+      implementation(libs.kotlinx.coroutines.core)
+    }
+
+    val nonNativeMain by creating { dependsOn(commonMain) }
+
+    jvmMain.dependsOn(nonNativeMain)
+    androidMain.dependsOn(nonNativeMain)
+    wasmJsMain.dependsOn(nonNativeMain)
+
+    nonNativeMain.dependencies {
       implementation(libs.compose.runtime)
       implementation(libs.compose.foundation)
       implementation(libs.compose.ui)
-      implementation(libs.kermit)
-      implementation(libs.kotlinx.coroutines.core)
       implementation(libs.lifecycle.runtime.compose)
     }
+
+    val appleMain by getting { dependsOn(nonNativeMain) }
     commonTest.dependencies { implementation(libs.kotlin.test) }
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)

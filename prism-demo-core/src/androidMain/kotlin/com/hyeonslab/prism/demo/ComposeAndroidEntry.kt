@@ -21,16 +21,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.ecs.components.MaterialComponent
-import com.hyeonslab.prism.math.MathUtils
-import com.hyeonslab.prism.renderer.Material
 import com.hyeonslab.prism.widget.AndroidSurfaceInfo
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 private val log = Logger.withTag("ComposeAndroid")
 
@@ -44,6 +46,7 @@ private val log = Logger.withTag("ComposeAndroid")
  */
 @Composable
 fun AndroidComposeDemoContent() {
+  val context = LocalContext.current
   val store = remember { DemoStore() }
   val uiState by store.state.collectAsStateWithLifecycle()
 
@@ -55,12 +58,15 @@ fun AndroidComposeDemoContent() {
   // Compose state updates are async (take effect on next recomposition), so the render loop's
   // captured `sc` reference would keep rendering into a destroyed surface without this.
   var renderingActive by remember { mutableStateOf(false) }
+  var backgroundScope by remember { mutableStateOf<CoroutineScope?>(null) }
 
   // Clean up wgpu resources when the composable leaves the composition.
   DisposableEffect(Unit) {
     onDispose {
       log.i { "Disposing Compose Android demo" }
       renderingActive = false
+      backgroundScope?.cancel()
+      backgroundScope = null
       scene?.shutdown()
       scene = null
       surface?.detach()
@@ -105,6 +111,8 @@ fun AndroidComposeDemoContent() {
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                   log.i { "surfaceDestroyed" }
                   renderingActive = false
+                  backgroundScope?.cancel()
+                  backgroundScope = null
                   scene?.shutdown()
                   scene = null
                   surface?.detach()
@@ -134,12 +142,21 @@ fun AndroidComposeDemoContent() {
           }
           surface = s
           val wgpuCtx = checkNotNull(s.wgpuContext) { "wgpu context not available" }
+          val glbBytes =
+            try {
+              context.assets.open("DamagedHelmet.glb").use { it.readBytes() }
+            } catch (e: Exception) {
+              throw RuntimeException("DamagedHelmet.glb not found in assets", e)
+            }
+          val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+          backgroundScope = scope
           val sc =
-            createDemoScene(
+            createGltfDemoScene(
               wgpuCtx,
               width = info.width,
               height = info.height,
-              initialColor = store.state.value.cubeColor,
+              glbData = glbBytes,
+              progressiveScope = scope,
             )
           scene = sc
           renderingActive = true
@@ -157,7 +174,6 @@ fun AndroidComposeDemoContent() {
         val startTimeNs = System.nanoTime()
         var frameCount = 0L
         var lastFrameTimeNs = startTimeNs
-        var rotationAngle = 0f
 
         while (true) {
           withFrameNanos {
@@ -176,23 +192,16 @@ fun AndroidComposeDemoContent() {
               store.dispatch(DemoIntent.UpdateFps(smoothedFps))
             }
 
-            // Update rotation
+            // Apply PBR material overrides and environment intensity from UI sliders.
             if (!currentState.isPaused) {
-              rotationAngle += deltaSec * MathUtils.toRadians(currentState.rotationSpeed)
+              sc.setMaterialOverride(currentState.metallic, currentState.roughness)
+              sc.setEnvIntensity(currentState.envIntensity)
             }
 
-            // Update material color when it changes
-            val cubeMaterial = sc.world.getComponent<MaterialComponent>(sc.cubeEntity)
-            if (cubeMaterial != null && cubeMaterial.material?.baseColor != currentState.cubeColor) {
-              cubeMaterial.material = Material(baseColor = currentState.cubeColor)
-            }
-
-            // Rotation + ECS update via shared DemoScene method
-            sc.tickWithAngle(
+            sc.tick(
               deltaTime = deltaSec,
               elapsed = totalSec,
               frameCount = frameCount,
-              angle = rotationAngle,
             )
           }
         }

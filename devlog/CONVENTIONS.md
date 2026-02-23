@@ -28,6 +28,8 @@ Each devlog file should have:
 - **Issues:** Problems, failed attempts, and resolutions. Log what you tried, why it failed, and what you learned.
 - **Commits:** `hash — message`
 
+  **HEAD rule:** The very latest commit must always be recorded as `HEAD — message`, never its real hash. A commit cannot reference its own hash — doing so would require an amend, which changes the hash. When making the *next* commit, update the previous `HEAD` entry to the real hash in that same new commit, then record the new commit as `HEAD`. Never update a `HEAD` entry in isolation (it must only change as part of writing a new commit).
+
 Optional sections (omit if empty):
 - **Progress:** Checklist of tasks
 - **Research & Discoveries:** Findings, links — so future agents don't re-discover them

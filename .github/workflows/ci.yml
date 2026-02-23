@@ -37,7 +37,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
           add-job-summary: always
 
       - name: Setup wgpu4k
@@ -46,7 +46,13 @@ jobs:
       - name: Lint, analyze & test
         run: |
           START=$SECONDS
-          ./gradlew ktfmtCheck detektJvmMain jvmTest \
+          # ktfmtCheck runs without --build-cache: the KtFmt worker API writes UUID
+          # temp files to build/tmp/ that are not declared task outputs and therefore
+          # not restored on a build-cache hit. The ktfmtCheckScripts aggregator then
+          # fails trying to read a file that was never written. Running ktfmtCheck
+          # cache-free ensures the temp files are always produced.
+          ./gradlew ktfmtCheck --no-build-cache || EXIT=$?
+          ./gradlew detektJvmMain jvmTest \
             --configuration-cache || EXIT=$?
           echo "### Lint + Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
@@ -70,7 +76,7 @@ jobs:
   apple:
     name: Apple Targets
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 70
 
     steps:
       - name: Checkout
@@ -91,7 +97,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
           add-job-summary: always
 
       - name: Get Kotlin version
@@ -109,6 +115,8 @@ jobs:
         with:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
 
       - name: Setup wgpu4k
         uses: ./.github/actions/setup-wgpu4k
@@ -118,9 +126,11 @@ jobs:
       - name: Apple native tests + XCFrameworks
         run: |
           START=$SECONDS
-          ./gradlew macosArm64Test iosSimulatorArm64Test \
+          ./gradlew iosSimulatorArm64Test \
             :prism-demo-core:assemblePrismDemoDebugXCFramework \
             :prism-ios:assemblePrismDebugXCFramework \
+            :prism-native:linkDebugSharedIosSimulatorArm64 \
+            :prism-native:linkDebugSharedMacosArm64 \
             --configuration-cache \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
@@ -177,15 +187,130 @@ jobs:
         if: steps.cache-xcodegen.outputs.cache-hit == 'true'
         run: brew link --overwrite xcodegen 2>/dev/null || true
 
+      - name: Download demo assets
+        run: ./gradlew downloadDemoAssets
+
       - name: Generate Xcode project
         run: cd prism-ios-demo && xcodegen generate
+
+      - name: Cache Xcode DerivedData
+        uses: actions/cache@v4
+        with:
+          path: prism-ios-demo/DerivedData
+          key: xcode-dd-${{ runner.os }}-${{ hashFiles('prism-ios-demo/Sources/**', 'prism-ios-demo/project.yml', '**/src/commonMain/**/*.kt', '**/src/iosMain/**/*.kt', '**/src/appleMain/**/*.kt', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            xcode-dd-${{ runner.os }}-
 
       - name: Build iOS app
         run: |
           set -o pipefail
           START=$SECONDS
+          XB_LOG=$(mktemp)
           xcodebuild -project prism-ios-demo/PrismiOSDemo.xcodeproj \
             -scheme PrismiOSDemo -sdk iphonesimulator -arch arm64 \
-            -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -30 || EXIT=$?
+            -configuration Debug CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath prism-ios-demo/DerivedData \
+            build 2>&1 | tee "$XB_LOG" | tail -50 || EXIT=$?
+          if [ "${EXIT:-0}" != "0" ]; then
+            echo "--- Swift/clang errors ---"
+            grep -E "error:|warning:.*error" "$XB_LOG" | head -40 || true
+          fi
           echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
+          
+  docker:
+    name: Docker Build (Linux, Windows, WASM, Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Docker builds run inside a container — Gradle cache is not shared with other
+          # jobs, so writing to the GHA cache from this job provides no benefit.
+          cache-read-only: true
+
+      - name: Get Kotlin version
+        id: kotlin-version
+        run: |
+          KOTLIN=$(grep '^kotlin ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$KOTLIN" ]; then
+            echo "::error::Failed to extract Kotlin version from libs.versions.toml"
+            exit 1
+          fi
+          echo "version=$KOTLIN" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.build
+          tags: prism-builder:latest
+          load: true
+          cache-from: type=gha,scope=docker-build
+          cache-to: type=gha,scope=docker-build,mode=min
+
+      - name: Build all via Docker
+        run: |
+          chmod +x build-all-docker.sh
+          PRISM_SKIP_DOCKER_BUILD=1 ./build-all-docker.sh
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-native-linux
+          path: prism-native/build/bin/linuxX64/releaseShared/libprism.so
+          retention-days: 14
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-native-windows
+          path: prism-native/build/bin/mingwX64/releaseShared/prism.dll
+          retention-days: 14
+
+      - name: Upload WASM/JS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-js-wasm
+          path: |
+            prism-js/build/compileSync/wasmJs/main/productionExecutable/kotlin/
+            prism-js/build/sdk/
+          retention-days: 14
+
+      - name: Upload Android Demo APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-android-demo
+          path: prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.apk
+          retention-days: 14

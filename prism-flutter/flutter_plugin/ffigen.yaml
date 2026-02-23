@@ -1,0 +1,29 @@
+name: PrismNativeBindings
+description: |
+  Auto-generated Dart FFI bindings for the Prism native shared library.
+  Generated from libprism_api.h produced by :prism-native:linkReleaseSharedMacosArm64.
+  Run: dart run ffigen --config ffigen.yaml
+output: lib/src/generated/prism_native_bindings.dart
+headers:
+  entry-points:
+    - '../../prism-native/build/bin/macosArm64/releaseShared/libprism_api.h'
+  include-directives:
+    - '**libprism_api.h'
+functions:
+  include:
+    - 'prism_.*'
+globals:
+  exclude:
+    - '.*'
+structs:
+  exclude:
+    - '.*'
+enums:
+  exclude:
+    - '.*'
+unnamed-enums:
+  exclude:
+    - '.*'
+typedefs:
+  exclude:
+    - '.*'

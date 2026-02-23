@@ -60,7 +60,13 @@ class PrismDemoActivity : Activity(), SurfaceHolder.Callback, Choreographer.Fram
 
         val wgpuContext =
           checkNotNull(prismSurface.wgpuContext) { "wgpu context not available on Android" }
-        val demoScene = createDemoScene(wgpuContext, width, height)
+        val glbBytes =
+          try {
+            assets.open("DamagedHelmet.glb").use { it.readBytes() }
+          } catch (e: Exception) {
+            throw RuntimeException("DamagedHelmet.glb not found in assets", e)
+          }
+        val demoScene = createGltfDemoScene(wgpuContext, width, height, glbBytes)
         scene = demoScene
 
         startTimeNanos = System.nanoTime()

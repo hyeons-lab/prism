@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "nodenext",
+    "declaration": true,
+    "declarationMap": false,
+    "outDir": "build/sdk",
+    "strict": true,
+    "useDefineForClassFields": true
+  },
+  "include": ["prism-sdk.mts"]
+}

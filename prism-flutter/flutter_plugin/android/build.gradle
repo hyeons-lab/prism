@@ -46,12 +46,10 @@ repositories {
 }
 
 dependencies {
-    // Prism KMP modules (published to Maven local via ./gradlew publishToMavenLocal)
+    // Prism KMP SDK modules only — no demo deps.
+    // The host app provides DemoAndroidBridge + FlutterMethodHandler via PrismFlutterPlugin.configure().
     implementation("engine.prism:prism-flutter-android:0.1.0-SNAPSHOT")
-    implementation("engine.prism:prism-demo-core-android:0.1.0-SNAPSHOT")
     implementation("engine.prism:prism-native-widgets-android:0.1.0-SNAPSHOT")
-    implementation("engine.prism:prism-renderer-android:0.1.0-SNAPSHOT")
-    implementation("engine.prism:prism-core-android:0.1.0-SNAPSHOT")
 
     implementation("io.ygdrasil:wgpu4k-android:0.2.0-SNAPSHOT")
     implementation("io.ygdrasil:wgpu4k-toolkit-android:0.2.0-SNAPSHOT")

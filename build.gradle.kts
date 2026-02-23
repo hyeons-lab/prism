@@ -12,3 +12,44 @@ plugins {
     alias(libs.plugins.maven.publish) apply false
     alias(libs.plugins.skie) apply false
 }
+
+// ---------------------------------------------------------------------------
+// Demo asset setup
+//
+// DamagedHelmet.glb (Khronos glTF 2.0 sample model, CC BY 4.0) is not
+// committed to the repository (it is 3.7 MB). Run this task once after
+// cloning to place the file in the canonical location; all demo targets
+// (JVM, macOS, Android, iOS) read from there via workingDir / srcDirs.
+//
+// Run: ./gradlew downloadDemoAssets
+// ---------------------------------------------------------------------------
+tasks.register("downloadDemoAssets") {
+    group = "demo"
+    description = "Downloads DamagedHelmet.glb from Khronos glTF-Sample-Assets into prism-demo-core/assets/."
+
+    // Single canonical location — consuming modules reference it from here.
+    // (Flutter example and docs/ carry their own committed copies.)
+    val dest = rootProject.file("prism-demo-core/assets/DamagedHelmet.glb")
+    outputs.file(dest)
+
+    doLast {
+        val url = "https://github.com/KhronosGroup/glTF-Sample-Assets/raw/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb"
+        logger.lifecycle("Downloading DamagedHelmet.glb …")
+        val conn = java.net.URI(url).toURL().openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 15_000
+        conn.readTimeout = 60_000
+        val bytes = conn.inputStream.use { it.readBytes() }
+        logger.lifecycle("  ${bytes.size / 1024} KB downloaded.")
+        dest.parentFile.mkdirs()
+        dest.writeBytes(bytes)
+        val sha256 =
+          java.security.MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        val expectedSha = "a1e3b04de97b11de564ce6e53b95f02954a297f0008183ac63a4f5974f6b32d8"
+        check(sha256 == expectedSha) {
+          "DamagedHelmet.glb checksum mismatch: expected $expectedSha, got $sha256"
+        }
+        logger.lifecycle("  → $dest (SHA-256 verified)")
+    }
+}

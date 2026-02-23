@@ -1,0 +1,21 @@
+name: prism_flutter_example
+description: Example app demonstrating the Prism Flutter plugin.
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  prism_flutter:
+    path: ../../prism-flutter/flutter_plugin
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/DamagedHelmet.glb

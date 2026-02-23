@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'prism_engine.dart';
 
 class PrismRenderView extends StatelessWidget {
@@ -20,15 +22,22 @@ class PrismRenderView extends StatelessWidget {
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       return UiKitView(
         viewType: 'engine.prism.flutter/render_view',
-        onPlatformViewCreated: _onPlatformViewCreated,
+        creationParams: {'engineHandle': engine.handle},
+        creationParamsCodec: const StandardMessageCodec(),
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.macOS) {
+      return AppKitView(
+        viewType: 'engine.prism.flutter/render_view',
+        // Pass the native engine handle so the Swift platform view can call
+        // prism_attach_metal_layer / prism_render_frame via the C API.
+        creationParams: {'engineHandle': engine.handle},
+        creationParamsCodec: const StandardMessageCodec(),
       );
     }
     return const Center(
-      child: Text('Prism: Platform not supported for rendering view'),
+      child: Text('Prism: render view not yet available on this platform'),
     );
   }
 
-  void _onPlatformViewCreated(int id) {
-    // Platform view created, engine will attach its rendering surface
-  }
+  void _onPlatformViewCreated(int id) {}
 }

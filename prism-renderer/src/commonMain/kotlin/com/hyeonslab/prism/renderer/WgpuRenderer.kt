@@ -668,7 +668,7 @@ class WgpuRenderer(
     device.queue.writeTexture(
       TexelCopyTextureInfo(texture = gpuTexture),
       data,
-      TexelCopyBufferLayout(bytesPerRow = w * 4u),
+      TexelCopyBufferLayout(bytesPerRow = w * 4u, rowsPerImage = h),
       Extent3D(w, h),
     )
   }
@@ -808,7 +808,7 @@ class WgpuRenderer(
       device.queue.writeTexture(
         TexelCopyTextureInfo(texture = defaultCubemap!!, origin = Origin3D(z = face)),
         ArrayBuffer.of(whitePixel),
-        TexelCopyBufferLayout(bytesPerRow = 4u),
+        TexelCopyBufferLayout(bytesPerRow = 4u, rowsPerImage = 1u),
         Extent3D(1u, 1u),
       )
     }
@@ -860,7 +860,7 @@ class WgpuRenderer(
     device.queue.writeTexture(
       TexelCopyTextureInfo(texture = texture),
       ArrayBuffer.of(pixels),
-      TexelCopyBufferLayout(bytesPerRow = 4u),
+      TexelCopyBufferLayout(bytesPerRow = 4u, rowsPerImage = 1u),
       Extent3D(1u, 1u),
     )
     return texture
