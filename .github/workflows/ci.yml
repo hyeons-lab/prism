@@ -76,7 +76,7 @@ jobs:
   apple:
     name: Apple Targets
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
