@@ -46,7 +46,13 @@ jobs:
       - name: Lint, analyze & test
         run: |
           START=$SECONDS
-          ./gradlew ktfmtCheck detektJvmMain jvmTest \
+          # ktfmtCheck runs without --build-cache: the KtFmt worker API writes UUID
+          # temp files to build/tmp/ that are not declared task outputs and therefore
+          # not restored on a build-cache hit. The ktfmtCheckScripts aggregator then
+          # fails trying to read a file that was never written. Running ktfmtCheck
+          # cache-free ensures the temp files are always produced.
+          ./gradlew ktfmtCheck --no-build-cache
+          ./gradlew detektJvmMain jvmTest \
             --configuration-cache || EXIT=$?
           echo "### Lint + Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
