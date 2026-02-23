@@ -54,6 +54,44 @@ class IosDemoHandle(
 }
 
 /**
+ * Entry point for the native iOS demo app (ViewController.swift). Loads DamagedHelmet.glb from the
+ * app bundle root; logs a warning and uses an empty byte array if the asset is absent (asset is
+ * optional in project.yml — run `./gradlew downloadDemoAssets` to populate it).
+ */
+suspend fun configureDemo(view: MTKView): IosDemoHandle {
+  var width = view.drawableSize.useContents { width.toInt() }
+  var height = view.drawableSize.useContents { height.toInt() }
+  if (width <= 0 || height <= 0) {
+    log.w { "drawableSize not ready (${width}x${height}), using defaults" }
+    width = IOS_DEFAULT_WIDTH
+    height = IOS_DEFAULT_HEIGHT
+  }
+  log.i { "Configuring iOS demo: ${width}x${height}" }
+
+  val surface = createPrismSurface(view, width, height)
+  val wgpuContext = checkNotNull(surface.wgpuContext) { "wgpu context not available" }
+
+  val glbData = loadBundleAssetBytes("DamagedHelmet.glb")
+  if (glbData == null) {
+    log.w { "DamagedHelmet.glb not found — run ./gradlew downloadDemoAssets" }
+  }
+  val backgroundScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+  val scene =
+    createGltfDemoScene(
+      wgpuContext,
+      width = width,
+      height = height,
+      glbData = glbData ?: ByteArray(0),
+      progressiveScope = backgroundScope,
+    )
+
+  val delegate = DemoRenderDelegate(scene, sharedDemoStore)
+  view.delegate = delegate
+  log.i { "iOS demo configured — render delegate installed" }
+  return IosDemoHandle(surface, scene, delegate, backgroundScope = backgroundScope)
+}
+
+/**
  * Configures a glTF demo scene for the Flutter plugin. Loads DamagedHelmet.glb from the app bundle
  * (Flutter assets are stored under `flutter_assets/`); throws if the asset is not found.
  */

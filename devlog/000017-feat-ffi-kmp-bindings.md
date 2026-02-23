@@ -234,6 +234,10 @@
 
 `gradle/libs.versions.toml` — Bumped `wgpu4kCommit` to `49da407...` (new commit on `fix/android-api35-wgpu4k-native-snapshot` branch with macOS toolkit changes). All three fork pins are now the heads of their respective branches.
 
+## Issues (Step 17 — Swift compile fix + CI speedup)
+
+2026-02-22T09:00-08:00 `configureDemo(view:)` symbol missing from iOS build — PR #45 deleted both `configureDemo` overloads in favour of `configureDemoWithGltf`. `ViewController.swift` still calls `IosDemoControllerKt.configureDemo(view: mtkView)`, causing exit code 65 on `SwiftCompile`. Fixed by restoring `configureDemo(view: MTKView)` as a separate entry point (bundle-root path, graceful fallback).
+
 ## Issues
 
 **`@JsExport` on classes fails in Kotlin 2.3.0 WasmJS** — Compiler error: "This annotation is not applicable to target 'class'. Applicable targets: function". Attempted to annotate data classes (Entity, etc.) in commonMain. Reverted all class annotations. Resolution: bridge uses primitive-only boundary with opaque handles.
@@ -779,4 +783,40 @@ ad2435b — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)
 83527a0 — fix: bump Apple Targets timeout to 60 min; build Android APK in Docker
 356a772 — devlog: record CI fixes 9–10 (Apple timeout, Android APK)
 3343a3a — ci: improve Apple Targets build time (timeout, cache writability, Konan restore-keys)
-HEAD — devlog: record CI fixes 11–12 (timeout 70 min, cache-read-only, Konan restore-keys)
+3343a3a — devlog: record CI fixes 11–12 (timeout 70 min, cache-read-only, Konan restore-keys)
+HEAD — fix: restore configureDemo entry point; drop macosArm64Test; cache DerivedData
+
+---
+
+### Step 17 — Swift compile fix + Apple CI speedup (2026-02-22)
+
+Plan: `devlog/plans/000017-05-swift-compile-fix.md`
+
+`prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/IosDemoController.kt` — Restored
+`configureDemo(view: MTKView): IosDemoHandle` entry point consumed by `ViewController.swift`. Loads
+`DamagedHelmet.glb` from the app bundle root (not the Flutter-specific `flutter_assets/` path);
+falls back to `ByteArray(0)` with a warning log if the asset is absent (it is optional in
+`project.yml`). Uses `sharedDemoStore`. Sits alongside `configureDemoWithGltf` which remains
+for the Flutter plugin.
+
+`.github/workflows/ci.yml` — Three changes to the Apple Targets job:
+- Dropped `macosArm64Test` from the compile+test step; `iosSimulatorArm64Test` covers the same
+  `commonTest` suite. Saves 8–12 min every run.
+- Added `Cache Xcode DerivedData` step (actions/cache@v4) between `Generate Xcode project` and
+  `Build iOS app`; keyed on Swift/Kotlin source hashes.
+- Added `-derivedDataPath prism-ios-demo/DerivedData` to `xcodebuild` so the cache is actually
+  used; bumped `tail -30` → `tail -50` so Swift errors are never truncated.
+
+`devlog/plans/000017-05-swift-compile-fix.md` — New plan file.
+
+#### Decisions
+
+2026-02-22T09:00-08:00 Keep both `configureDemo` and `configureDemoWithGltf` — they have
+different callers (native iOS app vs Flutter plugin) and different behaviour (graceful fallback
+vs hard error, different bundle paths). Merging them would require parameter pollution or a
+breaking API change.
+
+2026-02-22T09:00-08:00 DerivedData cache key includes both Swift and Kotlin sources —
+xcodebuild output depends on the Kotlin XCFramework linked into the app; including
+`**/src/iosMain/**/*.kt` and `**/src/appleMain/**/*.kt` ensures a Kotlin change invalidates
+the cache and forces a full rebuild.

@@ -126,7 +126,7 @@ jobs:
       - name: Apple native tests + XCFrameworks
         run: |
           START=$SECONDS
-          ./gradlew macosArm64Test iosSimulatorArm64Test \
+          ./gradlew iosSimulatorArm64Test \
             :prism-demo-core:assemblePrismDemoDebugXCFramework \
             :prism-ios:assemblePrismDebugXCFramework \
             --configuration-cache \
@@ -191,13 +191,23 @@ jobs:
       - name: Generate Xcode project
         run: cd prism-ios-demo && xcodegen generate
 
+      - name: Cache Xcode DerivedData
+        uses: actions/cache@v4
+        with:
+          path: prism-ios-demo/DerivedData
+          key: xcode-dd-${{ runner.os }}-${{ hashFiles('prism-ios-demo/Sources/**', 'prism-ios-demo/project.yml', '**/src/commonMain/**/*.kt', '**/src/iosMain/**/*.kt', '**/src/appleMain/**/*.kt', 'gradle/libs.versions.toml') }}
+          restore-keys: |
+            xcode-dd-${{ runner.os }}-
+
       - name: Build iOS app
         run: |
           set -o pipefail
           START=$SECONDS
           xcodebuild -project prism-ios-demo/PrismiOSDemo.xcodeproj \
             -scheme PrismiOSDemo -sdk iphonesimulator -arch arm64 \
-            -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -30 || EXIT=$?
+            -configuration Debug CODE_SIGNING_ALLOWED=NO \
+            -derivedDataPath prism-ios-demo/DerivedData \
+            build 2>&1 | tail -50 || EXIT=$?
           echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
           
