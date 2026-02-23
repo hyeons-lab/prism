@@ -13,15 +13,20 @@ import 'generated/prism_native_bindings.dart';
 ///
 /// Engine lifecycle (create → initialize → render loop → destroy) is driven
 /// by the caller. The MethodChannel render loop is NOT used for FFI targets.
+// Module-level singleton so the dynamic library is loaded exactly once. The
+// NativeFinalizer below reuses this instance to avoid loading a second copy
+// (which would crash with duplicate ObjC class definitions on Apple platforms).
+final PrismNativeBindings _sharedBindings = _loadBindings();
+
 class PrismEngine {
-  PrismEngine() : _bindings = _loadBindings();
+  PrismEngine() : _bindings = _sharedBindings;
 
   final PrismNativeBindings _bindings;
   int _engineHandle = 0;
   bool _initialized = false;
 
   static final NativeFinalizer _finalizer = NativeFinalizer(
-    _loadBindings().prism_destroy_engine.cast(),
+    _sharedBindings.prism_destroy_engine.cast(),
   );
 
   static PrismNativeBindings _loadBindings() {
@@ -86,6 +91,10 @@ class PrismEngine {
   /// Shuts down and destroys the native engine.
   Future<void> shutdown() async {
     if (!_initialized) return;
+    // Detach the finalizer before manually calling prism_destroy_engine to prevent
+    // a double-free: the finalizer would otherwise call destroy again when this
+    // object is garbage-collected.
+    _finalizer.detach(this);
     _bindings.prism_destroy_engine(_engineHandle);
     _engineHandle = 0;
     _initialized = false;

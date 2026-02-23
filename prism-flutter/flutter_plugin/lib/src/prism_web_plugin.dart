@@ -5,20 +5,21 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 /// JS interop bindings to the prism-flutter WASM module's high-level API.
-/// These are exported by FlutterWasmEntry.kt via @JsExport.
-@JS('prismInit')
+/// These are exported by FlutterWasmEntry.kt via @JsExport and pinned to the
+/// `window.PrismSdk` namespace by prism_loader.js.
+@JS('PrismSdk.prismInit')
 external void _prismInit(String canvasId, String glbUrl);
 
-@JS('prismTogglePause')
+@JS('PrismSdk.prismTogglePause')
 external void _prismTogglePause(String canvasId);
 
-@JS('prismGetState')
+@JS('PrismSdk.prismGetState')
 external String _prismGetState(String canvasId);
 
-@JS('prismIsInitialized')
+@JS('PrismSdk.prismIsInitialized')
 external bool _prismIsInitialized(String canvasId);
 
-@JS('prismShutdown')
+@JS('PrismSdk.prismShutdown')
 external void _prismShutdown(String canvasId);
 
 /// Web implementation of PrismEngine that calls WASM-exported JS functions
@@ -67,7 +68,6 @@ class PrismWebEngine {
     script.type = 'module';
     script.src = 'prism_loader.js';
     script.dataset.set('module', moduleUrl);
-    script.setAttribute('data-module', moduleUrl); // Ensure it's in dataset
 
     late final JSFunction readyListener;
     late final JSFunction errorListener;
@@ -95,9 +95,11 @@ class PrismWebEngine {
     web.window.addEventListener('prism-wasm-ready', readyListener);
     web.window.addEventListener('prism-wasm-error', errorListener);
 
-    // Fail-safe: if neither event fires within 15 s, complete with an error and allow retry.
+    // Fail-safe: if neither event fires within 15 s, remove the orphaned script
+    // element and complete with an error so the next call can retry.
     Future<void>.delayed(const Duration(seconds: 15), () {
       if (!completer.isCompleted) {
+        script.remove();
         _wasmLoadingFuture = null;
         cleanup();
         completer.completeError(
@@ -109,8 +111,8 @@ class PrismWebEngine {
     return _wasmLoadingFuture!;
   }
 
-  static void init(String canvasId) =>
-      _prismInit(canvasId, 'DamagedHelmet.glb');
+  static void init(String canvasId, {String glbUrl = 'DamagedHelmet.glb'}) =>
+      _prismInit(canvasId, glbUrl);
 
   static Future<void> togglePause(String canvasId) async {
     if (!_wasmLoaded) return;

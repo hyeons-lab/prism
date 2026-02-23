@@ -67,7 +67,10 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
     )
   )
 
-  engine.gameLoop.startExternal()
+  // Guard against calling startExternal() a second time if the caller re-attaches to the same
+  // engine handle (e.g. window moved to a different display). The game loop must not be started
+  // twice — doing so would cause duplicate tick callbacks.
+  if (!engine.gameLoop.isRunning) engine.gameLoop.startExternal()
   macosSurfaces.update { it + (engineHandle to ctx) }
 }
 
@@ -118,6 +121,33 @@ fun prismRenderFrame(engineHandle: Long) {
   if (renderingContext is SurfaceRenderingContext) {
     surface.present()
   }
+  texture.close()
+}
+
+/**
+ * Reconfigures the wgpu Metal surface for the new [width]/[height].
+ *
+ * Call this from the MTKViewDelegate's `mtkView(_:drawableSizeWillChange:)` callback whenever the
+ * drawable dimensions change (e.g. window resize, display DPI change). This clears the `Outdated`
+ * surface status before the next [prismRenderFrame] call. The [width] and [height] parameters come
+ * from the layer's current `drawableSize` and are informational — the Metal layer itself tracks the
+ * physical dimensions; `surface.configure()` reads them from the layer.
+ */
+@CName("prism_resize")
+@Suppress("UNUSED_PARAMETER")
+fun prismResize(engineHandle: Long, width: Int, height: Int) {
+  val ctx = macosSurfaces.value[engineHandle] ?: return
+  val surface = ctx.wgpuContext.surface
+  val alphaMode =
+    CompositeAlphaMode.Inherit.takeIf { surface.supportedAlphaMode.contains(it) }
+      ?: CompositeAlphaMode.Opaque
+  surface.configure(
+    SurfaceConfiguration(
+      device = ctx.wgpuContext.device,
+      format = ctx.wgpuContext.renderingContext.textureFormat,
+      alphaMode = alphaMode,
+    )
+  )
 }
 
 /**

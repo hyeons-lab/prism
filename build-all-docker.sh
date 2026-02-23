@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+command -v docker >/dev/null 2>&1 || { echo "Error: docker not found in PATH"; exit 1; }
+
 # Build the Docker image (skip if PRISM_SKIP_DOCKER_BUILD=1, e.g. when CI builds
 # the image separately with layer caching via docker/build-push-action).
 if [ -z "$PRISM_SKIP_DOCKER_BUILD" ]; then

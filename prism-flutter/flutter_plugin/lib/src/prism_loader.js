@@ -7,9 +7,11 @@
     if (typeof mod.default === "function") {
       await mod.default();
     }
-    // Pin every exported function to window so Dart @JS() bindings resolve.
+    // Pin every exported function to window.PrismSdk so Dart @JS('PrismSdk.*')
+    // bindings resolve without polluting the global window namespace.
+    window.PrismSdk = window.PrismSdk || {};
     for (const [name, value] of Object.entries(mod)) {
-      if (typeof value === "function") window[name] = value;
+      if (typeof value === "function") window.PrismSdk[name] = value;
     }
     window.dispatchEvent(new CustomEvent("prism-wasm-ready"));
   } catch (e) {

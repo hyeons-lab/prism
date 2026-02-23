@@ -12,8 +12,12 @@ import com.hyeonslab.prism.widget.createPrismSurface
 import com.hyeonslab.prism.widget.fetchBytes
 import kotlin.math.PI
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import web.html.HTMLCanvasElement
 
@@ -66,6 +70,7 @@ private val log = Logger.withTag("PrismFlutterWeb")
 /** Per-canvas engine instance state. */
 private class EngineInstance(
   val store: DemoStore,
+  val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
   var scene: DemoScene? = null,
   var surface: PrismSurface? = null,
   var running: Boolean = false,
@@ -94,10 +99,13 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
   log.i { "Initializing on canvas '$canvasId'" }
 
   // Shut down any existing instance on this canvas before re-initializing.
+  // Cancel the old scope after shutting down the scene and surface to abort any
+  // in-flight texture uploads or other coroutines tied to the previous instance.
   instances.remove(canvasId)?.let { old ->
     old.running = false
     old.scene?.shutdown()
     old.surface?.detach()
+    old.scope.cancel()
   }
 
   // Create instance with store before launching the coroutine so control methods work immediately.
@@ -128,7 +136,7 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
         width = width,
         height = height,
         glbData = glbData,
-        progressiveScope = GlobalScope,
+        progressiveScope = instance.scope,
       )
     instance.scene = demoScene
 
@@ -207,4 +215,5 @@ fun prismShutdown(canvasId: String) {
   instance.running = false
   instance.scene?.shutdown()
   instance.surface?.detach()
+  instance.scope.cancel()
 }

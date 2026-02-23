@@ -1,8 +1,13 @@
-@file:OptIn(ExperimentalJsExport::class)
+@file:OptIn(ExperimentalJsExport::class, ExperimentalWasmJsInterop::class)
 
 package engine.prism.js
 
+import kotlin.js.ExperimentalWasmJsInterop
 import kotlin.js.JsExport
+import kotlin.js.JsFun
+
+@JsFun("(msg) => console.warn('[PrismMeshBuilder] ' + msg)")
+private external fun consoleWarn(message: String)
 
 /**
  * In-memory mesh builder. Actual GPU upload is done by the integration layer (e.g. prism-flutter).
@@ -12,11 +17,22 @@ import kotlin.js.JsExport
  * Workflow: create → add floats/indices → finalize (freezes for read-back) → read back with
  * [prismMeshBuilderGetVertexAt] / [prismMeshBuilderGetIndexAt] → [prismMeshBuilderDestroy] when
  * done.
+ *
+ * **Limits:** To prevent runaway memory growth from malformed inputs, vertices are capped at
+ * [MAX_VERTEX_FLOATS] floats and indices at [MAX_INDICES]. Additions beyond the limit are silently
+ * dropped (with a one-time log warning).
  */
 private class MeshBuilder {
   val vertices = mutableListOf<Float>()
   val indices = mutableListOf<Int>()
   var finalized = false
+  var vertexLimitWarned = false
+  var indexLimitWarned = false
+
+  companion object {
+    const val MAX_VERTEX_FLOATS = 3_000_000
+    const val MAX_INDICES = 1_000_000
+  }
 }
 
 /** Creates a new mesh builder and returns its handle. */
@@ -25,13 +41,31 @@ private class MeshBuilder {
 /** Appends one float to the vertex buffer of the builder identified by [handle]. */
 @JsExport
 fun prismMeshBuilderAddVertexFloat(handle: String, value: Float) {
-  Registry.get<MeshBuilder>(handle)?.takeIf { !it.finalized }?.vertices?.add(value)
+  val builder = Registry.get<MeshBuilder>(handle)?.takeIf { !it.finalized } ?: return
+  if (builder.vertices.size >= MeshBuilder.MAX_VERTEX_FLOATS) {
+    if (!builder.vertexLimitWarned) {
+      consoleWarn(
+        "Vertex limit reached (${MeshBuilder.MAX_VERTEX_FLOATS} floats); further additions ignored"
+      )
+      builder.vertexLimitWarned = true
+    }
+    return
+  }
+  builder.vertices.add(value)
 }
 
 /** Appends one index to the index buffer of the builder identified by [handle]. */
 @JsExport
 fun prismMeshBuilderAddIndex(handle: String, index: Int) {
-  Registry.get<MeshBuilder>(handle)?.takeIf { !it.finalized }?.indices?.add(index)
+  val builder = Registry.get<MeshBuilder>(handle)?.takeIf { !it.finalized } ?: return
+  if (builder.indices.size >= MeshBuilder.MAX_INDICES) {
+    if (!builder.indexLimitWarned) {
+      consoleWarn("Index limit reached (${MeshBuilder.MAX_INDICES}); further additions ignored")
+      builder.indexLimitWarned = true
+    }
+    return
+  }
+  builder.indices.add(index)
 }
 
 /** Returns the current vertex float count of the builder. */

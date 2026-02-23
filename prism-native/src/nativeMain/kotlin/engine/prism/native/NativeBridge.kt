@@ -74,16 +74,21 @@ fun prismDestroyEngine(handle: Long) {
 /** Creates an ECS World and returns its handle. */
 @CName("prism_create_world") fun prismCreateWorld(): Long = Registry.put(World())
 
-/** Creates a new entity in the world. Returns its integer ID, or -1 if the handle is invalid. */
+/**
+ * Creates a new entity in the world. Returns its ID as a Long, or -1 if the handle is invalid.
+ *
+ * Entity IDs are [UInt] internally (0..4_294_967_295). Returning [Long] avoids sign-extension
+ * truncation that would occur if IDs above [Int.MAX_VALUE] were cast to [Int].
+ */
 @CName("prism_world_create_entity")
-fun prismWorldCreateEntity(worldHandle: Long): Int {
-  val world = Registry.get<World>(worldHandle) ?: return -1
-  return world.createEntity().id.toInt()
+fun prismWorldCreateEntity(worldHandle: Long): Long {
+  val world = Registry.get<World>(worldHandle) ?: return -1L
+  return world.createEntity().id.toLong()
 }
 
-/** Destroys an entity by its integer ID. */
+/** Destroys an entity by its Long ID. */
 @CName("prism_world_destroy_entity")
-fun prismWorldDestroyEntity(worldHandle: Long, entityId: Int) {
+fun prismWorldDestroyEntity(worldHandle: Long, entityId: Long) {
   val world = Registry.get<World>(worldHandle) ?: return
   world.destroyEntity(Entity(entityId.toUInt()))
 }
@@ -92,7 +97,7 @@ fun prismWorldDestroyEntity(worldHandle: Long, entityId: Int) {
 @CName("prism_world_add_transform_component")
 fun prismWorldAddTransformComponent(
   worldHandle: Long,
-  entityId: Int,
+  entityId: Long,
   x: Float,
   y: Float,
   z: Float,
@@ -103,21 +108,21 @@ fun prismWorldAddTransformComponent(
 
 /** Returns the X coordinate of the TransformComponent position, or 0 if not found. */
 @CName("prism_world_get_transform_x")
-fun prismWorldGetTransformX(worldHandle: Long, entityId: Int): Float {
+fun prismWorldGetTransformX(worldHandle: Long, entityId: Long): Float {
   val world = Registry.get<World>(worldHandle) ?: return 0f
   return world.getComponent<TransformComponent>(Entity(entityId.toUInt()))?.position?.x ?: 0f
 }
 
 /** Returns the Y coordinate of the TransformComponent position, or 0 if not found. */
 @CName("prism_world_get_transform_y")
-fun prismWorldGetTransformY(worldHandle: Long, entityId: Int): Float {
+fun prismWorldGetTransformY(worldHandle: Long, entityId: Long): Float {
   val world = Registry.get<World>(worldHandle) ?: return 0f
   return world.getComponent<TransformComponent>(Entity(entityId.toUInt()))?.position?.y ?: 0f
 }
 
 /** Returns the Z coordinate of the TransformComponent position, or 0 if not found. */
 @CName("prism_world_get_transform_z")
-fun prismWorldGetTransformZ(worldHandle: Long, entityId: Int): Float {
+fun prismWorldGetTransformZ(worldHandle: Long, entityId: Long): Float {
   val world = Registry.get<World>(worldHandle) ?: return 0f
   return world.getComponent<TransformComponent>(Entity(entityId.toUInt()))?.position?.z ?: 0f
 }
@@ -144,7 +149,14 @@ fun prismSceneUpdate(handle: Long, deltaTime: Float) {
   Registry.get<Scene>(handle)?.update(deltaTime)
 }
 
-/** Destroys a scene handle. */
+/**
+ * Destroys a scene handle.
+ *
+ * NOTE: [Scene] does not currently expose a `shutdown()` method (unlike [Engine] and [World]),
+ * because it holds no GPU resources directly. Only the opaque handle is released here. This
+ * asymmetry is intentional in the current implementation but should be revisited once [Scene] gains
+ * GPU-resource children (e.g. renderer-side node data).
+ */
 @CName("prism_destroy_scene")
 fun prismDestroyScene(handle: Long) {
   Registry.remove(handle)
@@ -157,7 +169,7 @@ fun prismCreateNode(name: CPointer<ByteVar>?): Long =
 
 /** Creates a MeshNode and returns its handle. */
 @CName("prism_create_mesh_node")
-fun prismCreateMesh_node(name: CPointer<ByteVar>?): Long =
+fun prismCreateMeshNode(name: CPointer<ByteVar>?): Long =
   Registry.put(MeshNode(name?.toKString() ?: "MeshNode"))
 
 /** Creates a CameraNode and returns its handle. */

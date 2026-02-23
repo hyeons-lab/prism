@@ -6,6 +6,30 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let factory = PrismIOSPlatformViewFactory(messenger: registrar.messenger())
         registrar.register(factory, withId: "engine.prism.flutter/render_view")
+
+        // Register a method channel for engine control. Handlers below are stubs
+        // that will be wired to the native C API once the engine model stabilises.
+        let channel = FlutterMethodChannel(
+            name: "engine.prism.flutter/engine",
+            binaryMessenger: registrar.messenger()
+        )
+        channel.setMethodCallHandler { call, result in
+            switch call.method {
+            case "togglePause":
+                // TODO: wire to prism_native C API when a pause/resume function is exposed.
+                result(nil)
+            case "isInitialized":
+                // Return true if the platform view has been created (engine handle non-zero).
+                result(false)
+            case "getState":
+                result(["initialized": false])
+            case "shutdown":
+                // TODO: call prism_detach_surface for the associated engine handle.
+                result(nil)
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
     }
 }
 
@@ -26,16 +50,32 @@ class PrismIOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
     }
 }
 
+/// A UIView subclass that forwards layout changes to the Kotlin/Native prism_resize C API.
+private class PrismMetalView: UIView {
+    var engineHandle: Int64 = 0
+    var metalLayer: CAMetalLayer?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let layer = metalLayer, engineHandle != 0 else { return }
+        layer.frame = bounds
+        let width = Int32(bounds.width * layer.contentsScale)
+        let height = Int32(bounds.height * layer.contentsScale)
+        prism_resize(engineHandle, width, height)
+    }
+}
+
 class PrismIOSPlatformView: NSObject, FlutterPlatformView {
-    private let _view: UIView
+    private let _view: PrismMetalView
     private let engineHandle: Int64
     private var displayLink: CADisplayLink?
 
     init(frame: CGRect, arguments args: Any?) {
         let params = args as? [String: Any]
         self.engineHandle = params?["engineHandle"] as? Int64 ?? 0
-        self._view = UIView(frame: frame)
+        self._view = PrismMetalView(frame: frame)
         self._view.backgroundColor = .black
+        self._view.engineHandle = self.engineHandle
 
         super.init()
 
@@ -49,14 +89,17 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
     }
 
     private func setupMetalLayer() {
-        let metalLayer = CAMetalLayer()
-        metalLayer.frame = _view.bounds
-        metalLayer.contentsScale = UIScreen.main.scale
-        _view.layer.addSublayer(metalLayer)
+        let layer = CAMetalLayer()
+        layer.frame = _view.bounds
+        layer.contentsScale = UIScreen.main.scale
+        _view.layer.addSublayer(layer)
+        // Retain the layer via the strong property on the view so ARC keeps it alive while the
+        // Kotlin/Native side holds a raw pointer to it.
+        _view.metalLayer = layer
 
-        let rawPtr = Unmanaged.passUnretained(metalLayer).toOpaque()
-        let width = Int32(metalLayer.bounds.width * metalLayer.contentsScale)
-        let height = Int32(metalLayer.bounds.height * metalLayer.contentsScale)
+        let rawPtr = Unmanaged.passUnretained(layer).toOpaque()
+        let width = Int32(layer.bounds.width * layer.contentsScale)
+        let height = Int32(layer.bounds.height * layer.contentsScale)
 
         prism_attach_metal_layer(engineHandle, rawPtr, width, height)
 
@@ -71,6 +114,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
     deinit {
         displayLink?.invalidate()
         prism_detach_surface(engineHandle)
+        _view.metalLayer = nil
     }
 }
 
@@ -83,3 +127,6 @@ func prism_render_frame(_ handle: Int64)
 
 @_silgen_name("prism_detach_surface")
 func prism_detach_surface(_ handle: Int64)
+
+@_silgen_name("prism_resize")
+func prism_resize(_ handle: Int64, _ width: Int32, _ height: Int32)

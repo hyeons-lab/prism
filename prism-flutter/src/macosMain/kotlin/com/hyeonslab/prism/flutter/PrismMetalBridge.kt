@@ -57,7 +57,10 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
    * GPU resources are not leaked.
    */
   fun attachMetalLayer(layerPtr: COpaquePointer?, width: Int, height: Int) {
-    ctx?.close()
+    // Capture old ctx before replacing; close it only after the new one succeeds so that
+    // GPU resources are not freed while the new context is still being initialised.
+    val oldCtx = ctx
+    ctx = null
     val ptr = layerPtr ?: return
     val newCtx = runBlocking { macosContextRendererFromLayer(NativeAddress(ptr), width, height) }
     val (surfaceConfig, scene) =
@@ -74,15 +77,19 @@ abstract class PrismMetalBridge<T : Any, S : Store<*, *>>(store: S) : PrismBridg
           )
         surface.configure(config)
         val s = createScene(newCtx.wgpuContext, width, height)
-        // Re-apply surface config after scene creation: createScene() blocks the main
-        // thread (runBlocking), which can allow the CAMetalLayer size to change and
-        // mark the surface as Outdated. Re-configuring clears the Outdated status.
+        // Re-apply surface config after scene creation: createScene() blocks the main thread
+        // (runBlocking), which can allow the CAMetalLayer's drawableSize to change and mark
+        // the surface as Outdated. Re-configuring clears the Outdated status. The size comes
+        // from the layer's current drawableSize at this point, not the original width/height.
         surface.configure(config)
         config to s
       } catch (t: Throwable) {
         newCtx.close()
         throw t
       }
+    // Close the previous context only after the new one is fully initialised and attached,
+    // to avoid releasing GPU resources that might still be referenced by in-flight work.
+    oldCtx?.close()
     attachScene(scene)
     this.ctx = newCtx
     this.surfaceConfig = surfaceConfig

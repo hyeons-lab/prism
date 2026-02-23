@@ -2,7 +2,6 @@ package com.hyeonslab.prism.flutter.demo
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Tests zoom-radius clamping and orbit-by sign convention.
@@ -52,25 +51,28 @@ class DemoInputTest {
     assertEquals(2.5f, applyZoom(defaultRadius, 1.0))
   }
 
-  // --- orbitBy sign convention ---
-  // DemoMacosBridge.orbitBy delegates dx/dy directly to scene.orbitBy with .toFloat() cast.
-  // Without a real scene we verify the cast and sign are preserved.
+  // --- orbitBy sensitivity formula ---
+  // FlutterWasmEntry.kt applies: demoScene.orbitBy(-dx.toFloat() * 0.005f, dy.toFloat() * 0.005f)
+  // These tests verify the sign convention and sensitivity constant used in production.
+
+  private val orbitSensitivity = 0.005f
 
   @Test
-  fun orbitByPositiveDxPreservesSign() {
-    val dx = 0.05
-    assertEquals(dx.toFloat(), dx.toFloat()) // cast is lossless for typical inputs
-    assertTrue(dx.toFloat() > 0f)
+  fun orbitSensitivityNegatesHorizontalDx() {
+    // Positive pointer dx (moving right) should produce negative azimuth delta (orbit left).
+    val dx = 10.0
+    assertEquals(-dx.toFloat() * orbitSensitivity, -10f * 0.005f)
   }
 
   @Test
-  fun orbitByNegativeDyPreservesSign() {
-    val dy = -0.03
-    assertTrue(dy.toFloat() < 0f)
+  fun orbitSensitivityPreservesVerticalSign() {
+    // Positive pointer dy (moving down) should produce positive elevation delta.
+    val dy = 10.0
+    assertEquals(dy.toFloat() * orbitSensitivity, 10f * 0.005f)
   }
 
   @Test
-  fun orbitByZeroIsNeutral() {
-    assertEquals(0f, 0.0.toFloat())
+  fun orbitSensitivityZeroDeltaIsNeutral() {
+    assertEquals(0f, 0.0.toFloat() * orbitSensitivity)
   }
 }

@@ -85,7 +85,7 @@ class World {
       );
     } else {
       throw ArgumentError.value(
-          component, 'component', 'Unsupported component type: $T');
+          component, 'component', 'Unsupported component type: ${component.runtimeType}');
     }
   }
 

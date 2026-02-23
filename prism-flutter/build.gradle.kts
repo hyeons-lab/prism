@@ -142,15 +142,10 @@ tasks.register("generateDartJsBindings") {
     sb.appendLine("// ignore_for_file: type=lint")
     sb.appendLine("import 'dart:js_interop';")
     sb.appendLine()
-    sb.appendLine("/// Window-pinning names for all prism-js @JsExport functions.")
-    sb.appendLine("const List<String> prismJsExportNames = [")
-    functions.forEach { (name, _, _) -> sb.appendLine("  '$name',") }
-    sb.appendLine("];")
-    sb.appendLine()
     functions.forEach { (name, rawParams, retType) ->
       val dartParams = parseParams(rawParams)
       val dartRet = mapType(retType)
-      sb.appendLine("@JS('$name')")
+      sb.appendLine("@JS('PrismSdk.$name')")
       sb.appendLine("external $dartRet $name($dartParams);")
       sb.appendLine()
     }

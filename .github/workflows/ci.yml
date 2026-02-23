@@ -51,7 +51,7 @@ jobs:
           # not restored on a build-cache hit. The ktfmtCheckScripts aggregator then
           # fails trying to read a file that was never written. Running ktfmtCheck
           # cache-free ensures the temp files are always produced.
-          ./gradlew ktfmtCheck --no-build-cache
+          ./gradlew ktfmtCheck --no-build-cache || EXIT=$?
           ./gradlew detektJvmMain jvmTest \
             --configuration-cache || EXIT=$?
           echo "### Lint + Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
@@ -129,6 +129,8 @@ jobs:
           ./gradlew iosSimulatorArm64Test \
             :prism-demo-core:assemblePrismDemoDebugXCFramework \
             :prism-ios:assemblePrismDebugXCFramework \
+            :prism-native:linkDebugSharedIosSimulatorArm64 \
+            :prism-native:linkDebugSharedMacosArm64 \
             --configuration-cache \
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
@@ -240,7 +242,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: false
+          # Docker builds run inside a container — Gradle cache is not shared with other
+          # jobs, so writing to the GHA cache from this job provides no benefit.
+          cache-read-only: true
 
       - name: Get Kotlin version
         id: kotlin-version

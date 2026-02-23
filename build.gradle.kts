@@ -42,6 +42,14 @@ tasks.register("downloadDemoAssets") {
         logger.lifecycle("  ${bytes.size / 1024} KB downloaded.")
         dest.parentFile.mkdirs()
         dest.writeBytes(bytes)
-        logger.lifecycle("  → $dest")
+        val sha256 =
+          java.security.MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        val expectedSha = "a1e3b04de97b11de564ce6e53b95f02954a297f0008183ac63a4f5974f6b32d8"
+        check(sha256 == expectedSha) {
+          "DamagedHelmet.glb checksum mismatch: expected $expectedSha, got $sha256"
+        }
+        logger.lifecycle("  → $dest (SHA-256 verified)")
     }
 }

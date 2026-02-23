@@ -66,9 +66,6 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
   /** Returns the last smoothed FPS value. */
   fun getCurrentFps(): Double = store.state.value.fps.toDouble()
 
-  /** Push a smoothed FPS reading into the store (called from tickScene). */
-  fun dispatchFps(fps: Float) = store.dispatch(DemoIntent.UpdateFps(fps))
-
   // --- Camera control methods exposed to Swift via mouse/scroll events ---
 
   /**
@@ -139,7 +136,8 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
 
   override fun tickScene(scene: DemoScene, deltaTime: Float, elapsed: Float, frameCount: Long) {
     if (deltaTime > 0f) {
-      val smoothedFps = store.state.value.fps * 0.9f + (1f / deltaTime) * 0.1f
+      val instantFps = (1f / deltaTime).let { if (it.isFinite()) it else return }
+      val smoothedFps = store.state.value.fps * 0.9f + instantFps * 0.1f
       store.dispatch(DemoIntent.UpdateFps(smoothedFps))
     }
     scene.tick(deltaTime = deltaTime, elapsed = elapsed, frameCount = frameCount)
@@ -159,6 +157,11 @@ class DemoMacosBridge : PrismMetalBridge<DemoScene, DemoStore>(DemoStore()) {
     fseek(file, 0, SEEK_SET)
     if (size <= 0L) {
       fclose(file)
+      return null
+    }
+    if (size > Int.MAX_VALUE) {
+      fclose(file)
+      log.e { "GLB too large: $size bytes (exceeds Int.MAX_VALUE)" }
       return null
     }
     val bytes = ByteArray(size.toInt())
