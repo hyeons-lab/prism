@@ -257,7 +257,7 @@ jobs:
           tags: prism-builder:latest
           load: true
           cache-from: type=gha,scope=docker-build
-          cache-to: type=gha,scope=docker-build,mode=max
+          cache-to: type=gha,scope=docker-build,mode=min
 
       - name: Build all via Docker
         run: |
