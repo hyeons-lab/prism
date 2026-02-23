@@ -2,6 +2,7 @@ package com.hyeonslab.prism.compose
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import io.ygdrasil.webgpu.WGPUContext
 
 /**
  * Embeds a Prism 3D rendering surface inside a Compose layout.
@@ -17,5 +18,13 @@ import androidx.compose.ui.Modifier
  * @param store The MVI store managing engine state. Must be created via [rememberEngineStore] or
  *   [rememberExternalEngineStore].
  * @param modifier Compose modifier for layout and sizing.
+ * @param onSurfaceReady Optional callback invoked once when the GPU surface is ready. Receives the
+ *   [WGPUContext], surface width, and surface height. Use this to initialize scene resources that
+ *   require a live GPU context (e.g. uploading meshes, creating a renderer). Defaults to null.
  */
-@Composable expect fun PrismView(store: EngineStore, modifier: Modifier = Modifier)
+@Composable
+expect fun PrismView(
+  store: EngineStore,
+  modifier: Modifier = Modifier,
+  onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)? = null,
+)

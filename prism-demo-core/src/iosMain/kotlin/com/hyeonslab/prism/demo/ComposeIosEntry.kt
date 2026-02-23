@@ -21,23 +21,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.interop.UIKitView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
-import com.hyeonslab.prism.widget.PrismSurface
-import com.hyeonslab.prism.widget.createPrismSurface
-import kotlinx.cinterop.BetaInteropApi
-import kotlinx.cinterop.CValue
+import com.hyeonslab.prism.compose.EngineStateEvent
+import com.hyeonslab.prism.compose.PrismView
+import com.hyeonslab.prism.compose.rememberEngineStore
+import com.hyeonslab.prism.core.EngineConfig
+import io.ygdrasil.webgpu.WGPUContext
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.useContents
-import platform.CoreGraphics.CGSize
-import platform.MetalKit.MTKView
-import platform.MetalKit.MTKViewDelegateProtocol
-import platform.QuartzCore.CACurrentMediaTime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIViewController
-import platform.darwin.NSObject
 
 private val log = Logger.withTag("ComposeIOS")
 
@@ -48,95 +46,92 @@ fun composeDemoViewController(): UIViewController = ComposeUIViewController {
 
 @Composable
 private fun IosComposeDemoContent() {
+  val engineStore = rememberEngineStore(EngineConfig(appName = "Prism iOS Compose"))
   val store = sharedDemoStore
   val uiState by store.state.collectAsStateWithLifecycle()
 
-  // Hold scene + surface + delegate so they survive recomposition but can be cleaned up.
-  // MTKView.delegate is a WEAK reference — without a strong ref here, the delegate gets GC'd.
   var scene by remember { mutableStateOf<DemoScene?>(null) }
-  var surface by remember { mutableStateOf<PrismSurface?>(null) }
-  var mtkView by remember { mutableStateOf<MTKView?>(null) }
-  var renderDelegate by remember { mutableStateOf<MTKViewDelegateProtocol?>(null) }
+  var surfaceCtx by remember { mutableStateOf<WGPUContext?>(null) }
+  var surfaceWidth by remember { mutableStateOf(0) }
+  var surfaceHeight by remember { mutableStateOf(0) }
   var initError by remember { mutableStateOf<String?>(null) }
 
-  // Clean up wgpu resources when the composable leaves the composition.
-  // Null the delegate first to stop render callbacks before shutting down.
+  // Clean up scene resources when the composable leaves the composition. Null onRender first
+  // so no further callbacks fire into a shutting-down scene.
   DisposableEffect(Unit) {
     onDispose {
       log.i { "Disposing Compose iOS demo" }
-      mtkView?.delegate = null
-      renderDelegate = null
+      engineStore.engine.gameLoop.onRender = null
       scene?.shutdown()
-      surface?.detach()
+      scene = null
+    }
+  }
+
+  // Once the surface is ready (surfaceCtx becomes non-null), create the glTF demo scene and
+  // wire per-frame logic (material overrides, scene tick, FPS dispatch) into the game loop.
+  LaunchedEffect(surfaceCtx) {
+    val ctx = surfaceCtx ?: return@LaunchedEffect
+    val w = surfaceWidth
+    val h = surfaceHeight
+
+    log.i { "Initializing glTF demo scene (${w}x${h})" }
+    try {
+      val glbBytes =
+        checkNotNull(loadBundleAssetBytes("DamagedHelmet.glb")) {
+          "DamagedHelmet.glb not found in app bundle"
+        }
+      val backgroundScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+      val sc =
+        createGltfDemoScene(
+          ctx,
+          width = w,
+          height = h,
+          glbData = glbBytes,
+          progressiveScope = backgroundScope,
+        )
+      scene = sc
+      engineStore.dispatch(EngineStateEvent.SurfaceResized(w, h))
+
+      // Wire per-frame logic into the game loop. This callback is invoked by
+      // PrismView.ios.kt's MTKViewDelegate on the display-link thread.
+      engineStore.engine.gameLoop.onRender = { time ->
+        val currentState = store.state.value
+        if (!currentState.isPaused) {
+          sc.setMaterialOverride(currentState.metallic, currentState.roughness)
+          sc.setEnvIntensity(currentState.envIntensity)
+        }
+        var elapsed = 0f
+        SharedDemoTime.tick(isPaused = currentState.isPaused) { e -> elapsed = e }
+        sc.tick(
+          deltaTime = if (currentState.isPaused) 0f else time.deltaTime,
+          elapsed = elapsed,
+          frameCount = time.frameCount,
+        )
+        if (time.deltaTime > 0f) {
+          val smoothedFps = currentState.fps * 0.9f + (1f / time.deltaTime) * 0.1f
+          NSOperationQueue.mainQueue.addOperationWithBlock {
+            store.dispatch(DemoIntent.UpdateFps(smoothedFps))
+          }
+        }
+      }
+      log.i { "Compose iOS demo initialized" }
+    } catch (e: Exception) {
+      log.e(e) { "Failed to initialize demo scene: ${e.message}" }
+      initError = e.message ?: "Failed to initialize GPU"
     }
   }
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(modifier = Modifier.fillMaxSize()) {
-      // MTKView embedded as a native UIKit view.
-      // interactive = false: this is a display-only Metal surface; all user interaction
-      // (sliders, buttons) is handled by the Compose overlay, not the MTKView.
-      @Suppress("DEPRECATION")
-      UIKitView(
-        factory = {
-          val device = platform.Metal.MTLCreateSystemDefaultDevice()
-          if (device == null) {
-            log.e { "Metal is not supported on this device" }
-            initError = "Metal is not supported on this device"
-          }
-          val view =
-            MTKView().apply {
-              this.device = device
-              this.colorPixelFormat = platform.Metal.MTLPixelFormatBGRA8Unorm
-              this.depthStencilPixelFormat = platform.Metal.MTLPixelFormatDepth32Float
-              this.preferredFramesPerSecond = 60
-            }
-          mtkView = view
-          view
-        },
+      PrismView(
+        store = engineStore,
         modifier = Modifier.fillMaxSize(),
-        interactive = false,
+        onSurfaceReady = { ctx, w, h ->
+          surfaceCtx = ctx
+          surfaceWidth = w
+          surfaceHeight = h
+        },
       )
-
-      // Initialize wgpu once the MTKView is available
-      LaunchedEffect(mtkView) {
-        val view = mtkView ?: return@LaunchedEffect
-        if (initError != null) return@LaunchedEffect
-
-        log.i { "Initializing wgpu for Compose iOS demo" }
-
-        var width = view.drawableSize.useContents { width.toInt() }
-        var height = view.drawableSize.useContents { height.toInt() }
-        if (width <= 0 || height <= 0) {
-          log.w { "drawableSize not ready (${width}x${height}), using defaults" }
-          width = IOS_DEFAULT_WIDTH
-          height = IOS_DEFAULT_HEIGHT
-        }
-
-        try {
-          val s = createPrismSurface(view, width, height)
-          surface = s
-          val wgpuCtx = checkNotNull(s.wgpuContext) { "wgpu context not available" }
-          val glbBytes =
-            checkNotNull(loadBundleAssetBytes("DamagedHelmet.glb")) {
-              "DamagedHelmet.glb not found in app bundle"
-            }
-          val sc = createGltfDemoScene(wgpuCtx, width = width, height = height, glbData = glbBytes)
-          scene = sc
-
-          val delegate =
-            ComposeRenderDelegate(sc, store) { w, h ->
-              sc.renderer.resize(w, h)
-              sc.updateAspectRatio(w, h)
-            }
-          renderDelegate = delegate
-          view.delegate = delegate
-          log.i { "Compose iOS demo initialized (${width}x${height})" }
-        } catch (e: Exception) {
-          log.e(e) { "Failed to initialize wgpu: ${e.message}" }
-          initError = e.message ?: "Failed to initialize GPU"
-        }
-      }
 
       // Show error overlay if initialization failed
       val error = initError
@@ -158,39 +153,6 @@ private fun IosComposeDemoContent() {
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(8.dp),
       )
-    }
-  }
-}
-
-/**
- * MTKView render delegate for the Compose iOS demo. Delegates per-frame update logic to
- * [tickDemoFrame] which is shared with the Native tab's [DemoRenderDelegate].
- */
-@OptIn(BetaInteropApi::class)
-private class ComposeRenderDelegate(
-  private val scene: DemoScene,
-  private val store: DemoStore,
-  private val onResize: (Int, Int) -> Unit,
-) : NSObject(), MTKViewDelegateProtocol {
-
-  private var lastFrameTime = CACurrentMediaTime()
-  private var frameCount = 0L
-
-  override fun drawInMTKView(view: MTKView) {
-    val now = CACurrentMediaTime()
-    val deltaTime = (now - lastFrameTime).toFloat()
-    lastFrameTime = now
-    frameCount++
-    tickDemoFrame(scene, store, deltaTime, frameCount)
-  }
-
-  override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {
-    drawableSizeWillChange.useContents {
-      val w = width.toInt()
-      val h = height.toInt()
-      if (w <= 0 || h <= 0) return
-      log.i { "Compose drawable size changed: ${w}x${h}" }
-      onResize(w, h)
     }
   }
 }

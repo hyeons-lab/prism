@@ -15,6 +15,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismSurface
 import com.hyeonslab.prism.widget.createPrismSurface
+import io.ygdrasil.webgpu.WGPUContext
 
 private val log = Logger.withTag("PrismView.Android")
 
@@ -27,7 +28,11 @@ private val log = Logger.withTag("PrismView.Android")
  * [EngineStateEvent]s through [EngineStore.dispatch].
  */
 @Composable
-actual fun PrismView(store: EngineStore, modifier: Modifier) {
+actual fun PrismView(
+  store: EngineStore,
+  modifier: Modifier,
+  onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)?,
+) {
   // Track the current SurfaceHolder identity separately from dimensions so that a resize
   // on the same holder dispatches SurfaceResized without recreating the wgpu surface.
   var currentHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
@@ -114,6 +119,10 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       }
       prismSurface = surface
       store.dispatch(EngineStateEvent.SurfaceResized(width, height))
+      val wgpuCtx = surface.wgpuContext
+      if (wgpuCtx != null) {
+        onSurfaceReady?.invoke(wgpuCtx, width, height)
+      }
       renderingActive = true
       log.i { "PrismSurface ready" }
     } catch (e: Exception) {

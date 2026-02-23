@@ -28,6 +28,10 @@ kotlin {
         implementation(libs.wgpu4k.toolkit)
         implementation(libs.kotlinx.coroutines.core)
       }
+      iosMain.dependencies {
+        implementation(libs.wgpu4k.toolkit)
+        implementation(libs.kotlinx.coroutines.core)
+      }
     }
   }
 
