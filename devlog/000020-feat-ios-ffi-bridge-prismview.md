@@ -49,7 +49,8 @@
 ## Commits
 
 - 8a999d0b — chore: add devlog and plan for ios-ffi-bridge-prismview
-- HEAD — feat: iOS FFI bridge, PrismView onSurfaceReady, Compose iOS refactor
+- edb8f07 — feat: iOS FFI bridge, PrismView onSurfaceReady, Compose iOS refactor
+- HEAD — chore: update devlog with real timestamps and commit hashes
 
 ---
 
