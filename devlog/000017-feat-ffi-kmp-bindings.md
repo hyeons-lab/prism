@@ -784,7 +784,7 @@ ad2435b — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)
 356a772 — devlog: record CI fixes 9–10 (Apple timeout, Android APK)
 3343a3a — ci: improve Apple Targets build time (timeout, cache writability, Konan restore-keys)
 3343a3a — devlog: record CI fixes 11–12 (timeout 70 min, cache-read-only, Konan restore-keys)
-HEAD — fix: restore configureDemo entry point; drop macosArm64Test; cache DerivedData
+0366751 — fix: restore configureDemo entry point; drop macosArm64Test; cache DerivedData
 
 ---
 
