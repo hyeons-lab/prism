@@ -203,11 +203,16 @@ jobs:
         run: |
           set -o pipefail
           START=$SECONDS
+          XB_LOG=$(mktemp)
           xcodebuild -project prism-ios-demo/PrismiOSDemo.xcodeproj \
             -scheme PrismiOSDemo -sdk iphonesimulator -arch arm64 \
             -configuration Debug CODE_SIGNING_ALLOWED=NO \
             -derivedDataPath prism-ios-demo/DerivedData \
-            build 2>&1 | tail -50 || EXIT=$?
+            build 2>&1 | tee "$XB_LOG" | tail -50 || EXIT=$?
+          if [ "${EXIT:-0}" != "0" ]; then
+            echo "--- Swift/clang errors ---"
+            grep -E "error:|warning:.*error" "$XB_LOG" | head -40 || true
+          fi
           echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
           
