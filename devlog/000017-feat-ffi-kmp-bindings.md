@@ -820,3 +820,25 @@ breaking API change.
 xcodebuild output depends on the Kotlin XCFramework linked into the app; including
 `**/src/iosMain/**/*.kt` and `**/src/appleMain/**/*.kt` ensures a Kotlin change invalidates
 the cache and forces a full rebuild.
+
+---
+
+### CI fix — SKIE async/await API mismatch in ViewController.swift (2026-02-23)
+
+**Fix 18 (2026-02-23T10:00-08:00):** Apple Targets job failed with `error: extra trailing closure
+passed in call` at `ViewController.swift:42`. Root cause: SKIE 0.10.10 transforms Kotlin `suspend`
+functions into Swift `async throws` extensions and renames the ObjC completion handler from
+`configureDemo(view:completionHandler:)` to `__configureDemo(view:completionHandler:)`.
+`IosDemoControllerKt.configureDemo(view:)` is now the async version — it accepts no trailing
+closure. The old `{ handle, error in }` completion handler syntax no longer compiles.
+
+Fix: updated `ViewController.swift` to wrap the call in `Task { do { let handle = try await
+IosDemoControllerKt.configureDemo(view:); ... } catch { showError(...) } }`.
+
+The SKIE-generated Swift overlay (`PrismDemoCore.IosDemoControllerKt.swift`) was verified locally —
+it confirms `configureDemo(view:)` is `@available(iOS 13,...) public static func ... async throws`.
+
+`prism-ios-demo/Sources/ViewController.swift` — Replace completion handler block with
+`Task { try await }` pattern.
+
+9471c87 — fix: update ViewController.swift to use SKIE async/await API
