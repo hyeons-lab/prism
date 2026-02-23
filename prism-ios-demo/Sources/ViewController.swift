@@ -39,13 +39,14 @@ class ViewController: UIViewController {
         guard !isInitialized, mtkView != nil else { return }
         isInitialized = true
 
-        IosDemoControllerKt.configureDemo(view: mtkView) { handle, error in
-            if let error = error {
+        Task {
+            do {
+                let handle = try await IosDemoControllerKt.configureDemo(view: self.mtkView)
+                self.demoHandle = handle
+                self.mtkView.isPaused = false
+            } catch {
                 self.showError("Failed to initialize: \(error.localizedDescription)")
-                return
             }
-            self.demoHandle = handle
-            self.mtkView.isPaused = false
         }
     }
 
