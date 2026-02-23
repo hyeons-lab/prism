@@ -37,7 +37,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
           add-job-summary: always
 
       - name: Setup wgpu4k
@@ -76,7 +76,7 @@ jobs:
   apple:
     name: Apple Targets
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 70
 
     steps:
       - name: Checkout
@@ -97,7 +97,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
           add-job-summary: always
 
       - name: Get Kotlin version
@@ -115,6 +115,8 @@ jobs:
         with:
           path: ~/.konan
           key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
 
       - name: Setup wgpu4k
         uses: ./.github/actions/setup-wgpu4k
@@ -223,7 +225,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          cache-read-only: false
 
       - name: Get Kotlin version
         id: kotlin-version
