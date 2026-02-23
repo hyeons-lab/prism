@@ -759,6 +759,10 @@ CI failed on all three jobs with `fatal: remote error: upload-pack: not our ref 
 
 **Fix 8 (2026-02-22T15:30-08:00):** Docker Build job failed with `docker: 'docker run' requires at least 1 argument`. Root cause: `build-all-docker.sh` had bash comments (`# ...`) embedded inside the `docker run` multi-line command. In bash, a `#` comment following a `\` line continuation terminates the command at that point; `prism-builder` ended up as a standalone command, leaving `docker run` with no IMAGE argument. Fix: moved the comment block above the `docker run` invocation.
 
+**Fix 9 (2026-02-23T00:00-08:00):** Apple Targets job hit the 45-minute timeout during `:prism-ios:linkDebugFrameworkIosArm64`. The Rust cross-compilation for `aarch64-apple-ios` + `aarch64-apple-ios-sim`, combined with `macosArm64Test`, `iosSimulatorArm64Test`, and two XCFramework assemblies, consistently exceeds 45 min on macos-15-arm64. Fix: bumped `timeout-minutes` from 45 to 60.
+
+**Fix 10 (2026-02-23T00:00-08:00):** Docker Build CI job uploaded "prism-android-demo" artifact but produced a warning `No files were found with the provided path: prism-android-demo/build/outputs/apk/debug/prism-android-demo-debug.apk`. Root cause: `build-all-docker.sh` only ran Linux/Windows/WASM Gradle tasks — no Android task was ever invoked. The ANDROID_HOME passthrough and `.android` mount were already in place from Fix 4/5. Fix: added `:prism-android-demo:assembleDebug` to the Gradle tasks list in `build-all-docker.sh`.
+
 bfec04e — fix: update wgpu4kNativeCommit to correct full hash after force-push
 9d9faa7 — fix: update wgpu4kNativeCommit to fix reinterpret() compile error
 55f6226 — devlog: record wgpu4kNative compile fix
@@ -767,4 +771,5 @@ b511f53 — devlog: record CI fixes 3 and 4
 d42e346 — chore: ktfmtFormat prism-native MacosBridge and NativeBridge
 6cb8e41 — fix: pass ANDROID_HOME into Docker container for Android build
 525e485 — fix: make macosArm64 conditional on host OS across all KMP modules
-HEAD — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)
+ad2435b — devlog: record CI fixes 5–6 (ANDROID_HOME, macosArm64 conditional)
+HEAD — fix: bump Apple Targets timeout to 60 min; build Android APK in Docker
