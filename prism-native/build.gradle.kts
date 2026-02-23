@@ -23,9 +23,11 @@ kotlin {
       implementation(project(":prism-scene"))
       implementation(libs.kotlinx.atomicfu)
     }
-    macosMain.dependencies {
-      implementation(libs.wgpu4k.toolkit)
-      implementation(libs.kotlinx.coroutines.core)
+    if (isMac) {
+      macosMain.dependencies {
+        implementation(libs.wgpu4k.toolkit)
+        implementation(libs.kotlinx.coroutines.core)
+      }
     }
   }
 

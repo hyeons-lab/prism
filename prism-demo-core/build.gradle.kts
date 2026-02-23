@@ -26,8 +26,8 @@ kotlin {
           entryPoint = "com.hyeonslab.prism.demo.main"
           // Run the macOS binary with assets/ as the working directory so
           // loadGlbBytes("DamagedHelmet.glb") resolves to the canonical location.
-          runTask?.workingDir(project.file("assets"))
-          runTask?.dependsOn(":downloadDemoAssets")
+          runTaskProvider?.configure { workingDir(project.file("assets")) }
+          runTaskProvider?.configure { dependsOn(":downloadDemoAssets") }
         }
       }
     }
