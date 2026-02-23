@@ -13,10 +13,23 @@ import 'generated/prism_native_bindings.dart';
 ///
 /// Engine lifecycle (create → initialize → render loop → destroy) is driven
 /// by the caller. The MethodChannel render loop is NOT used for FFI targets.
-// Module-level singleton so the dynamic library is loaded exactly once. The
-// NativeFinalizer below reuses this instance to avoid loading a second copy
-// (which would crash with duplicate ObjC class definitions on Apple platforms).
+
+// Module-level singleton: the dynamic library is loaded exactly once here.
+// Using a single instance prevents loading a second copy of the dylib, which
+// would crash with duplicate ObjC class definitions on Apple platforms.
 final PrismNativeBindings _sharedBindings = _loadBindings();
+
+PrismNativeBindings _loadBindings() {
+  // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
+  // target and auto-loaded by dyld before Dart code runs — use process() to
+  // avoid loading a second copy, which causes duplicate ObjC class crashes.
+  final lib = Platform.isLinux
+      ? DynamicLibrary.open('libprism.so')
+      : Platform.isWindows
+          ? DynamicLibrary.open('prism.dll')
+          : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
+  return PrismNativeBindings(lib);
+}
 
 class PrismEngine {
   PrismEngine() : _bindings = _sharedBindings;
@@ -24,22 +37,6 @@ class PrismEngine {
   final PrismNativeBindings _bindings;
   int _engineHandle = 0;
   bool _initialized = false;
-
-  static final NativeFinalizer _finalizer = NativeFinalizer(
-    _sharedBindings.prism_destroy_engine.cast(),
-  );
-
-  static PrismNativeBindings _loadBindings() {
-    // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
-    // target and auto-loaded by dyld before Dart code runs — use process() to
-    // avoid loading a second copy, which causes duplicate ObjC class crashes.
-    final lib = Platform.isLinux
-        ? DynamicLibrary.open('libprism.so')
-        : Platform.isWindows
-            ? DynamicLibrary.open('prism.dll')
-            : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
-    return PrismNativeBindings(lib);
-  }
 
   /// Raw engine handle — exposed so platform views can pass it to the C API.
   int get handle => _engineHandle;
@@ -54,7 +51,6 @@ class PrismEngine {
     try {
       _engineHandle =
           _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
-      _finalizer.attach(this, Pointer.fromAddress(_engineHandle), detach: this);
       _bindings.prism_engine_initialize(_engineHandle);
       _initialized = true;
     } catch (_) {
@@ -88,15 +84,12 @@ class PrismEngine {
         'isPaused': false,
       };
 
-  /// Shuts down and destroys the native engine.
+  /// Shuts down and destroys the native engine. Guard against double-destroy:
+  /// [_initialized] is cleared before returning so a second call is a no-op.
   Future<void> shutdown() async {
     if (!_initialized) return;
-    // Detach the finalizer before manually calling prism_destroy_engine to prevent
-    // a double-free: the finalizer would otherwise call destroy again when this
-    // object is garbage-collected.
-    _finalizer.detach(this);
+    _initialized = false; // clear before destroy so double-calls are no-ops
     _bindings.prism_destroy_engine(_engineHandle);
     _engineHandle = 0;
-    _initialized = false;
   }
 }
