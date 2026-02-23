@@ -4,7 +4,6 @@ package engine.prism.js
 
 import kotlin.js.ExperimentalWasmJsInterop
 import kotlin.js.JsExport
-import kotlin.js.JsFun
 
 @JsFun("(msg) => console.warn('[PrismMeshBuilder] ' + msg)")
 private external fun consoleWarn(message: String)
