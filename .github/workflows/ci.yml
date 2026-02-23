@@ -39,6 +39,7 @@ jobs:
         with:
           cache-read-only: false
           add-job-summary: always
+          cache-cleanup: always
 
       - name: Setup wgpu4k
         uses: ./.github/actions/setup-wgpu4k
@@ -57,21 +58,20 @@ jobs:
           echo "### Lint + Test: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
-      - name: Gradle build cache diagnostics
+      - name: Gradle home cache size breakdown
         if: always()
         run: |
-          echo "### Gradle Build Cache" >> "$GITHUB_STEP_SUMMARY"
-          CACHE_DIR=~/.gradle/caches/build-cache-1
-          if [ -d "$CACHE_DIR" ]; then
-            ENTRY_COUNT=$(find "$CACHE_DIR" -type f | wc -l)
-            CACHE_SIZE=$(du -sh "$CACHE_DIR" | cut -f1)
-            echo "| Metric | Value |" >> "$GITHUB_STEP_SUMMARY"
-            echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Entries | ${ENTRY_COUNT} |" >> "$GITHUB_STEP_SUMMARY"
-            echo "| Size | ${CACHE_SIZE} |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No local build cache directory found." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "### Gradle Home Cache Size" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Directory | Size |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|------|" >> "$GITHUB_STEP_SUMMARY"
+          for D in modules-2 transforms-3 transforms-4 build-cache-1 kotlin-dce; do
+            DIR=~/.gradle/caches/$D
+            if [ -d "$DIR" ]; then
+              SIZE=$(du -sh "$DIR" | cut -f1)
+              echo "| \`caches/$D\` | $SIZE |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "| **Total ~/.gradle** | $(du -sh ~/.gradle | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
 
   apple:
     name: Apple Targets
@@ -99,6 +99,10 @@ jobs:
         with:
           cache-read-only: false
           add-job-summary: always
+          cache-cleanup: always
+          gradle-home-cache-excludes: |
+            caches/transforms-*
+            caches/kotlin-dce
 
       - name: Get Kotlin version
         id: kotlin-version
@@ -135,6 +139,21 @@ jobs:
             -Pkotlin.native.parallelThreads=3 || EXIT=$?
           echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
+
+      - name: Gradle home cache size breakdown
+        if: always()
+        run: |
+          echo "### Gradle Home Cache Size" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Directory | Size |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-----------|------|" >> "$GITHUB_STEP_SUMMARY"
+          for D in modules-2 transforms-3 transforms-4 build-cache-1 kotlin-dce; do
+            DIR=~/.gradle/caches/$D
+            if [ -d "$DIR" ]; then
+              SIZE=$(du -sh "$DIR" | cut -f1)
+              echo "| \`caches/$D\` | $SIZE |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "| **Total ~/.gradle** | $(du -sh ~/.gradle | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify XCFramework headers
         run: |
