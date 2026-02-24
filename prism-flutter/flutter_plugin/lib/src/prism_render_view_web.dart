@@ -3,15 +3,17 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-import 'prism_engine.dart';
 import 'prism_web_plugin.dart';
 
 class PrismRenderView extends StatefulWidget {
-  final PrismEngine engine;
+  // engineHandle is unused on web — WASM init is driven by PrismWebEngine.init().
+  // The field is kept for API symmetry with the mobile variant.
+  // ignore: unused_field
+  final int engineHandle;
 
   const PrismRenderView({
     super.key,
-    required this.engine,
+    required this.engineHandle,
   });
 
   @override
@@ -54,7 +56,6 @@ class _PrismRenderViewState extends State<PrismRenderView> {
       canvas.height = height;
     }
 
-    widget.engine.attachCanvas(_canvasId);
     try {
       await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
       PrismWebEngine.init(_canvasId);
@@ -84,6 +85,6 @@ class _PrismRenderViewState extends State<PrismRenderView> {
     );
   }
 
-  // Shutdown is NOT called here — the PrismEngine owner (parent widget) is
-  // responsible for calling engine.shutdown() in its own dispose().
+  // Shutdown is NOT called here — the engine owner (parent widget) is
+  // responsible for destroying the engine in its own dispose().
 }

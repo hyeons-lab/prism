@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:prism_flutter/prism_flutter.dart';
+import 'package:prism_flutter/prism_sdk.dart';
 
 void main() {
   runApp(const PrismExampleApp());
@@ -31,87 +30,41 @@ class PrismDemoPage extends StatefulWidget {
 }
 
 class _PrismDemoPageState extends State<PrismDemoPage> {
-  final _engine = PrismEngine();
-  double _metallic = 0.0;
-  double _roughness = 0.5;
-  double _envIntensity = 1.0;
+  late final Engine _engine;
   bool _isPaused = false;
 
   @override
+  void initState() {
+    super.initState();
+    _engine = Engine(const EngineConfig(appName: 'PrismDemo', targetFps: 60));
+  }
+
+  @override
   void dispose() {
-    unawaited(_engine.shutdown());
+    _engine.destroy();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Prism 3D Engine — PBR Demo')),
+      appBar: AppBar(title: const Text('Prism 3D Engine')),
       body: Column(
         children: [
           Expanded(
-            child: PrismRenderView(engine: _engine),
+            child: PrismRenderView(engineHandle: _engine.handle),
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    const SizedBox(width: 80, child: Text('Metallic')),
-                    Expanded(
-                      child: Slider(
-                        value: _metallic,
-                        min: 0,
-                        max: 1,
-                        onChanged: (value) {
-                          setState(() => _metallic = value);
-                          _engine.setMetallic(value);
-                        },
-                      ),
-                    ),
-                    Text(_metallic.toStringAsFixed(2)),
-                  ],
+                Text(
+                  'dt: ${_engine.time.deltaTime.toStringAsFixed(4)} s  '
+                  'total: ${_engine.time.totalTime.toStringAsFixed(2)} s',
                 ),
-                Row(
-                  children: [
-                    const SizedBox(width: 80, child: Text('Roughness')),
-                    Expanded(
-                      child: Slider(
-                        value: _roughness,
-                        min: 0,
-                        max: 1,
-                        onChanged: (value) {
-                          setState(() => _roughness = value);
-                          _engine.setRoughness(value);
-                        },
-                      ),
-                    ),
-                    Text(_roughness.toStringAsFixed(2)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const SizedBox(width: 80, child: Text('Env IBL')),
-                    Expanded(
-                      child: Slider(
-                        value: _envIntensity,
-                        min: 0,
-                        max: 2,
-                        onChanged: (value) {
-                          setState(() => _envIntensity = value);
-                          _engine.setEnvIntensity(value);
-                        },
-                      ),
-                    ),
-                    Text(_envIntensity.toStringAsFixed(2)),
-                  ],
-                ),
+                const SizedBox(height: 8),
                 FilledButton.icon(
-                  onPressed: () {
-                    setState(() => _isPaused = !_isPaused);
-                    _engine.togglePause();
-                  },
+                  onPressed: () => setState(() => _isPaused = !_isPaused),
                   icon: Icon(_isPaused ? Icons.play_arrow : Icons.pause),
                   label: Text(_isPaused ? 'Resume' : 'Pause'),
                 ),
