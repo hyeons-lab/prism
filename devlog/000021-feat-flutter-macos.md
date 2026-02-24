@@ -37,5 +37,6 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 (none yet)
 
 ## Commits
-475dfd7833d1ab94812d479639ae30e8d34aa9d1 — chore: add devlog and plan for Flutter macOS demo
-HEAD — feat: Flutter macOS demo, align plugin with iOS pattern
+- 475dfd7 — chore: add devlog and plan for Flutter macOS demo
+- 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
+- HEAD — chore: update devlog with commit hashes
