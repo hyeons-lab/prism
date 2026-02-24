@@ -23,7 +23,10 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.interpretObjCPointerOrNull
 import kotlinx.cinterop.rawValue
 import kotlinx.cinterop.toKString
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import platform.MetalKit.MTKView
 
@@ -95,6 +98,7 @@ fun prismLoadGltfFromPath(engineHandle: Long, glbPath: CPointer<ByteVar>?) {
   // Shut down any existing scene before replacing it.
   iosScenes.getAndUpdate { it - engineHandle }[engineHandle]?.shutdown()
 
+  val backgroundScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   val scene =
     try {
       buildGltfScene(
@@ -103,9 +107,11 @@ fun prismLoadGltfFromPath(engineHandle: Long, glbPath: CPointer<ByteVar>?) {
         glbPath = path,
         width = surface.width,
         height = surface.height,
+        backgroundScope = backgroundScope,
       )
     } catch (e: Exception) {
       Logger.withTag("IosBridge").e(e) { "Failed to load glTF from $path" }
+      backgroundScope.cancel()
       return
     }
   iosScenes.update { it + (engineHandle to scene) }

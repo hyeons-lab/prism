@@ -28,7 +28,10 @@ import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 
 // ---------------------------------------------------------------------------
@@ -98,6 +101,7 @@ fun prismLoadGltfFromPath(engineHandle: Long, glbPath: CPointer<ByteVar>?) {
   // Shut down any existing scene before replacing it.
   macosScenes.getAndUpdate { it - engineHandle }[engineHandle]?.shutdown()
 
+  val backgroundScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
   val scene =
     try {
       buildGltfScene(
@@ -106,9 +110,11 @@ fun prismLoadGltfFromPath(engineHandle: Long, glbPath: CPointer<ByteVar>?) {
         glbPath = path,
         width = surface.width,
         height = surface.height,
+        backgroundScope = backgroundScope,
       )
     } catch (e: Exception) {
       Logger.withTag("MacosBridge").e(e) { "Failed to load glTF from $path" }
+      backgroundScope.cancel()
       return
     }
   macosScenes.update { it + (engineHandle to scene) }

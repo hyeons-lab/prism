@@ -23,16 +23,11 @@ kotlin {
       implementation(project(":prism-scene"))
       implementation(project(":prism-assets"))
       implementation(libs.kotlinx.atomicfu)
+      implementation(libs.kotlinx.coroutines.core)
     }
     if (isMac) {
-      macosMain.dependencies {
-        implementation(libs.wgpu4k.toolkit)
-        implementation(libs.kotlinx.coroutines.core)
-      }
-      iosMain.dependencies {
-        implementation(libs.wgpu4k.toolkit)
-        implementation(libs.kotlinx.coroutines.core)
-      }
+      macosMain.dependencies { implementation(libs.wgpu4k.toolkit) }
+      iosMain.dependencies { implementation(libs.wgpu4k.toolkit) }
     }
   }
 

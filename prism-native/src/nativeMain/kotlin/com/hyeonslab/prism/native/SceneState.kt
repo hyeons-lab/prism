@@ -2,8 +2,10 @@ package com.hyeonslab.prism.native
 
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.assets.FileReader
+import com.hyeonslab.prism.assets.GltfAsset
 import com.hyeonslab.prism.assets.GltfLoader
-import com.hyeonslab.prism.assets.upload
+import com.hyeonslab.prism.assets.ImageData
+import com.hyeonslab.prism.assets.ImageDecoder
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.ecs.Entity
 import com.hyeonslab.prism.ecs.World
@@ -15,12 +17,22 @@ import com.hyeonslab.prism.ecs.systems.RenderSystem
 import com.hyeonslab.prism.math.Vec3
 import com.hyeonslab.prism.renderer.Camera
 import com.hyeonslab.prism.renderer.Color
+import com.hyeonslab.prism.renderer.Material
+import com.hyeonslab.prism.renderer.Texture
 import com.hyeonslab.prism.renderer.WgpuRenderer
 import io.ygdrasil.webgpu.WGPUContext
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.TimeSource
+import kotlinx.atomicfu.AtomicRef
+import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.getAndUpdate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 private val log = Logger.withTag("SceneState")
@@ -28,12 +40,18 @@ private val log = Logger.withTag("SceneState")
 private const val GLTF_ORBIT_RADIUS = 3.5f
 private val HALF_PI = (PI / 2.0).toFloat()
 
+/** A decoded texture image waiting for GPU upload on the render thread. */
+private data class DecodedTexture(val texture: Texture, val imageData: ImageData)
+
 /**
  * Per-handle scene state: WgpuRenderer, ECS world, camera entity, orbit-camera parameters, pause
  * flag, and frame-timing accumulators.
  *
  * Created by [buildGltfScene] and stored in the platform-specific surfaces map keyed by engine
  * handle. Destroyed via [shutdown] when [prism_detach_surface] is called.
+ *
+ * [texToMaterials] maps each [Texture] to the [Material]s that reference it — used by progressive
+ * texture loading to evict stale bind-group cache entries after a texture is uploaded to the GPU.
  */
 internal class SceneState(
   val renderer: WgpuRenderer,
@@ -41,6 +59,7 @@ internal class SceneState(
   val cameraEntity: Entity,
   var width: Int,
   var height: Int,
+  private val texToMaterials: Map<Texture, List<Material>> = emptyMap(),
 ) {
   private var orbitRadius = GLTF_ORBIT_RADIUS
   private var orbitAzimuth = 0f
@@ -56,6 +75,11 @@ internal class SceneState(
 
   val fps: Double
     get() = _fps
+
+  // Progressive texture loading: background coroutine decodes images and enqueues them here;
+  // the render thread uploads one texture per frame in uploadNextPendingTexture().
+  private val pendingUploads: AtomicRef<List<DecodedTexture>> = atomic(emptyList())
+  private val decodeScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
   /**
    * Advances the frame timer and returns (deltaTime, elapsed) in seconds. Always called, even when
@@ -107,22 +131,74 @@ internal class SceneState(
     cam.camera.aspectRatio = newWidth.toFloat() / newHeight.toFloat()
   }
 
-  /** Shuts down the ECS world. Call from [prism_detach_surface]. */
+  /**
+   * Uploads the next decoded texture to the GPU, if one is pending. Call once per render frame,
+   * before [World.update], so the GPU copy completes before that frame's draw calls reference the
+   * bind groups. Returns `true` if a texture was uploaded this frame.
+   */
+  fun uploadNextPendingTexture(): Boolean {
+    // Atomically pop the first item. getAndUpdate returns the OLD list so we can read its first
+    // element without an extra read — safe because only the render thread calls this function.
+    val old = pendingUploads.getAndUpdate { list -> if (list.isEmpty()) list else list.drop(1) }
+    val decoded = old.firstOrNull() ?: return false
+
+    decoded.texture.descriptor =
+      decoded.texture.descriptor.copy(
+        width = decoded.imageData.width,
+        height = decoded.imageData.height,
+      )
+    renderer.initializeTexture(decoded.texture)
+    renderer.uploadTextureData(decoded.texture, decoded.imageData.pixels)
+    // Evict cached bind groups so the next draw call rebuilds them with the real texture.
+    texToMaterials[decoded.texture]?.forEach { renderer.invalidateMaterial(it) }
+    return true
+  }
+
+  /**
+   * Launches a background coroutine that decodes [rawBytes] one at a time (PNG/JPEG → RGBA8) and
+   * enqueues each result into [pendingUploads] for the render thread to pick up.
+   */
+  internal fun startProgressiveDecode(rawBytes: List<ByteArray?>, textures: List<Texture>) {
+    if (rawBytes.isEmpty()) return
+    decodeScope.launch {
+      for (i in rawBytes.indices) {
+        val bytes = rawBytes[i] ?: continue
+        val texture = textures.getOrNull(i) ?: continue
+        val imageData =
+          try {
+            ImageDecoder.decode(bytes, unpremultiply = true)
+          } catch (e: Exception) {
+            log.w { "Progressive texture $i decode failed: ${e.message}" }
+            null
+          } ?: continue
+        pendingUploads.getAndUpdate { it + DecodedTexture(texture, imageData) }
+      }
+      log.i { "Progressive texture decode complete (${rawBytes.size} textures)" }
+    }
+  }
+
+  /** Shuts down the ECS world and cancels any in-progress background texture decoding. */
   fun shutdown() {
+    decodeScope.cancel()
     world.shutdown()
   }
 }
 
 /**
  * Reads the GLB file at [glbPath], creates a [WgpuRenderer] on the pre-configured [wgpuContext],
- * loads all glTF assets into an ECS [World], and returns the fully initialized [SceneState].
+ * loads glTF geometry into an ECS [World], and returns the fully initialized [SceneState].
  *
  * The Metal surface **must** already be configured (via [prism_attach_metal_layer]) before calling
  * this — [surfacePreConfigured] = true is passed to [WgpuRenderer] so it skips redundant
  * `surface.configure()` calls.
  *
- * IBL is initialized synchronously (non-progressive) so the scene is render-ready on return. The
- * caller is responsible for calling [SceneState.shutdown] when done.
+ * Geometry (meshes) is uploaded to the GPU synchronously so the scene renders immediately. Textures
+ * are decoded in the background and streamed to the GPU one-per-frame via
+ * [SceneState.uploadNextPendingTexture] to avoid stalling the render loop. Until textures are
+ * ready, default 1×1 white/normal/black placeholders are used automatically by the material bind
+ * groups.
+ *
+ * The caller is responsible for calling [SceneState.shutdown] when done.
  */
 internal fun buildGltfScene(
   engine: Engine,
@@ -145,8 +221,15 @@ internal fun buildGltfScene(
   val world = World()
   world.addSystem(RenderSystem(renderer))
 
-  val asset = runBlocking { GltfLoader().load("model.glb", glbBytes) }
-  renderer.upload(asset)
+  // loadStructure() parses the GLB structure without decoding any images, returning placeholder
+  // 1×1 textures immediately. Actual image bytes are decoded progressively in the background.
+  val result = runBlocking { GltfLoader().loadStructure("model.glb", glbBytes) }
+  val asset = result.asset
+
+  // Upload geometry (vertices + indices) to the GPU immediately so the first frame can draw.
+  for (node in asset.renderableNodes) {
+    renderer.uploadMesh(node.mesh)
+  }
   asset.instantiateInWorld(world)
 
   // Camera: orbit distance 3.5 units, 45° FOV, clipping 0.1–50 m.
@@ -190,6 +273,31 @@ internal fun buildGltfScene(
   )
 
   world.initialize()
-  log.i { "Scene ready: ${asset.renderableNodes.size} primitives" }
-  return SceneState(renderer, world, cameraEntity, width, height)
+
+  val texToMaterials = buildTexToMaterials(asset)
+  val scene = SceneState(renderer, world, cameraEntity, width, height, texToMaterials)
+  scene.startProgressiveDecode(result.rawTextureImageBytes, asset.textures)
+
+  log.i {
+    "Scene ready: ${asset.renderableNodes.size} primitives, " +
+      "${asset.textures.size} textures loading progressively"
+  }
+  return scene
+}
+
+/** Builds a reverse map from each [Texture] to the [Material]s that reference it. */
+private fun buildTexToMaterials(asset: GltfAsset): Map<Texture, List<Material>> {
+  val map = mutableMapOf<Texture, MutableList<Material>>()
+  for (node in asset.renderableNodes) {
+    val mat = node.material ?: continue
+    listOfNotNull(
+        mat.albedoTexture,
+        mat.normalTexture,
+        mat.metallicRoughnessTexture,
+        mat.occlusionTexture,
+        mat.emissiveTexture,
+      )
+      .forEach { tex -> map.getOrPut(tex) { mutableListOf() }.add(mat) }
+  }
+  return map
 }
