@@ -98,8 +98,8 @@ actual fun PrismView(
 
           override fun mtkView(view: MTKView, drawableSizeWillChange: CValue<CGSize>) {
             drawableSizeWillChange.useContents {
-              val w = width.toInt()
-              val h = height.toInt()
+              val w = this.width.toInt()
+              val h = this.height.toInt()
               if (w <= 0 || h <= 0) return
               log.i { "Drawable size changed: ${w}x${h}" }
               prismSurface?.resize(w, h)
