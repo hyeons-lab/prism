@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.assets.FileReader
 import com.hyeonslab.prism.assets.GltfAsset
 import com.hyeonslab.prism.assets.GltfLoader
-import com.hyeonslab.prism.assets.ImageData
 import com.hyeonslab.prism.assets.ImageDecoder
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.ecs.Entity
@@ -25,23 +24,19 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.time.TimeSource
-import kotlinx.atomicfu.AtomicRef
-import kotlinx.atomicfu.atomic
-import kotlinx.atomicfu.getAndUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 
 private val log = Logger.withTag("SceneState")
 
 private const val GLTF_ORBIT_RADIUS = 3.5f
 private val HALF_PI = (PI / 2.0).toFloat()
-
-/** A decoded texture image waiting for GPU upload on the render thread. */
-private data class DecodedTexture(val texture: Texture, val imageData: ImageData)
 
 /**
  * Per-handle scene state: WgpuRenderer, ECS world, camera entity, orbit-camera parameters, pause
@@ -76,10 +71,9 @@ internal class SceneState(
   val fps: Double
     get() = _fps
 
-  // Progressive texture loading: background coroutine decodes images and enqueues them here;
-  // the render thread uploads one texture per frame in uploadNextPendingTexture().
-  private val pendingUploads: AtomicRef<List<DecodedTexture>> = atomic(emptyList())
-  private val decodeScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+  // Progressive texture loading: coroutines run on Dispatchers.Main so GPU calls are always on
+  // the render thread; image decode switches to Dispatchers.Default via withContext.
+  private val textureScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
   /**
    * Advances the frame timer and returns (deltaTime, elapsed) in seconds. Always called, even when
@@ -132,54 +126,43 @@ internal class SceneState(
   }
 
   /**
-   * Uploads the next decoded texture to the GPU, if one is pending. Call once per render frame,
-   * before [World.update], so the GPU copy completes before that frame's draw calls reference the
-   * bind groups. Returns `true` if a texture was uploaded this frame.
-   */
-  fun uploadNextPendingTexture(): Boolean {
-    // Atomically pop the first item. getAndUpdate returns the OLD list so we can read its first
-    // element without an extra read — safe because only the render thread calls this function.
-    val old = pendingUploads.getAndUpdate { list -> if (list.isEmpty()) list else list.drop(1) }
-    val decoded = old.firstOrNull() ?: return false
-
-    decoded.texture.descriptor =
-      decoded.texture.descriptor.copy(
-        width = decoded.imageData.width,
-        height = decoded.imageData.height,
-      )
-    renderer.initializeTexture(decoded.texture)
-    renderer.uploadTextureData(decoded.texture, decoded.imageData.pixels)
-    // Evict cached bind groups so the next draw call rebuilds them with the real texture.
-    texToMaterials[decoded.texture]?.forEach { renderer.invalidateMaterial(it) }
-    return true
-  }
-
-  /**
-   * Launches a background coroutine that decodes [rawBytes] one at a time (PNG/JPEG → RGBA8) and
-   * enqueues each result into [pendingUploads] for the render thread to pick up.
+   * Launches progressive texture loading. Each image is decoded on [Dispatchers.Default] (off the
+   * render thread) then uploaded to the GPU on [Dispatchers.Main] (the render / main thread). A
+   * [yield] between textures lets the NSRunLoop process the next MTKView draw callback, so each
+   * texture appears in its own frame rather than stalling for all textures at once.
    */
   internal fun startProgressiveDecode(rawBytes: List<ByteArray?>, textures: List<Texture>) {
     if (rawBytes.isEmpty()) return
-    decodeScope.launch {
+    textureScope.launch {
       for (i in rawBytes.indices) {
         val bytes = rawBytes[i] ?: continue
         val texture = textures.getOrNull(i) ?: continue
         val imageData =
-          try {
-            ImageDecoder.decode(bytes, unpremultiply = true)
-          } catch (e: Exception) {
-            log.w { "Progressive texture $i decode failed: ${e.message}" }
-            null
+          withContext(Dispatchers.Default) {
+            try {
+              ImageDecoder.decode(bytes, unpremultiply = true)
+            } catch (e: Exception) {
+              log.w { "Progressive texture $i decode failed: ${e.message}" }
+              null
+            }
           } ?: continue
-        pendingUploads.getAndUpdate { it + DecodedTexture(texture, imageData) }
+        // Back on Dispatchers.Main: GPU calls are safe on the render thread.
+        texture.descriptor =
+          texture.descriptor.copy(width = imageData.width, height = imageData.height)
+        renderer.initializeTexture(texture)
+        renderer.uploadTextureData(texture, imageData.pixels)
+        // Evict cached bind groups so the next draw call rebuilds them with the real texture.
+        texToMaterials[texture]?.forEach { renderer.invalidateMaterial(it) }
+        // Yield so the NSRunLoop can run the next render frame before decoding the next texture.
+        yield()
       }
-      log.i { "Progressive texture decode complete (${rawBytes.size} textures)" }
+      log.i { "Progressive texture loading complete (${textures.size} textures)" }
     }
   }
 
-  /** Shuts down the ECS world and cancels any in-progress background texture decoding. */
+  /** Shuts down the ECS world and cancels any in-progress texture loading coroutines. */
   fun shutdown() {
-    decodeScope.cancel()
+    textureScope.cancel()
     world.shutdown()
   }
 }
@@ -192,13 +175,10 @@ internal class SceneState(
  * this — [surfacePreConfigured] = true is passed to [WgpuRenderer] so it skips redundant
  * `surface.configure()` calls.
  *
- * Geometry (meshes) is uploaded to the GPU synchronously so the scene renders immediately. Textures
- * are decoded in the background and streamed to the GPU one-per-frame via
- * [SceneState.uploadNextPendingTexture] to avoid stalling the render loop. Until textures are
- * ready, default 1×1 white/normal/black placeholders are used automatically by the material bind
- * groups.
- *
- * The caller is responsible for calling [SceneState.shutdown] when done.
+ * Geometry (meshes) is uploaded synchronously so the scene renders immediately. Textures are
+ * decoded in the background and streamed to the GPU via [SceneState.startProgressiveDecode] —
+ * default 1×1 white/normal/black placeholders are used automatically until each real texture
+ * arrives. The caller is responsible for calling [SceneState.shutdown] when done.
  */
 internal fun buildGltfScene(
   engine: Engine,
@@ -221,8 +201,8 @@ internal fun buildGltfScene(
   val world = World()
   world.addSystem(RenderSystem(renderer))
 
-  // loadStructure() parses the GLB structure without decoding any images, returning placeholder
-  // 1×1 textures immediately. Actual image bytes are decoded progressively in the background.
+  // loadStructure() parses the GLB structure without decoding any images. Placeholder 1×1 textures
+  // are created immediately so geometry can render while real textures load in the background.
   val result = runBlocking { GltfLoader().loadStructure("model.glb", glbBytes) }
   val asset = result.asset
 
