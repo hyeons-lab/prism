@@ -29,11 +29,18 @@
 - `2026-02-23T13:07-08:00` `prism-compose/src/wasmJsMain/kotlin/com/hyeonslab/prism/compose/PrismView.wasmJs.kt` — Added `onSurfaceReady` parameter (stub — WASM doesn't call it yet).
 - `2026-02-23T13:07-08:00` `prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/ComposeIosEntry.kt` — Refactored from manual `UIKitView + ComposeRenderDelegate` to `PrismView(onSurfaceReady = { ctx, w, h -> ... })`. Scene init in `LaunchedEffect(surfaceCtx)`; per-frame logic via `engineStore.engine.gameLoop.onRender`.
 - `2026-02-23T13:07-08:00` `prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` — Changed from `CAMetalLayer` sublayer to embedded `MTKView` subview; passes `Unmanaged.passUnretained(mtkView).toOpaque()` pointer to `prism_attach_metal_layer`.
+- `2026-02-23T13:07-08:00` `prism-core/src/commonMain/kotlin/com/hyeonslab/prism/core/GameLoop.kt` — Added single-fire `onStop` callback invoked at the start of `stop()`, cleared immediately after firing.
+- `2026-02-23T13:07-08:00` `prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/ComposeIosEntry.kt` (post-review) — Disposal ordering fix via `gameLoop.onStop`; `rememberCoroutineScope()` for progressive texture scope; `LaunchedEffect` for camera aspect ratio update on resize.
+- `2026-02-23T13:07-08:00` `prism-native/src/iosMain/kotlin/engine/prism/native/IosBridge.kt` (post-review) — Map insert before `startExternal()`; UNUSED_PARAMETER comment; `getAndUpdate` in `prismDetachSurface`.
+- `2026-02-23T13:07-08:00` `prism-native/src/macosMain/kotlin/engine/prism/native/MacosBridge.kt` (post-review) — Map insert before `startExternal()`; `getAndUpdate` in `prismDetachSurface`.
+- `2026-02-23T13:07-08:00` `prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` (post-review) — Replace deprecated `UIScreen.main.scale` with `(window?.screen ?? UIScreen.main).scale`.
 
 ---
 
 ## Decisions
 
+- `2026-02-23T13:07-08:00` `GameLoop.onStop` chosen over `PrismView(onBeforeDetach = ...)` API change: hooking cleanup into `stop()` gives correct ordering (before `prismSurface.detach()`) without adding a parameter to `PrismView`'s cross-platform expect signature.
+- `2026-02-23T13:07-08:00` `rememberCoroutineScope()` for progressive texture scope: ties scope lifetime to the composition instead of a manually-managed `CoroutineScope` inside a `LaunchedEffect` that could outlive the composable.
 - `2026-02-23T13:07-08:00` Split `appleMain/PrismView.apple.kt` into `iosMain/PrismView.ios.kt` (full UIKitView implementation) and `macosMain/PrismView.macos.kt` (stub). Having both an `appleMain` actual AND an `iosMain` actual for the same `expect` would cause duplicate-actual compile errors; splitting ensures iOS gets the full impl while macOS keeps the stub.
 - `2026-02-23T13:07-08:00` iOS FFI bridge (`IosBridge.kt`) uses `interpretObjCPointerOrNull<MTKView>` to reconstruct the MTKView from the opaque C pointer, matching the macOS bridge pattern (which uses `NativeAddress(ptr)` for a CAMetalLayer). This is necessary because `iosContextRenderer` takes an `MTKView`, not a raw layer pointer.
 - `2026-02-23T13:07-08:00` Flutter iOS plugin changes to pass MTKView pointer rather than CAMetalLayer pointer so the Kotlin IosBridge can reconstruct the full MTKView object.
@@ -50,7 +57,9 @@
 
 - 8a999d0b — chore: add devlog and plan for ios-ffi-bridge-prismview
 - edb8f07 — feat: iOS FFI bridge, PrismView onSurfaceReady, Compose iOS refactor
-- HEAD — chore: update devlog with real timestamps and commit hashes
+- dbe482a — chore: update devlog with real timestamps and commit hashes
+- 8eb7879 — chore: fix devlog commits section — leave HEAD as HEAD
+- HEAD — fix: address post-review issues in iOS FFI bridge and Compose entry
 
 ---
 
