@@ -69,7 +69,7 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
         children: [
           // 3D render view fills the entire screen.
           Positioned.fill(
-            child: PrismRenderView(engine: _engine),
+            child: PrismRenderView(engineHandle: _engine.handle),
           ),
           // FPS indicator — top-right corner.
           Positioned(

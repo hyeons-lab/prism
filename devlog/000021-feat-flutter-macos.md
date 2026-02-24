@@ -25,8 +25,14 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-flutter/flutter_plugin/macos/prism_flutter/Frameworks/.gitignore` — removed `PrismFlutter.xcframework` entry
 - `prism-flutter/flutter_plugin/lib/src/prism_render_view_mobile.dart` — changed `PrismEngine engine` → `int engineHandle`; all callers updated
 - `prism-flutter/flutter_plugin/lib/src/prism_render_view_web.dart` — changed `PrismEngine engine` → `int engineHandle`; removed `attachCanvas` call
-- `prism-flutter/example/macos/` — scaffolded Flutter macOS app
+- `prism-flutter/example/macos/` — scaffolded Flutter macOS app (removed in follow-up: belongs in prism-flutter-demo)
 - `prism-flutter/example/lib/main.dart` — rewritten to use `prism_sdk.dart` Engine API
+- `prism-flutter-demo/example/macos/Runner/AppDelegate.swift` — removed old bridge imports (PrismFlutterDemo, prism_flutter), extensions, and configure(bridge:) call; minimal clean AppDelegate
+- `prism-flutter-demo/example/macos/Runner.xcodeproj/project.pbxproj` — removed all PrismFlutterDemo SPM references (XCLocalSwiftPackageReference, XCSwiftPackageProductDependency, packageProductDependencies, Frameworks entries)
+- `prism-flutter-demo/example/macos/Packages/PrismFlutterDemo/` — deleted; old bridge SPM package no longer needed with direct C-API pattern
+- `prism-flutter/example/macos/` — deleted (wrong location; demo belongs in prism-flutter-demo)
+- `prism-flutter/example/test/`, `.gitignore`, `.metadata`, `README.md`, `analysis_options.yaml`, `pubspec.lock` — deleted; incidentally added by flutter create
+- `prism-flutter-demo/example/lib/main.dart` — updated `PrismRenderView(engine: _engine)` → `PrismRenderView(engineHandle: _engine.handle)`
 
 ## Decisions
 - `2026-02-23T12:00-08:00` Use `int engineHandle` not `PrismEngine engine` in PrismRenderView — aligns iOS and macOS creationParams pattern; the render view just needs the raw handle, not the full engine object. The caller (e.g. main.dart) holds the Engine lifecycle.
@@ -34,9 +40,16 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-02-23T12:00-08:00` MTKView + MTKViewDelegate for macOS (vs UIKit CADisplayLink on iOS) — MTKView has its own vsync-driven draw loop; MTKViewDelegate.draw(in:) is called on each frame. Cleaner than a manual display link on macOS.
 
 ## Issues
-(none yet)
+- `prism-flutter/example/macos/` was incidentally scaffolded by `flutter create` in commit 9037ebb.
+  The correct demo scaffold lives in `prism-flutter-demo/example/`, not in the library module's
+  example directory. Resolution: `git rm` the macos/ dir and other flutter create artifacts from
+  `prism-flutter/example/`, delete the now-unneeded `PrismFlutterDemo` SPM local package, and
+  strip the old bridge wiring from AppDelegate.swift + project.pbxproj.
+- `prism-flutter-demo/example/lib/main.dart` used the old `PrismRenderView(engine: _engine)` API.
+  Updated to `PrismRenderView(engineHandle: _engine.handle)` to match the updated widget signature.
 
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
-- HEAD — chore: update devlog with commit hashes
+- 3e31ee0 — chore: update devlog with commit hashes
+- HEAD — fix: move Flutter macOS demo to prism-flutter-demo, remove old bridge wiring
