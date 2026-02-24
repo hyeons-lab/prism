@@ -34,6 +34,8 @@
 - `2026-02-23T13:07-08:00` `prism-native/src/iosMain/kotlin/engine/prism/native/IosBridge.kt` (post-review) — Map insert before `startExternal()`; UNUSED_PARAMETER comment; `getAndUpdate` in `prismDetachSurface`.
 - `2026-02-23T13:07-08:00` `prism-native/src/macosMain/kotlin/engine/prism/native/MacosBridge.kt` (post-review) — Map insert before `startExternal()`; `getAndUpdate` in `prismDetachSurface`.
 - `2026-02-23T13:07-08:00` `prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` (post-review) — Replace deprecated `UIScreen.main.scale` with `(window?.screen ?? UIScreen.main).scale`.
+- `2026-02-23T13:07-08:00` `prism-flutter/flutter_plugin/ios/prism_flutter/Sources/prism_flutter/PrismFlutterPlugin.swift` (post-review-2) — Fix Swift compile error introduced by `replace_all` in previous pass: `setupMtkView()` is on `NSObject` (no `window` property); replaced bare `window` with `_view.window?.screen?.scale ?? UIScreen.main.scale`. `layoutSubviews()` on `PrismMetalView: UIView` is unaffected and keeps `(window?.screen ?? UIScreen.main).scale`.
+- `2026-02-23T13:07-08:00` `prism-core/src/commonMain/kotlin/com/hyeonslab/prism/core/GameLoop.kt` (post-review-2) — Added `if (!isRunning) return` guard at top of `stop()` to prevent `onStop` from firing on a loop that was never started.
 
 ---
 
@@ -50,6 +52,7 @@
 ## Issues
 
 - `2026-02-23T13:07-08:00` **`val iosMain by getting` fails in `prism-native/build.gradle.kts`** — `prism-native` does not call `applyDefaultHierarchyTemplate()`, so the `by getting` delegate syntax throws "KotlinSourceSet with name 'iosMain' not found" at configuration time. Fix: use property-style `iosMain.dependencies { ... }` which matches how `macosMain.dependencies { ... }` is accessed in the same file.
+- `2026-02-23T13:07-08:00` **`replace_all: true` applied Swift scale fix to NSObject context** — Used `replace_all: true` to replace `UIScreen.main.scale` in `PrismFlutterPlugin.swift`. Both occurrences were replaced identically, but `setupMtkView()` lives on `PrismIOSPlatformView: NSObject` which has no `window` property — Swift compile error. `layoutSubviews()` lives on `PrismMetalView: UIView` where `window` is valid. Fixed in subsequent pass by using `_view.window?.screen?.scale ?? UIScreen.main.scale` in `setupMtkView()`.
 
 ---
 
@@ -59,6 +62,7 @@
 - edb8f07 — feat: iOS FFI bridge, PrismView onSurfaceReady, Compose iOS refactor
 - dbe482a — chore: update devlog with real timestamps and commit hashes
 - 8eb7879 — chore: fix devlog commits section — leave HEAD as HEAD
+- 4a46d82 — fix: address post-review issues in iOS FFI bridge and Compose entry
 - HEAD — fix: address post-review issues in iOS FFI bridge and Compose entry
 
 ---
