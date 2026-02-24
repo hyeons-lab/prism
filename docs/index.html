@@ -587,14 +587,28 @@ print('dt: \${engine.time.deltaTime}');</pre>
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">3</span> Run the demo</h3>
-            <pre class="code-block"><span class="comment"># GLFW window — DamagedHelmet glTF (Metal on macOS)</span>
+            <pre class="code-block"><span class="comment"># JVM — GLFW window, Metal on macOS (DamagedHelmet glTF)</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:jvmRun
 
-<span class="comment"># Compose Desktop with embedded 3D + PBR sliders</span>
+<span class="comment"># JVM — Compose Desktop with embedded 3D + PBR sliders</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:runCompose
 
-<span class="comment"># WASM in the browser</span>
-<span class="cmd">./gradlew</span> :prism-demo-core:wasmJsBrowserDistribution</pre>
+<span class="comment"># macOS native binary</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:runDebugExecutableMacosArm64
+
+<span class="comment"># Web — Kotlin/WASM + WebGPU (serve build/dist/wasmJs/developmentExecutable/)</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:wasmJsBrowserDistribution
+
+<span class="comment"># iOS — build XCFramework, then open prism-ios-demo/ in Xcode</span>
+<span class="cmd">./gradlew</span> :prism-ios:assemblePrismDebugXCFramework
+
+<span class="comment"># Android — open prism-android-demo/ in Android Studio</span>
+<span class="cmd">./gradlew</span> :prism-android-demo:assembleDebug
+
+<span class="comment"># Flutter — iOS, Android, macOS, or Web</span>
+<span class="cmd">cd</span> prism-flutter-demo/example
+<span class="cmd">flutter</span> pub get
+<span class="cmd">flutter</span> run -d macos   <span class="comment"># or: ios  android  chrome</span></pre>
           </div>
         </div>
       </div>
