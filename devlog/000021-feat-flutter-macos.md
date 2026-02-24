@@ -52,4 +52,4 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
 - 3e31ee0 — chore: update devlog with commit hashes
-- HEAD — fix: move Flutter macOS demo to prism-flutter-demo, remove old bridge wiring
+- d9ee41b — fix: move Flutter macOS demo to prism-flutter-demo, remove old bridge wiring
