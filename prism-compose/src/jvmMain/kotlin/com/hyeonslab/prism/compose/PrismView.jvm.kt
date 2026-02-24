@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.PrismPanel
+import io.ygdrasil.webgpu.WGPUContext
 
 private val log = Logger.withTag("PrismView.JVM")
 
@@ -25,7 +26,11 @@ private val log = Logger.withTag("PrismView.JVM")
  * All state changes are dispatched as [EngineStateEvent]s through [EngineStore.dispatch].
  */
 @Composable
-actual fun PrismView(store: EngineStore, modifier: Modifier) {
+actual fun PrismView(
+  store: EngineStore,
+  modifier: Modifier,
+  onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)?,
+) {
   var panel by remember { mutableStateOf<PrismPanel?>(null) }
   var isReady by remember { mutableStateOf(false) }
 
@@ -50,13 +55,18 @@ actual fun PrismView(store: EngineStore, modifier: Modifier) {
       val p = panel ?: return@LaunchedEffect
       log.i { "Starting render loop" }
 
+      val ctx = p.wgpuContext
+      if (ctx != null) {
+        onSurfaceReady?.invoke(ctx, p.width, p.height)
+      }
+
       val engine = store.engine
       engine.gameLoop.startExternal()
 
       while (true) {
         withFrameNanos {
-          val ctx = p.wgpuContext
-          if (ctx == null || !p.isReady) return@withFrameNanos
+          val wgpuCtx = p.wgpuContext
+          if (wgpuCtx == null || !p.isReady) return@withFrameNanos
 
           engine.gameLoop.tick()
 

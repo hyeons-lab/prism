@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 import io.ygdrasil.webgpu.WGPUContext
 
-private val log = Logger.withTag("PrismView.WASM")
+private val log = Logger.withTag("PrismView.macOS")
 
 @Composable
 actual fun PrismView(
@@ -16,7 +16,7 @@ actual fun PrismView(
   onSurfaceReady: ((WGPUContext, Int, Int) -> Unit)?,
 ) {
   LaunchedEffect(Unit) {
-    log.w { "PrismView WASM stub \u2014 HTML Canvas/WebGPU integration not yet implemented" }
+    log.w { "PrismView macOS stub \u2014 Compose/Metal integration not yet implemented" }
   }
   DisposableEffect(store) { onDispose {} }
 }

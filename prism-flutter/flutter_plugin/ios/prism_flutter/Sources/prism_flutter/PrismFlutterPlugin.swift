@@ -1,6 +1,6 @@
 import Flutter
+import MetalKit
 import UIKit
-import QuartzCore
 
 public class PrismFlutterPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -50,17 +50,21 @@ class PrismIOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
     }
 }
 
-/// A UIView subclass that forwards layout changes to the Kotlin/Native prism_resize C API.
+/// A UIView subclass that holds the embedded MTKView and forwards layout changes to
+/// the Kotlin/Native prism_resize C API.
 private class PrismMetalView: UIView {
     var engineHandle: Int64 = 0
-    var metalLayer: CAMetalLayer?
+    /// Strong reference to the embedded MTKView. MTKView is a subview of this container so ARC
+    /// keeps it alive while the Kotlin/Native side holds a raw pointer to it.
+    var mtkView: MTKView?
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        guard let layer = metalLayer, engineHandle != 0 else { return }
-        layer.frame = bounds
-        let width = Int32(bounds.width * layer.contentsScale)
-        let height = Int32(bounds.height * layer.contentsScale)
+        guard let mtkView = mtkView, engineHandle != 0 else { return }
+        mtkView.frame = bounds
+        let scale = (window?.screen ?? UIScreen.main).scale
+        let width = Int32(bounds.width * scale)
+        let height = Int32(bounds.height * scale)
         prism_resize(engineHandle, width, height)
     }
 }
@@ -80,7 +84,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         super.init()
 
         if engineHandle != 0 {
-            setupMetalLayer()
+            setupMtkView()
         }
     }
 
@@ -88,18 +92,18 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         return _view
     }
 
-    private func setupMetalLayer() {
-        let layer = CAMetalLayer()
-        layer.frame = _view.bounds
-        layer.contentsScale = UIScreen.main.scale
-        _view.layer.addSublayer(layer)
-        // Retain the layer via the strong property on the view so ARC keeps it alive while the
-        // Kotlin/Native side holds a raw pointer to it.
-        _view.metalLayer = layer
+    private func setupMtkView() {
+        let mtkView = MTKView(frame: _view.bounds)
+        mtkView.device = MTLCreateSystemDefaultDevice()
+        _view.addSubview(mtkView)
+        // Retain via the strong property on the container view so ARC keeps the MTKView alive
+        // while the Kotlin/Native side holds a raw pointer to it.
+        _view.mtkView = mtkView
 
-        let rawPtr = Unmanaged.passUnretained(layer).toOpaque()
-        let width = Int32(layer.bounds.width * layer.contentsScale)
-        let height = Int32(layer.bounds.height * layer.contentsScale)
+        let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
+        let scale = _view.window?.screen?.scale ?? UIScreen.main.scale
+        let width = Int32(_view.bounds.width * scale)
+        let height = Int32(_view.bounds.height * scale)
 
         prism_attach_metal_layer(engineHandle, rawPtr, width, height)
 
@@ -114,13 +118,13 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
     deinit {
         displayLink?.invalidate()
         prism_detach_surface(engineHandle)
-        _view.metalLayer = nil
+        _view.mtkView = nil
     }
 }
 
 // C API bindings (provided by PrismNative.xcframework)
 @_silgen_name("prism_attach_metal_layer")
-func prism_attach_metal_layer(_ handle: Int64, _ layer: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
+func prism_attach_metal_layer(_ handle: Int64, _ ptr: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
 
 @_silgen_name("prism_render_frame")
 func prism_render_frame(_ handle: Int64)
