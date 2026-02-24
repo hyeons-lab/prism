@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:prism_flutter/prism_flutter.dart';
 
 void main() {
@@ -31,54 +32,43 @@ class PrismDemoPage extends StatefulWidget {
   State<PrismDemoPage> createState() => _PrismDemoPageState();
 }
 
-class _PrismDemoPageState extends State<PrismDemoPage> {
+class _PrismDemoPageState extends State<PrismDemoPage>
+    with SingleTickerProviderStateMixin {
   final _engine = PrismEngine();
-  bool _isInitialized = false;
   bool _isSceneReady = false;
   double _fps = 0.0;
-  Timer? _pollTimer;
+  late final Ticker _ticker;
 
   static const _glbAsset = 'assets/DamagedHelmet.glb';
 
   @override
   void initState() {
     super.initState();
-    _engine.initialize();
-    // Resolve the bundle path once and attempt to load the GLB. The C API call
-    // is a no-op if the Metal surface is not yet attached, so the poll timer
-    // retries until isRendererReady returns true.
-    PrismEngine.resolveFlutterAssetPath(_glbAsset).then((path) {
-      if (path != null) _engine.loadGltfFromPath(path);
-    });
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
-      if (!_isInitialized) {
-        final ready = await _engine.isInitialized();
-        if (ready && mounted) setState(() => _isInitialized = true);
-      }
-      // Retry loadGltfFromPath until the renderer reports ready (surface may
-      // not have been attached yet on the first attempt above).
-      if (!_isSceneReady) {
-        final sceneReady = _engine.isRendererReady;
-        if (!sceneReady) {
-          PrismEngine.resolveFlutterAssetPath(_glbAsset).then((path) {
-            if (path != null) _engine.loadGltfFromPath(path);
-          });
-        } else if (mounted) {
-          setState(() => _isSceneReady = true);
-        }
-      }
-      final state = await _engine.getState();
-      if (mounted) {
-        setState(() {
-          _fps = (state['fps'] as num?)?.toDouble() ?? 0.0;
-        });
-      }
-    });
+    unawaited(_setup());
+    _ticker = createTicker(_onFrame)..start();
+  }
+
+  Future<void> _setup() async {
+    await _engine.initialize();
+    final path = await PrismEngine.resolveFlutterAssetPath(_glbAsset);
+    if (path != null) _engine.loadGltfFromPath(path);
+  }
+
+  void _onFrame(Duration _) {
+    if (!mounted) return;
+    final newFps = _engine.fps;
+    final nowReady = _isSceneReady || _engine.isRendererReady;
+    if (nowReady != _isSceneReady || (nowReady && (newFps - _fps).abs() >= 1.0)) {
+      setState(() {
+        _isSceneReady = nowReady;
+        _fps = newFps;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _ticker.dispose();
     unawaited(_engine.shutdown());
     super.dispose();
   }

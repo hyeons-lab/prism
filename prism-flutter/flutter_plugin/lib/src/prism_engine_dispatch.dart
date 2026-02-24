@@ -43,8 +43,11 @@ class PrismEngine {
       _impl.loadGltfFromPath(glbPath);
 
   /// Returns true once [loadGltfFromPath] has completed and the scene is ready to
-  /// render. Poll this to drive a loading indicator.
+  /// render.
   bool get isRendererReady => _impl.isRendererReady as bool;
+
+  /// Smoothed frames-per-second. Safe to call every frame.
+  double get fps => (_impl is ffi.PrismEngine) ? _impl.fps : 0.0;
 
   // ── Camera control ───────────────────────────────────────────────────────────
 

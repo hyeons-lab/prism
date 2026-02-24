@@ -39,6 +39,7 @@ class PrismEngine {
   // Rendering methods — stubs for Android (no native prism-native binary).
   Future<void> loadGltfFromPath(String path) async {}
   bool get isRendererReady => false;
+  double get fps => 0.0;
   void orbitBy(double dx, double dy) {}
   void zoom(double delta) {}
 }

@@ -41,6 +41,7 @@ private data class IosSurfaceState(val ctx: IosContext, val width: Int, val heig
 
 private val iosSurfaces: AtomicRef<Map<Long, IosSurfaceState>> = atomic(mapOf())
 private val iosScenes: AtomicRef<Map<Long, SceneState>> = atomic(mapOf())
+private val pendingGlbPaths: AtomicRef<Map<Long, String>> = atomic(mapOf())
 
 // ---------------------------------------------------------------------------
 // iOS Metal surface API
@@ -81,13 +82,34 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
   // a dropped first frame.
   iosSurfaces.update { it + (engineHandle to IosSurfaceState(ctx, width, height)) }
   if (!engine.gameLoop.isRunning) engine.gameLoop.startExternal()
+
+  // Auto-load any GLB path that arrived before the surface was ready.
+  pendingGlbPaths
+    .getAndUpdate { it - engineHandle }[engineHandle]
+    ?.let { pendingPath ->
+      val scene =
+        try {
+          buildGltfScene(
+            engine = engine,
+            wgpuContext = ctx.wgpuContext,
+            glbPath = pendingPath,
+            width = width,
+            height = height,
+          )
+        } catch (e: Exception) {
+          Logger.withTag("IosBridge").e(e) { "Failed to auto-load pending glTF from $pendingPath" }
+          return@let
+        }
+      iosScenes.update { it + (engineHandle to scene) }
+    }
 }
 
 /**
  * Loads a glTF/GLB model from [glbPath] and initialises a full rendering scene for [engineHandle].
  *
- * Must be called **after** [prismAttachMetalLayer] (the Metal surface must already be configured).
- * The path is a null-terminated C string pointing to the GLB file on the local filesystem — e.g.
+ * May be called before or after [prismAttachMetalLayer]. If the Metal surface is not yet attached,
+ * the path is queued and loaded automatically when [prismAttachMetalLayer] succeeds. The path is a
+ * null-terminated C string pointing to the GLB file on the local filesystem — e.g.
  * `NSBundle.mainBundle.resourcePath + "/flutter_assets/assets/DamagedHelmet.glb"`.
  *
  * Subsequent [prismRenderFrame] calls will render this scene instead of the clear-colour fallback.
@@ -96,7 +118,13 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
 fun prismLoadGltfFromPath(engineHandle: Long, glbPath: CPointer<ByteVar>?) {
   val path = glbPath?.toKString() ?: return
   val engine = Registry.get<Engine>(engineHandle) ?: return
-  val surface = iosSurfaces.value[engineHandle] ?: return
+  val surface = iosSurfaces.value[engineHandle]
+  if (surface == null) {
+    // Surface not yet attached — queue path for auto-load in prismAttachMetalLayer.
+    pendingGlbPaths.update { it + (engineHandle to path) }
+    return
+  }
+  pendingGlbPaths.update { it - engineHandle }
 
   // Shut down any existing scene before replacing it.
   iosScenes.getAndUpdate { it - engineHandle }[engineHandle]?.shutdown()
@@ -207,6 +235,7 @@ fun prismDetachSurface(engineHandle: Long) {
 
   val oldScenes = iosScenes.getAndUpdate { it - engineHandle }
   oldScenes[engineHandle]?.shutdown()
+  pendingGlbPaths.update { it - engineHandle }
 
   val oldSurfaces = iosSurfaces.getAndUpdate { it - engineHandle }
   oldSurfaces[engineHandle]?.ctx?.close()

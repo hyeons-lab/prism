@@ -91,11 +91,28 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-native/src/iosMain/kotlin/com/hyeonslab/prism/native/IosBridge.kt` — removed stale
   `CoroutineScope`, `SupervisorJob`, `cancel` imports; no `uploadNextPendingTexture()` was added here.
 
+- `2026-02-24T10:30-08:00` `prism-native/src/macosMain/.../MacosBridge.kt` — added `pendingGlbPaths` map; `prismLoadGltfFromPath` now queues path if surface absent; `prismAttachMetalLayer` consumes queue after storing surface; `prismDetachSurface` clears queue entry. Eliminates the need for Dart-side retry polling.
+- `2026-02-24T10:30-08:00` `prism-native/src/iosMain/.../IosBridge.kt` — identical changes to MacosBridge.kt.
+- `2026-02-24T10:30-08:00` `prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — added synchronous `double get fps` getter (reads `prism_get_fps` directly, no async overhead).
+- `2026-02-24T10:30-08:00` `prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — forwarding `fps` getter; forwards to ffi impl or returns 0.0 for Android.
+- `2026-02-24T10:30-08:00` `prism-flutter/flutter_plugin/lib/src/prism_engine_channel.dart` — `double get fps => 0.0;` stub for Android.
+- `2026-02-24T10:30-08:00` `prism-flutter-demo/example/lib/main.dart` — replaced `Timer.periodic` + `_isInitialized` with `SingleTickerProviderStateMixin` + `Ticker`; extracted `_setup()` for async init+load; `_onFrame` checks `isRendererReady` and fps delta ≥1 before calling `setState`.
+- `2026-02-24T10:30-08:00` `devlog/plans/000021-02-remove-flutter-polling.md` — plan file created.
+
 ## Decisions
 - `2026-02-24T00:00-08:00` `withContext(Dispatchers.Default)` for texture decode — per user request.
   Keeps GPU calls on `Dispatchers.Main` (render thread) while offloading PNG/JPEG decode to a worker
   thread. A `yield()` between textures lets one frame render before the next decode starts, so
   textures appear progressively without stalling the MTKView draw callback.
+- `2026-02-24T10:30-08:00` Queue pending GLB path in native bridge — avoids the inherent race where
+  Dart's `initState()` runs before the first `MTKView.draw(in:)`. The path is queued synchronously
+  and consumed in `prismAttachMetalLayer`, which runs on the first draw callback. No retry loop
+  needed on the Dart side; the scene is ready after a single `loadGltfFromPath` call.
+- `2026-02-24T10:30-08:00` `Ticker` instead of `Timer.periodic` for FPS display — vsync-aligned
+  (~60 fps) avoids redundant rebuilds (setState only when fps changes by ≥1 or ready state changes).
+  Replaces two polling concerns (init check + FPS) with a single frame callback.
+- `2026-02-24T10:30-08:00` Synchronous `fps` getter in Dart FFI layer — avoids `async/await`
+  overhead in the per-frame callback. `prism_get_fps` is a trivial map lookup on the native side.
 
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
@@ -105,4 +122,5 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - f6e33fd — chore: update devlog with commit hashes
 - eabd59f — fix: reduce macOS scroll zoom sensitivity (0.1 → 0.01)
 - ba52107 — feat: progressive glTF texture loading for macOS and iOS
-- HEAD — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
+- 6c67d42 — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
+- HEAD — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue

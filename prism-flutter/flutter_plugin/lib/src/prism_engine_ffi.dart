@@ -80,9 +80,12 @@ class PrismEngine {
   }
 
   /// Returns true once [loadGltfFromPath] has completed and the scene is
-  /// rendering. Poll this (e.g. every 500 ms) to drive an initialisation UI.
+  /// rendering.
   bool get isRendererReady =>
       _bindings.prism_is_renderer_ready(_engineHandle) != 0;
+
+  /// Smoothed frames-per-second. Safe to call every frame.
+  double get fps => _bindings.prism_get_fps(_engineHandle);
 
   /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
   /// vertically. Wire to touch/mouse drag events.
