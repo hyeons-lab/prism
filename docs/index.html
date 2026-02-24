@@ -574,10 +574,18 @@ print('dt: \${engine.time.deltaTime}');</pre>
         <h2 class="section-title">Up and running in minutes</h2>
         <div class="quickstart-steps">
           <div class="quickstart-step">
-            <h3><span class="step-num">1</span> Build wgpu4k from source</h3>
-            <pre class="code-block"><span class="cmd">git clone</span> https://github.com/hyeons-lab/wgpu4k.git
-<span class="cmd">cd</span> wgpu4k
-<span class="cmd">./gradlew</span> publishToMavenLocal</pre>
+            <h3><span class="step-num">1</span> Build wgpu4k dependencies from source</h3>
+            <pre class="code-block"><span class="comment"># Three forked repos must be published to Maven local in order.
+# Pinned commits are in gradle/libs.versions.toml.</span>
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/webgpu-ktypes.git
+<span class="cmd">cd</span> webgpu-ktypes &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/wgpu4k-native.git
+<span class="cmd">cd</span> wgpu4k-native &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/wgpu4k.git
+<span class="cmd">cd</span> wgpu4k &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..</pre>
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">2</span> Clone and build Prism</h3>
