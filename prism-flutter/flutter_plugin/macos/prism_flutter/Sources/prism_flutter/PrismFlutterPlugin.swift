@@ -18,6 +18,20 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
             binaryMessenger: registrar.messenger)
         channel.setMethodCallHandler { call, result in
             switch call.method {
+            case "resolveFlutterAssetPath":
+                if let assetKey = call.arguments as? String {
+                    // On macOS, Flutter assets live inside App.framework's Resources directory.
+                    let appFrameworkPath = Bundle.main.bundlePath
+                        + "/Contents/Frameworks/App.framework"
+                    if let appBundle = Bundle(path: appFrameworkPath),
+                       let resourcePath = appBundle.resourcePath {
+                        result(resourcePath + "/flutter_assets/" + assetKey)
+                    } else {
+                        result(nil)
+                    }
+                } else {
+                    result(nil)
+                }
             case "togglePause":
                 result(nil)
             case "isInitialized":

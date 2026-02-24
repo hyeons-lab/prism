@@ -220,6 +220,7 @@ class WgpuRenderer(
     updateToneMapBindGroup()
     pbrPipeline = buildPbrPipeline(renderingContext.textureFormat)
     pbrPipelineHdr = buildPbrPipeline(GPUTextureFormat.RGBA16Float)
+    if (hdrEnabled) initializeIbl()
   }
 
   override fun update(time: Time) {

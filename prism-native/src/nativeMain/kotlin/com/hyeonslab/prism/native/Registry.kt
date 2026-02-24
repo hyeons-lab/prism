@@ -1,4 +1,4 @@
-package engine.prism.native
+package com.hyeonslab.prism.native
 
 import co.touchlab.kermit.Logger
 import kotlinx.atomicfu.atomic

@@ -83,11 +83,12 @@ class PrismMacOSMetalView: MTKView, MTKViewDelegate {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDragged(with event: NSEvent) {
-        // TODO: wire to prism_orbit C API when input functions are exposed.
+        let sensitivity = 0.005
+        prism_orbit_by(engineHandle, -event.deltaX * sensitivity, event.deltaY * sensitivity)
     }
 
     override func scrollWheel(with event: NSEvent) {
-        // TODO: wire to prism_zoom C API when input functions are exposed.
+        prism_zoom(engineHandle, event.scrollingDeltaY * 0.1)
     }
 }
 
@@ -103,3 +104,9 @@ func prism_detach_surface(_ handle: Int64)
 
 @_silgen_name("prism_resize")
 func prism_resize(_ handle: Int64, _ width: Int32, _ height: Int32)
+
+@_silgen_name("prism_orbit_by")
+func prism_orbit_by(_ handle: Int64, _ dx: Double, _ dy: Double)
+
+@_silgen_name("prism_zoom")
+func prism_zoom(_ handle: Int64, _ delta: Double)

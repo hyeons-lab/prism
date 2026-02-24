@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalNativeApi::class, ExperimentalForeignApi::class)
 
-package engine.prism.native
+package com.hyeonslab.prism.native
 
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.core.EngineConfig

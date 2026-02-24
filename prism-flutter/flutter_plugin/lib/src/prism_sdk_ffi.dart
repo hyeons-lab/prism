@@ -8,16 +8,32 @@ import 'package:ffi/ffi.dart';
 import 'generated/prism_native_bindings.dart';
 import 'prism_sdk_types.dart';
 
-PrismNativeBindings _loadBindings() {
-  final lib = Platform.isLinux
+DynamicLibrary _openLibrary() {
+  return Platform.isLinux
       ? DynamicLibrary.open('libprism.so')
       : Platform.isWindows
           ? DynamicLibrary.open('prism.dll')
           : DynamicLibrary.process();
-  return PrismNativeBindings(lib);
 }
 
-final _bindings = _loadBindings();
+final _lib = _openLibrary();
+final _bindings = PrismNativeBindings(_lib);
+
+// NativeFinalizer function pointers — the C functions take Int64 handles, but
+// NativeFinalizerFunction requires Pointer<Void>. The token passed to attach()
+// carries the handle as its address so the cast is safe on 64-bit targets.
+final _destroyEngineFinalizer = NativeFinalizer(
+    _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+        'prism_destroy_engine'));
+final _destroyWorldFinalizer = NativeFinalizer(
+    _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+        'prism_destroy_world'));
+final _destroyNodeFinalizer = NativeFinalizer(
+    _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+        'prism_destroy_node'));
+final _destroySceneFinalizer = NativeFinalizer(
+    _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+        'prism_destroy_scene'));
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 
@@ -28,15 +44,14 @@ class EngineTime {
   double get totalTime => _bindings.prism_engine_get_total_time(_h);
 }
 
-class Engine {
+class Engine implements Finalizable {
   final int _h;
   late final EngineTime time;
 
-  static final _finalizer = NativeFinalizer(_bindings.prism_destroy_engine.cast());
-
   Engine([EngineConfig config = const EngineConfig()])
       : _h = _create(config.appName, config.targetFps) {
-    _finalizer.attach(this, Pointer.fromAddress(_h), detach: this);
+    _destroyEngineFinalizer.attach(this, Pointer<Void>.fromAddress(_h),
+        detach: this);
     _bindings.prism_engine_initialize(_h);
     time = EngineTime._(_h);
   }
@@ -52,7 +67,7 @@ class Engine {
 
   bool get isAlive => _bindings.prism_engine_is_alive(_h) != 0;
   void destroy() {
-    _finalizer.detach(this);
+    _destroyEngineFinalizer.detach(this);
     _bindings.prism_destroy_engine(_h);
   }
 
@@ -62,12 +77,12 @@ class Engine {
 
 // ── ECS World ─────────────────────────────────────────────────────────────────
 
-class World {
+class World implements Finalizable {
   final int _h;
-  static final _finalizer = NativeFinalizer(_bindings.prism_destroy_world.cast());
 
   World() : _h = _bindings.prism_create_world() {
-    _finalizer.attach(this, Pointer.fromAddress(_h), detach: this);
+    _destroyWorldFinalizer.attach(this, Pointer<Void>.fromAddress(_h),
+        detach: this);
   }
 
   Entity createEntity() => Entity(_bindings.prism_world_create_entity(_h));
@@ -90,19 +105,19 @@ class World {
   }
 
   void destroy() {
-    _finalizer.detach(this);
+    _destroyWorldFinalizer.detach(this);
     _bindings.prism_destroy_world(_h);
   }
 }
 
 // ── Scene graph ───────────────────────────────────────────────────────────────
 
-class Node {
+class Node implements Finalizable {
   final int _h;
-  static final _finalizer = NativeFinalizer(_bindings.prism_destroy_node.cast());
 
   Node._(this._h) {
-    _finalizer.attach(this, Pointer.fromAddress(_h), detach: this);
+    _destroyNodeFinalizer.attach(this, Pointer<Void>.fromAddress(_h),
+        detach: this);
   }
 
   void setPosition(double x, double y, double z) =>
@@ -112,7 +127,7 @@ class Node {
   void setScale(double x, double y, double z) =>
       _bindings.prism_node_set_scale(_h, x, y, z);
   void destroy() {
-    _finalizer.detach(this);
+    _destroyNodeFinalizer.detach(this);
     _bindings.prism_destroy_node(_h);
   }
 
@@ -155,12 +170,12 @@ class LightNode extends Node {
   }
 }
 
-class Scene {
+class Scene implements Finalizable {
   final int _h;
-  static final _finalizer = NativeFinalizer(_bindings.prism_destroy_scene.cast());
 
   Scene([String name = 'Scene']) : _h = _create(name) {
-    _finalizer.attach(this, Pointer.fromAddress(_h), detach: this);
+    _destroySceneFinalizer.attach(this, Pointer<Void>.fromAddress(_h),
+        detach: this);
   }
 
   static int _create(String name) {
@@ -177,7 +192,7 @@ class Scene {
       _bindings.prism_scene_set_active_camera(_h, cam._handle);
   void update(double deltaTime) => _bindings.prism_scene_update(_h, deltaTime);
   void destroy() {
-    _finalizer.detach(this);
+    _destroySceneFinalizer.detach(this);
     _bindings.prism_destroy_scene(_h);
   }
 }

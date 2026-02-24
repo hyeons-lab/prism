@@ -21,6 +21,7 @@ kotlin {
       implementation(project(":prism-core"))
       implementation(project(":prism-ecs"))
       implementation(project(":prism-scene"))
+      implementation(project(":prism-assets"))
       implementation(libs.kotlinx.atomicfu)
     }
     if (isMac) {

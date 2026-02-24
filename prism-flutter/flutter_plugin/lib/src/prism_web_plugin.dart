@@ -67,7 +67,7 @@ class PrismWebEngine {
         web.document.createElement('script') as web.HTMLScriptElement;
     script.type = 'module';
     script.src = 'prism_loader.js';
-    script.dataset.set('module', moduleUrl);
+    script.dataset['module'] = moduleUrl;
 
     late final JSFunction readyListener;
     late final JSFunction errorListener;

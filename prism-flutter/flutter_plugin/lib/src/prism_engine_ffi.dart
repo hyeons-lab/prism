@@ -64,24 +64,50 @@ class PrismEngine {
     }
   }
 
-  /// Toggle pause.
-  // TODO(prism-native): wire to the native render loop once a frame-tick
-  // callback is exposed via the C API.
-  Future<void> togglePause() async {}
+  /// Loads a glTF/GLB model from [glbPath] (an absolute filesystem path) and
+  /// initialises a full rendering scene for this engine handle.
+  ///
+  /// Must be called after the platform view has been created (which triggers
+  /// [prism_attach_metal_layer] on the native side). After this call,
+  /// [prism_render_frame] renders the scene instead of the clear-colour stub.
+  void loadGltfFromPath(String glbPath) {
+    final nativePath = glbPath.toNativeUtf8();
+    try {
+      _bindings.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
+    } finally {
+      malloc.free(nativePath);
+    }
+  }
+
+  /// Returns true once [loadGltfFromPath] has completed and the scene is
+  /// rendering. Poll this (e.g. every 500 ms) to drive an initialisation UI.
+  bool get isRendererReady =>
+      _bindings.prism_is_renderer_ready(_engineHandle) != 0;
+
+  /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
+  /// vertically. Wire to touch/mouse drag events.
+  void orbitBy(double dx, double dy) =>
+      _bindings.prism_orbit_by(_engineHandle, dx, dy);
+
+  /// Adjusts the orbit radius by [delta] units (positive = zoom in).
+  /// Wire to pinch or scroll-wheel events.
+  void zoom(double delta) => _bindings.prism_zoom(_engineHandle, delta);
+
+  /// Toggles the render-loop pause state.
+  Future<void> togglePause() async =>
+      _bindings.prism_toggle_pause(_engineHandle);
 
   /// Returns true once the engine has been created and initialized.
   Future<bool> isInitialized() async => _initialized;
 
-  /// Returns basic engine state.
+  /// Returns basic engine state including live FPS and pause flag.
   Future<Map<String, dynamic>> getState() async => {
         'initialized': _initialized,
         'deltaTime': _bindings.prism_engine_get_delta_time(_engineHandle),
         'totalTime': _bindings.prism_engine_get_total_time(_engineHandle),
         'frameCount': _bindings.prism_engine_get_frame_count(_engineHandle),
-        // fps and isPaused are not yet tracked by the C API; return safe defaults
-        // so callers that read these keys (e.g. the example app) don't crash.
-        'fps': 0.0,
-        'isPaused': false,
+        'fps': _bindings.prism_get_fps(_engineHandle),
+        'isPaused': _bindings.prism_get_pause_state(_engineHandle) != 0,
       };
 
   /// Shuts down and destroys the native engine. Guard against double-destroy:

@@ -35,4 +35,10 @@ class PrismEngine {
   Future<void> shutdown() async {
     await _channel.invokeMethod('shutdown');
   }
+
+  // Rendering methods — stubs for Android (no native prism-native binary).
+  Future<void> loadGltfFromPath(String path) async {}
+  bool get isRendererReady => false;
+  void orbitBy(double dx, double dy) {}
+  void zoom(double delta) {}
 }

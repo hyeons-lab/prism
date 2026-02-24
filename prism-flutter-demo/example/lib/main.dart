@@ -34,17 +34,38 @@ class PrismDemoPage extends StatefulWidget {
 class _PrismDemoPageState extends State<PrismDemoPage> {
   final _engine = PrismEngine();
   bool _isInitialized = false;
+  bool _isSceneReady = false;
   double _fps = 0.0;
   Timer? _pollTimer;
+
+  static const _glbAsset = 'assets/DamagedHelmet.glb';
 
   @override
   void initState() {
     super.initState();
     _engine.initialize();
+    // Resolve the bundle path once and attempt to load the GLB. The C API call
+    // is a no-op if the Metal surface is not yet attached, so the poll timer
+    // retries until isRendererReady returns true.
+    PrismEngine.resolveFlutterAssetPath(_glbAsset).then((path) {
+      if (path != null) _engine.loadGltfFromPath(path);
+    });
     _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
       if (!_isInitialized) {
         final ready = await _engine.isInitialized();
         if (ready && mounted) setState(() => _isInitialized = true);
+      }
+      // Retry loadGltfFromPath until the renderer reports ready (surface may
+      // not have been attached yet on the first attempt above).
+      if (!_isSceneReady) {
+        final sceneReady = _engine.isRendererReady;
+        if (!sceneReady) {
+          PrismEngine.resolveFlutterAssetPath(_glbAsset).then((path) {
+            if (path != null) _engine.loadGltfFromPath(path);
+          });
+        } else if (mounted) {
+          setState(() => _isSceneReady = true);
+        }
       }
       final state = await _engine.getState();
       if (mounted) {
@@ -77,8 +98,8 @@ class _PrismDemoPageState extends State<PrismDemoPage> {
             right: 16,
             child: _FpsChip(fps: _fps),
           ),
-          // Loading overlay — shown while the engine initializes.
-          if (!_isInitialized)
+          // Loading overlay — shown until the 3D scene is ready to render.
+          if (!_isSceneReady)
             const Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,
