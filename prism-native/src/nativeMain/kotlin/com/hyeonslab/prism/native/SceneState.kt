@@ -65,6 +65,7 @@ internal class SceneState(
   // Frame timing — uses the monotonic clock so it is independent of wall-clock drift.
   private var start = TimeSource.Monotonic.markNow()
   private var lastMark = TimeSource.Monotonic.markNow()
+  private var firstFrame = true
   private var _frameCount = 0L
   private var _fps = 0.0
 
@@ -81,6 +82,12 @@ internal class SceneState(
    */
   fun advanceTiming(): Pair<Float, Float> {
     val now = TimeSource.Monotonic.markNow()
+    // On the first rendered frame, reset lastMark so deltaTime reflects one actual frame interval
+    // rather than the scene-construction delay (file I/O + GLB parse + mesh upload).
+    if (firstFrame) {
+      firstFrame = false
+      lastMark = now
+    }
     val delta = (now - lastMark).inWholeNanoseconds / 1_000_000_000f
     lastMark = now
     val elapsed = (now - start).inWholeNanoseconds / 1_000_000_000f
@@ -134,6 +141,7 @@ internal class SceneState(
   internal fun startProgressiveDecode(rawBytes: List<ByteArray?>, textures: List<Texture>) {
     if (rawBytes.isEmpty()) return
     textureScope.launch {
+      var decoded = 0
       for (i in rawBytes.indices) {
         val bytes = rawBytes[i] ?: continue
         val texture = textures.getOrNull(i) ?: continue
@@ -153,10 +161,11 @@ internal class SceneState(
         renderer.uploadTextureData(texture, imageData.pixels)
         // Evict cached bind groups so the next draw call rebuilds them with the real texture.
         texToMaterials[texture]?.forEach { renderer.invalidateMaterial(it) }
+        decoded++
         // Yield so the NSRunLoop can run the next render frame before decoding the next texture.
         yield()
       }
-      log.i { "Progressive texture loading complete (${textures.size} textures)" }
+      log.i { "Progressive texture loading complete ($decoded/${textures.size} textures)" }
     }
   }
 

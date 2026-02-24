@@ -177,7 +177,6 @@ fun prismRenderFrame(engineHandle: Long) {
  * aspect ratio if a scene has been loaded.
  */
 @CName("prism_resize")
-@Suppress("UNUSED_PARAMETER")
 fun prismResize(engineHandle: Long, width: Int, height: Int) {
   val surfaceState = macosSurfaces.value[engineHandle] ?: return
   val surface = surfaceState.ctx.wgpuContext.surface

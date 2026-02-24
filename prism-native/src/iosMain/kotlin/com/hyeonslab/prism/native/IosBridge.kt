@@ -5,10 +5,16 @@ package com.hyeonslab.prism.native
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.core.Time
+import io.ygdrasil.webgpu.Color
 import io.ygdrasil.webgpu.CompositeAlphaMode
+import io.ygdrasil.webgpu.GPULoadOp
+import io.ygdrasil.webgpu.GPUStoreOp
 import io.ygdrasil.webgpu.IosContext
+import io.ygdrasil.webgpu.RenderPassColorAttachment
+import io.ygdrasil.webgpu.RenderPassDescriptor
 import io.ygdrasil.webgpu.SurfaceConfiguration
 import io.ygdrasil.webgpu.SurfaceRenderingContext
+import io.ygdrasil.webgpu.beginRenderPass
 import io.ygdrasil.webgpu.iosContextRenderer
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
@@ -148,14 +154,14 @@ fun prismRenderFrame(engineHandle: Long) {
       ctx.device.createCommandEncoder().use { encoder ->
         encoder
           .beginRenderPass(
-            io.ygdrasil.webgpu.RenderPassDescriptor(
+            RenderPassDescriptor(
               colorAttachments =
                 listOf(
-                  io.ygdrasil.webgpu.RenderPassColorAttachment(
+                  RenderPassColorAttachment(
                     view = view,
-                    loadOp = io.ygdrasil.webgpu.GPULoadOp.Clear,
-                    clearValue = io.ygdrasil.webgpu.Color(0.05, 0.05, 0.1, 1.0),
-                    storeOp = io.ygdrasil.webgpu.GPUStoreOp.Store,
+                    loadOp = GPULoadOp.Clear,
+                    clearValue = Color(0.05, 0.05, 0.1, 1.0),
+                    storeOp = GPUStoreOp.Store,
                   )
                 )
             )
@@ -173,7 +179,6 @@ fun prismRenderFrame(engineHandle: Long) {
  * aspect ratio if a scene has been loaded.
  */
 @CName("prism_resize")
-@Suppress("UNUSED_PARAMETER")
 fun prismResize(engineHandle: Long, width: Int, height: Int) {
   val surfaceState = iosSurfaces.value[engineHandle] ?: return
   val surface = surfaceState.ctx.wgpuContext.surface
