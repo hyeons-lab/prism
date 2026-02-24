@@ -88,7 +88,7 @@ class PrismMacOSMetalView: MTKView, MTKViewDelegate {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        prism_zoom(engineHandle, event.scrollingDeltaY * 0.1)
+        prism_zoom(engineHandle, event.scrollingDeltaY * 0.01)
     }
 }
 
