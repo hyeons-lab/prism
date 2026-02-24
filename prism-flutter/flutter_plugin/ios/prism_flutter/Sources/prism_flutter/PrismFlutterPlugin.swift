@@ -101,7 +101,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         _view.mtkView = mtkView
 
         let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
-        let scale = (window?.screen ?? UIScreen.main).scale
+        let scale = _view.window?.screen?.scale ?? UIScreen.main.scale
         let width = Int32(_view.bounds.width * scale)
         let height = Int32(_view.bounds.height * scale)
 

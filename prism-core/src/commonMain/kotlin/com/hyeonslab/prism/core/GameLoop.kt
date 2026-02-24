@@ -35,6 +35,7 @@ class GameLoop {
   }
 
   fun stop() {
+    if (!isRunning) return
     val cb = onStop
     onStop = null // clear before invoking to prevent re-entrancy if stop() is called recursively
     cb?.invoke()
