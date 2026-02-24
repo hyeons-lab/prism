@@ -12,11 +12,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,9 +31,7 @@ import com.hyeonslab.prism.compose.rememberEngineStore
 import com.hyeonslab.prism.core.EngineConfig
 import io.ygdrasil.webgpu.WGPUContext
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIViewController
 
@@ -47,8 +45,13 @@ fun composeDemoViewController(): UIViewController = ComposeUIViewController {
 @Composable
 private fun IosComposeDemoContent() {
   val engineStore = rememberEngineStore(EngineConfig(appName = "Prism iOS Compose"))
+  // Scope for progressive glTF texture uploads. Tied to this composable's composition lifetime
+  // and automatically cancelled when it leaves; also explicitly cancelled in gameLoop.onStop
+  // (before scene.shutdown()) so uploads stop before the renderer frees GPU resources.
+  val backgroundScope = rememberCoroutineScope()
   val store = sharedDemoStore
   val uiState by store.state.collectAsStateWithLifecycle()
+  val engineState by engineStore.state.collectAsStateWithLifecycle()
 
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var surfaceCtx by remember { mutableStateOf<WGPUContext?>(null) }
@@ -56,15 +59,12 @@ private fun IosComposeDemoContent() {
   var surfaceHeight by remember { mutableStateOf(0) }
   var initError by remember { mutableStateOf<String?>(null) }
 
-  // Clean up scene resources when the composable leaves the composition. Null onRender first
-  // so no further callbacks fire into a shutting-down scene.
-  DisposableEffect(Unit) {
-    onDispose {
-      log.i { "Disposing Compose iOS demo" }
-      engineStore.engine.gameLoop.onRender = null
-      scene?.shutdown()
-      scene = null
-    }
+  // Update the scene's camera aspect ratio whenever the engine-reported surface dimensions change.
+  // This corrects the initial aspect ratio when PrismView fell back to the 800×600 default before
+  // the MTKView completed its first layout pass.
+  LaunchedEffect(engineState.surfaceWidth, engineState.surfaceHeight, scene) {
+    val sc = scene ?: return@LaunchedEffect
+    sc.updateAspectRatio(engineState.surfaceWidth, engineState.surfaceHeight)
   }
 
   // Once the surface is ready (surfaceCtx becomes non-null), create the glTF demo scene and
@@ -80,7 +80,9 @@ private fun IosComposeDemoContent() {
         checkNotNull(loadBundleAssetBytes("DamagedHelmet.glb")) {
           "DamagedHelmet.glb not found in app bundle"
         }
-      val backgroundScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+      // surfacePreConfigured defaults to false: WgpuRenderer will configure the wgpu surface on
+      // first use. createPrismSurface (called by PrismView) intentionally does not pre-configure
+      // the surface, so this is the correct default for the Compose path.
       val sc =
         createGltfDemoScene(
           ctx,
@@ -89,6 +91,16 @@ private fun IosComposeDemoContent() {
           glbData = glbBytes,
           progressiveScope = backgroundScope,
         )
+
+      // Register cleanup to run inside PrismView's gameLoop.stop(), which fires BEFORE the wgpu
+      // surface is detached. This ensures GPU resources are freed while the context is still
+      // valid, avoiding use-after-free if wgpu4k ever closes resources eagerly on context close.
+      engineStore.engine.gameLoop.onStop = {
+        engineStore.engine.gameLoop.onRender = null
+        backgroundScope.cancel() // stop progressive texture uploads before renderer is freed
+        sc.shutdown()
+      }
+
       scene = sc
       engineStore.dispatch(EngineStateEvent.SurfaceResized(w, h))
 

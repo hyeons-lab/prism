@@ -62,7 +62,7 @@ private class PrismMetalView: UIView {
         super.layoutSubviews()
         guard let mtkView = mtkView, engineHandle != 0 else { return }
         mtkView.frame = bounds
-        let scale = UIScreen.main.scale
+        let scale = (window?.screen ?? UIScreen.main).scale
         let width = Int32(bounds.width * scale)
         let height = Int32(bounds.height * scale)
         prism_resize(engineHandle, width, height)
@@ -101,7 +101,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         _view.mtkView = mtkView
 
         let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
-        let scale = UIScreen.main.scale
+        let scale = (window?.screen ?? UIScreen.main).scale
         let width = Int32(_view.bounds.width * scale)
         let height = Int32(_view.bounds.height * scale)
 

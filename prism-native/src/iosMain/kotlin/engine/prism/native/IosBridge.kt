@@ -18,6 +18,7 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
 import kotlinx.atomicfu.AtomicRef
 import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.getAndUpdate
 import kotlinx.atomicfu.update
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -67,10 +68,13 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
     )
   )
 
+  // Insert into the map BEFORE starting the game loop. The CADisplayLink fires immediately
+  // after startExternal() and prismRenderFrame checks iosSurfaces — inserting first prevents
+  // a dropped first frame.
+  iosSurfaces.update { it + (engineHandle to ctx) }
   // Guard against calling startExternal() a second time if the caller re-attaches to the same
   // engine handle (e.g. view recreated after returning to the screen).
   if (!engine.gameLoop.isRunning) engine.gameLoop.startExternal()
-  iosSurfaces.update { it + (engineHandle to ctx) }
 }
 
 /**
@@ -131,6 +135,9 @@ fun prismRenderFrame(engineHandle: Long) {
  * call.
  */
 @CName("prism_resize")
+// width and height are intentionally unused: the MTKView tracks its own drawable dimensions and
+// surface.configure() reads them directly from the underlying Metal layer. The parameters are kept
+// in the signature for ABI compatibility with the Swift caller.
 @Suppress("UNUSED_PARAMETER")
 fun prismResize(engineHandle: Long, width: Int, height: Int) {
   val ctx = iosSurfaces.value[engineHandle] ?: return
@@ -156,11 +163,8 @@ fun prismDetachSurface(engineHandle: Long) {
   val engine = Registry.get<Engine>(engineHandle)
   engine?.gameLoop?.stop()
 
-  var closedCtx: IosContext? = null
-  iosSurfaces.update {
-    val ctx = it[engineHandle]
-    closedCtx = ctx
-    it - engineHandle
-  }
-  closedCtx?.close()
+  // getAndUpdate returns the old map; look up the removed context and close it outside the
+  // lambda, which must be a pure transform with no side effects.
+  val oldMap = iosSurfaces.getAndUpdate { it - engineHandle }
+  oldMap[engineHandle]?.close()
 }

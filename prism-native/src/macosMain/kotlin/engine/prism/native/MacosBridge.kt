@@ -19,6 +19,7 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
 import kotlinx.atomicfu.AtomicRef
 import kotlinx.atomicfu.atomic
+import kotlinx.atomicfu.getAndUpdate
 import kotlinx.atomicfu.update
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -67,11 +68,14 @@ fun prismAttachMetalLayer(engineHandle: Long, layerPtr: COpaquePointer?, width: 
     )
   )
 
+  // Insert into the map BEFORE starting the game loop. The MTKViewDelegate fires immediately
+  // after startExternal() and prismRenderFrame checks macosSurfaces — inserting first prevents
+  // a dropped first frame.
+  macosSurfaces.update { it + (engineHandle to ctx) }
   // Guard against calling startExternal() a second time if the caller re-attaches to the same
   // engine handle (e.g. window moved to a different display). The game loop must not be started
   // twice — doing so would cause duplicate tick callbacks.
   if (!engine.gameLoop.isRunning) engine.gameLoop.startExternal()
-  macosSurfaces.update { it + (engineHandle to ctx) }
 }
 
 /**
@@ -159,11 +163,8 @@ fun prismDetachSurface(engineHandle: Long) {
   val engine = Registry.get<Engine>(engineHandle)
   engine?.gameLoop?.stop()
 
-  var closedCtx: MacosContext? = null
-  macosSurfaces.update {
-    val ctx = it[engineHandle]
-    closedCtx = ctx
-    it - engineHandle
-  }
-  closedCtx?.close()
+  // getAndUpdate returns the old map; look up the removed context and close it outside the
+  // lambda, which must be a pure transform with no side effects.
+  val oldMap = macosSurfaces.getAndUpdate { it - engineHandle }
+  oldMap[engineHandle]?.close()
 }

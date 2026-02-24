@@ -10,6 +10,15 @@ class GameLoop {
   var onFixedUpdate: ((Time) -> Unit)? = null
   var onRender: ((Time) -> Unit)? = null
 
+  /**
+   * Optional single-fire callback invoked at the start of [stop], before the loop is marked as
+   * stopped. The callback is cleared immediately after it fires to prevent re-entrancy.
+   *
+   * Use this to release resources that must be freed while the render surface is still alive (e.g.
+   * scene GPU resource cleanup) before the platform closes the surface after [stop] returns.
+   */
+  var onStop: (() -> Unit)? = null
+
   private var accumulator: Float = 0f
   private var lastTimeMillis: Long = 0L
   private var totalTime: Float = 0f
@@ -26,6 +35,9 @@ class GameLoop {
   }
 
   fun stop() {
+    val cb = onStop
+    onStop = null // clear before invoking to prevent re-entrancy if stop() is called recursively
+    cb?.invoke()
     isRunning = false
   }
 
