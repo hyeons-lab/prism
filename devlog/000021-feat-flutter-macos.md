@@ -80,10 +80,29 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
   strip the old bridge wiring from AppDelegate.swift + project.pbxproj.
 - `prism-flutter-demo/example/lib/main.dart` used the old `PrismRenderView(engine: _engine)` API.
   Updated to `PrismRenderView(engineHandle: _engine.handle)` to match the updated widget signature.
+- `prism-flutter/flutter_plugin/macos/.../PrismMacOSPlatformView.swift` — reduced `scrollingDeltaY`
+  zoom sensitivity from `* 0.1` to `* 0.01`; trackpad events deliver 10–50px so 0.1 caused jumps.
+- `prism-native/src/nativeMain/kotlin/com/hyeonslab/prism/native/SceneState.kt` — replaced
+  `Dispatchers.Default` scope + `AtomicRef<List<DecodedTexture>>` upload queue +
+  `uploadNextPendingTexture()` with `textureScope` on `Dispatchers.Main` + `withContext(Default)` for
+  CPU decode + inline GPU upload + `yield()` between textures (GltfDemoScene pattern).
+- `prism-native/src/macosMain/kotlin/com/hyeonslab/prism/native/MacosBridge.kt` — removed stale
+  `backgroundScope` creation and `uploadNextPendingTexture()` call from `prismRenderFrame`.
+- `prism-native/src/iosMain/kotlin/com/hyeonslab/prism/native/IosBridge.kt` — removed stale
+  `CoroutineScope`, `SupervisorJob`, `cancel` imports; no `uploadNextPendingTexture()` was added here.
+
+## Decisions
+- `2026-02-24T00:00-08:00` `withContext(Dispatchers.Default)` for texture decode — per user request.
+  Keeps GPU calls on `Dispatchers.Main` (render thread) while offloading PNG/JPEG decode to a worker
+  thread. A `yield()` between textures lets one frame render before the next decode starts, so
+  textures appear progressively without stalling the MTKView draw callback.
 
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
 - 3e31ee0 — chore: update devlog with commit hashes
 - d9ee41b — fix: move Flutter macOS demo to prism-flutter-demo, remove old bridge wiring
-- HEAD — chore: update devlog with commit hashes
+- f6e33fd — chore: update devlog with commit hashes
+- eabd59f — fix: reduce macOS scroll zoom sensitivity (0.1 → 0.01)
+- ba52107 — feat: progressive glTF texture loading for macOS and iOS
+- HEAD — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
