@@ -58,8 +58,8 @@ class PrismEngine implements PrismEngineInterface {
   /// does not need a Flutter-level loading overlay.
   bool get isRendererReady => true;
 
-  /// FPS is not exposed synchronously on web; always returns 0.
-  double get fps => 0.0;
+  /// Smoothed FPS for the most recently initialised canvas. Synchronous.
+  double get fps => PrismWebEngine.getFps(PrismWebEngine.lastCanvasId ?? '');
 
   // ── Camera control ───────────────────────────────────────────────────────
 

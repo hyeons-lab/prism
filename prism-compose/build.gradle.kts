@@ -53,6 +53,11 @@ kotlin {
       implementation(libs.lifecycle.runtime.compose)
     }
 
+    wasmJsMain.dependencies {
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+    }
+
     val appleMain by getting { dependsOn(nonNativeMain) }
     commonTest.dependencies { implementation(libs.kotlin.test) }
     jvmMain.dependencies {

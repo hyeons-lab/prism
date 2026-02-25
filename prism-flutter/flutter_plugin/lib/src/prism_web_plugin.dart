@@ -22,6 +22,9 @@ external bool _prismIsInitialized(String canvasId);
 @JS('PrismSdk.prismShutdown')
 external void _prismShutdown(String canvasId);
 
+@JS('PrismSdk.prismGetFps')
+external double _prismGetFps(String canvasId);
+
 /// Web implementation of PrismEngine that calls WASM-exported JS functions
 /// instead of using platform method channels.
 ///
@@ -29,10 +32,14 @@ external void _prismShutdown(String canvasId);
 /// PrismRenderView widgets to coexist on the same page without conflicting.
 class PrismWebEngine {
   static bool _wasmLoaded = false;
+  static String? _lastCanvasId;
 
   /// True once the Kotlin/WASM module has been fully loaded and its exports
   /// are available on [window.PrismSdk].
   static bool get isWasmLoaded => _wasmLoaded;
+
+  /// The canvas ID of the most recently initialised engine instance.
+  static String? get lastCanvasId => _lastCanvasId;
   static String? _loadedModuleUrl;
   static Future<void>? _wasmLoadingFuture;
 
@@ -115,8 +122,14 @@ class PrismWebEngine {
     return _wasmLoadingFuture!;
   }
 
-  static void init(String canvasId, {String glbUrl = 'DamagedHelmet.glb'}) =>
-      _prismInit(canvasId, glbUrl);
+  static void init(String canvasId, {String glbUrl = 'DamagedHelmet.glb'}) {
+    _lastCanvasId = canvasId;
+    _prismInit(canvasId, glbUrl);
+  }
+
+  /// Returns the current smoothed FPS for [canvasId] (synchronous).
+  static double getFps(String canvasId) =>
+      _wasmLoaded && canvasId.isNotEmpty ? _prismGetFps(canvasId) : 0.0;
 
   static Future<void> togglePause(String canvasId) async {
     if (!_wasmLoaded) return;
