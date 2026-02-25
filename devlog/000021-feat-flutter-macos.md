@@ -114,6 +114,15 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-02-24T10:30-08:00` Synchronous `fps` getter in Dart FFI layer — avoids `async/await`
   overhead in the per-frame callback. `prism_get_fps` is a trivial map lookup on the native side.
 
+- `2026-02-24T19:00-08:00` **Black screen / spinner never disappears (iOS)**: `prism_is_renderer_ready` always returned 0. Root causes found via system log:
+  1. **`as? Int64` silent nil**: Flutter's `StandardMessageCodec` encodes small Dart integers as `INT_32`. In Swift, `NSNumber(Int32: 1) as? Int64` returns `nil`. Fixed: `(params?["engineHandle"] as? NSNumber)?.int64Value ?? 0` in both iOS and macOS plugins.
+  2. **Stale XCFramework**: `PrismNative.xcframework` (ios-arm64-simulator slice) was built Feb 23 22:53, *before* the `fbca70b` pendingGlbPaths commit (Feb 24 08:13). The `prismAttachMetalLayer` in the dylib lacked the auto-load queue check entirely. Fix: rebuild xcframework via `./gradlew :prism-flutter:bundleNativeiOS`.
+  3. **Main-thread deadlock risk**: `prism_attach_metal_layer` was called from `layoutSubviews` (main thread). `prismAttachMetalLayer` calls `runBlocking(Dispatchers.Default) { iosContextRenderer() }`. Moved to `DispatchQueue.global(qos: .userInitiated).async` to prevent deadlock.
+  4. **Zero-size layout guard missing**: `layoutSubviews` fires before Flutter sets the real frame, calling `prism_attach_metal_layer` with 0×0, causing renderer init to fail permanently. Added `guard width > 0 && height > 0 else { return }` before the `isAttached` check.
+  5. **`PrismRenderView` created before engine handle valid**: The widget was unconditionally rendered with `handle=0`, so `setupMtkView()` was skipped. Fixed by guarding with `if (_engine.handle != 0)` and calling `setState(() {})` after `initialize()` in `_setup()`.
+  6. **FPS chip overlapping Dynamic Island**: Fixed with `MediaQuery.of(context).padding.top + 8` as `top` offset.
+  7. **Flipped pan gesture orbit**: `prism_orbit_by` called with `+translation.x, -translation.y`. Fixed to `-translation.x, +translation.y`.
+
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
@@ -123,4 +132,4 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - eabd59f — fix: reduce macOS scroll zoom sensitivity (0.1 → 0.01)
 - ba52107 — feat: progressive glTF texture loading for macOS and iOS
 - 6c67d42 — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
-- HEAD — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue
+- fbca70b — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue

@@ -74,10 +74,21 @@ private class PrismMetalView: UIView {
         let scale = (window?.screen ?? UIScreen.main).scale
         let width = Int32(bounds.width * scale)
         let height = Int32(bounds.height * scale)
+        // Skip zero-size layouts (fired before Flutter sets the real frame).
+        // Without this guard, prism_attach_metal_layer is called with 0×0 which
+        // causes renderer init to fail and isAttached is set, blocking any retry.
+        guard width > 0 && height > 0 else { return }
         if !isAttached {
-            let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
-            prism_attach_metal_layer(engineHandle, rawPtr, width, height)
             isAttached = true
+            let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
+            // prism_attach_metal_layer runs runBlocking{iosContextRenderer()} which can
+            // internally dispatch to background queues; calling it from the main thread
+            // with runBlocking risks a deadlock on the main-thread RunLoop. Move it to
+            // a background queue so the main thread stays free.
+            let handle = engineHandle
+            DispatchQueue.global(qos: .userInitiated).async {
+                prism_attach_metal_layer(handle, rawPtr, width, height)
+            }
         } else {
             prism_resize(engineHandle, width, height)
         }
@@ -91,7 +102,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 
     init(frame: CGRect, arguments args: Any?) {
         let params = args as? [String: Any]
-        self.engineHandle = params?["engineHandle"] as? Int64 ?? 0
+        self.engineHandle = (params?["engineHandle"] as? NSNumber)?.int64Value ?? 0
         self._view = PrismMetalView(frame: frame)
         self._view.backgroundColor = .black
         self._view.engineHandle = self.engineHandle
@@ -128,7 +139,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 
     @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
         let translation = recognizer.translation(in: recognizer.view)
-        prism_orbit_by(engineHandle, Double(translation.x) * 0.01, -Double(translation.y) * 0.01)
+        prism_orbit_by(engineHandle, -Double(translation.x) * 0.01, Double(translation.y) * 0.01)
         recognizer.setTranslation(.zero, in: recognizer.view)
     }
 

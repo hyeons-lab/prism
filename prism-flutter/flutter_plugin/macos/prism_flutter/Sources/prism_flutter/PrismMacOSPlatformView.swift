@@ -15,7 +15,7 @@ public class PrismMacOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory
 
     public func create(withViewIdentifier viewId: Int64, arguments args: Any?) -> NSView {
         let params = args as? [String: Any]
-        let engineHandle = params?["engineHandle"] as? Int64 ?? 0
+        let engineHandle = (params?["engineHandle"] as? NSNumber)?.int64Value ?? 0
         return PrismMacOSMetalView(engineHandle: engineHandle)
     }
 

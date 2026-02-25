@@ -50,11 +50,15 @@ class _PrismDemoPageState extends State<PrismDemoPage>
 
   Future<void> _setup() async {
     await _engine.initialize();
+    // Trigger a rebuild so PrismRenderView is created with the now-valid engine
+    // handle. Without this the UiKitView/AppKitView is built with handle=0,
+    // setupMtkView() is skipped, and prism_attach_metal_layer is never called.
+    if (mounted) setState(() {});
     final path = await PrismEngine.resolveFlutterAssetPath(_glbAsset);
     if (path != null) _engine.loadGltfFromPath(path);
   }
 
-  void _onFrame(Duration _) {
+  void _onFrame(Duration elapsed) {
     if (!mounted) return;
     final newFps = _engine.fps;
     final nowReady = _isSceneReady || _engine.isRendererReady;
@@ -75,16 +79,20 @@ class _PrismDemoPageState extends State<PrismDemoPage>
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       body: Stack(
         children: [
-          // 3D render view fills the entire screen.
-          Positioned.fill(
-            child: PrismRenderView(engineHandle: _engine.handle),
-          ),
-          // FPS indicator — top-right corner.
+          // 3D render view — only added once the engine handle is valid so that
+          // the platform view (UiKitView / AppKitView) is created with the
+          // correct handle and setupMtkView() is called on creation.
+          if (_engine.handle != 0)
+            Positioned.fill(
+              child: PrismRenderView(engineHandle: _engine.handle),
+            ),
+          // FPS indicator — top-right corner, below Dynamic Island / status bar.
           Positioned(
-            top: 16,
+            top: topPad + 8,
             right: 16,
             child: _FpsChip(fps: _fps),
           ),
