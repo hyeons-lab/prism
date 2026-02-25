@@ -57,7 +57,9 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — fixed `NativeFinalizer` (`.cast()` → module-level `_lib.lookup`), added `implements Finalizable` to Engine/World/Node/Scene
 - `prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart` — fixed `dataset.set()` → `dataset['module'] =`
 - `prism-flutter/example/` — deleted (wrong location; was scaffolded by flutter create incidentally)
-- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — refactored to full-screen layout matching other demos: removed ComposePanel side panel and DemoStore, PrismPanel fills full window (1000×700), Swing Timer render loop (~60 FPS), FPS shown in window title; drag-to-orbit via `MouseAdapter`/`MouseMotionAdapter` at `0.005f rad/px`
+- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — refactored to full-screen layout matching other demos: removed ComposePanel side panel and DemoStore, PrismPanel fills full window (1000×700), Swing Timer render loop (~60 FPS), FPS shown in window title; drag-to-orbit via `MouseAdapter`/`MouseMotionAdapter` at `0.005f rad/px`; fixed unnecessary safe call (`scene?.tick` → `s.tick` inside the `onReady` block where `s` is known non-null)
+- `prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/ComposeIosEntry.kt` — simplified to match other demos: removed `sharedDemoStore` / `uiState` / `DemoStore` usage, removed `ComposeDemoControls` overlay and `WindowInsets.safeDrawing` padding; render callback now calls only `sc.tick()` with `time.totalTime` (no FPS dispatch or material overrides)
+- `prism-demo-core/src/androidMain/kotlin/com/hyeonslab/prism/demo/ComposeAndroidEntry.kt` — same simplification as iOS: removed `DemoStore` / `uiState`, removed FPS dispatch and `setMaterialOverride`/`setEnvIntensity` calls, removed `ComposeDemoControls` overlay and `WindowInsets.safeDrawing` padding
 
 ## Decisions
 - `2026-02-23T22:09-08:00` C API for geometry rendering instead of Kotlin bridge — avoids SKIE/ObjC interop layer, no new SPM packages, ~300 lines new Kotlin + ~100 lines new Dart vs. complex bridge. `buildGltfScene` in `nativeMain` replicates demo-core logic using only library deps.
@@ -141,4 +143,5 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - 4f07c95 — fix: iOS black screen, engine handle decode, gesture orientation, FPS safe area
 - e1d085f — fix: correct iOS pan gesture axis signs (both axes)
 - 85e0494 — feat: add drag-to-orbit to Compose Desktop demo
-- HEAD — refactor: Compose Desktop demo to full-screen, matching other demos
+- 5d49637 — refactor: Compose Desktop demo to full-screen, matching other demos
+- HEAD — refactor: simplify iOS Compose demo to match other demos

@@ -107,7 +107,7 @@ private fun createAndShowUi() {
             lastFrameTimeNs = nowNs
             frameCount++
 
-            scene?.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
+            s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
 
             if (deltaSec > 0f) {
               fps = fps * 0.9f + (1f / deltaSec) * 0.1f

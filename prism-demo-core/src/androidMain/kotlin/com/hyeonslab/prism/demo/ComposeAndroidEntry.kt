@@ -3,11 +3,8 @@ package com.hyeonslab.prism.demo
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -24,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.AndroidSurfaceInfo
 import com.hyeonslab.prism.widget.PrismSurface
@@ -38,17 +34,11 @@ private val log = Logger.withTag("ComposeAndroid")
 
 /**
  * Top-level composable for the Android Compose demo. Embeds a [SurfaceView] for wgpu/Vulkan
- * rendering and overlays Material3 controls via [ComposeDemoControls].
- *
- * Follows the same "bypass pattern" as JVM [ComposeMain] and iOS [ComposeIosEntry]: uses [DemoStore]
- * (not EngineStore) for MVI state, creates the GPU surface and [DemoScene] directly, and drives the
- * render loop via [withFrameNanos].
+ * rendering and drives the DamagedHelmet scene with two-finger drag-to-orbit input.
  */
 @Composable
 fun AndroidComposeDemoContent() {
   val context = LocalContext.current
-  val store = remember { DemoStore() }
-  val uiState by store.state.collectAsStateWithLifecycle()
 
   var scene by remember { mutableStateOf<DemoScene?>(null) }
   var surface by remember { mutableStateOf<PrismSurface?>(null) }
@@ -184,20 +174,6 @@ fun AndroidComposeDemoContent() {
             lastFrameTimeNs = nowNs
             frameCount++
 
-            val currentState = store.state.value
-
-            // Update FPS (smoothed)
-            if (deltaSec > 0f) {
-              val smoothedFps = currentState.fps * 0.9f + (1f / deltaSec) * 0.1f
-              store.dispatch(DemoIntent.UpdateFps(smoothedFps))
-            }
-
-            // Apply PBR material overrides and environment intensity from UI sliders.
-            if (!currentState.isPaused) {
-              sc.setMaterialOverride(currentState.metallic, currentState.roughness)
-              sc.setEnvIntensity(currentState.envIntensity)
-            }
-
             sc.tick(
               deltaTime = deltaSec,
               elapsed = totalSec,
@@ -217,16 +193,6 @@ fun AndroidComposeDemoContent() {
           modifier = Modifier.align(Alignment.Center).padding(32.dp),
         )
       }
-
-      // Overlay Compose UI controls
-      ComposeDemoControls(
-        state = uiState,
-        onIntent = store::dispatch,
-        modifier =
-          Modifier.align(Alignment.TopEnd)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(8.dp),
-      )
     }
   }
 }

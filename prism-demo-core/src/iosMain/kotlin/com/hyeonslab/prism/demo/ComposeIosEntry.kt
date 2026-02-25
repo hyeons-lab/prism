@@ -3,11 +3,8 @@
 package com.hyeonslab.prism.demo
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -32,7 +29,6 @@ import com.hyeonslab.prism.core.EngineConfig
 import io.ygdrasil.webgpu.WGPUContext
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.cancel
-import platform.Foundation.NSOperationQueue
 import platform.UIKit.UIViewController
 
 private val log = Logger.withTag("ComposeIOS")
@@ -49,8 +45,6 @@ private fun IosComposeDemoContent() {
   // and automatically cancelled when it leaves; also explicitly cancelled in gameLoop.onStop
   // (before scene.shutdown()) so uploads stop before the renderer frees GPU resources.
   val backgroundScope = rememberCoroutineScope()
-  val store = sharedDemoStore
-  val uiState by store.state.collectAsStateWithLifecycle()
   val engineState by engineStore.state.collectAsStateWithLifecycle()
 
   var scene by remember { mutableStateOf<DemoScene?>(null) }
@@ -60,7 +54,7 @@ private fun IosComposeDemoContent() {
   var initError by remember { mutableStateOf<String?>(null) }
 
   // Update the scene's camera aspect ratio whenever the engine-reported surface dimensions change.
-  // This corrects the initial aspect ratio when PrismView fell back to the 800×600 default before
+  // This corrects the initial aspect ratio when PrismView fell back to the 800x600 default before
   // the MTKView completed its first layout pass.
   LaunchedEffect(engineState.surfaceWidth, engineState.surfaceHeight, scene) {
     val sc = scene ?: return@LaunchedEffect
@@ -68,7 +62,7 @@ private fun IosComposeDemoContent() {
   }
 
   // Once the surface is ready (surfaceCtx becomes non-null), create the glTF demo scene and
-  // wire per-frame logic (material overrides, scene tick, FPS dispatch) into the game loop.
+  // wire the per-frame scene tick into the game loop.
   LaunchedEffect(surfaceCtx) {
     val ctx = surfaceCtx ?: return@LaunchedEffect
     val w = surfaceWidth
@@ -80,9 +74,9 @@ private fun IosComposeDemoContent() {
         checkNotNull(loadBundleAssetBytes("DamagedHelmet.glb")) {
           "DamagedHelmet.glb not found in app bundle"
         }
-      // surfacePreConfigured defaults to false: WgpuRenderer will configure the wgpu surface on
-      // first use. createPrismSurface (called by PrismView) intentionally does not pre-configure
-      // the surface, so this is the correct default for the Compose path.
+      // surfacePreConfigured defaults to false: WgpuRenderer will configure the wgpu surface
+      // on first use. createPrismSurface (called by PrismView) intentionally does not
+      // pre-configure the surface, so this is the correct default for the Compose path.
       val sc =
         createGltfDemoScene(
           ctx,
@@ -92,39 +86,22 @@ private fun IosComposeDemoContent() {
           progressiveScope = backgroundScope,
         )
 
-      // Register cleanup to run inside PrismView's gameLoop.stop(), which fires BEFORE the wgpu
-      // surface is detached. This ensures GPU resources are freed while the context is still
-      // valid, avoiding use-after-free if wgpu4k ever closes resources eagerly on context close.
+      // Register cleanup to run inside PrismView's gameLoop.stop(), which fires BEFORE the
+      // wgpu surface is detached. This ensures GPU resources are freed while the context is
+      // still valid, avoiding use-after-free if wgpu4k ever closes resources eagerly.
       engineStore.engine.gameLoop.onStop = {
         engineStore.engine.gameLoop.onRender = null
-        backgroundScope.cancel() // stop progressive texture uploads before renderer is freed
+        backgroundScope.cancel() // stop progressive texture uploads before renderer freed
         sc.shutdown()
       }
 
       scene = sc
       engineStore.dispatch(EngineStateEvent.SurfaceResized(w, h))
 
-      // Wire per-frame logic into the game loop. This callback is invoked by
+      // Wire the scene tick into the game loop. This callback is invoked by
       // PrismView.ios.kt's MTKViewDelegate on the display-link thread.
       engineStore.engine.gameLoop.onRender = { time ->
-        val currentState = store.state.value
-        if (!currentState.isPaused) {
-          sc.setMaterialOverride(currentState.metallic, currentState.roughness)
-          sc.setEnvIntensity(currentState.envIntensity)
-        }
-        var elapsed = 0f
-        SharedDemoTime.tick(isPaused = currentState.isPaused) { e -> elapsed = e }
-        sc.tick(
-          deltaTime = if (currentState.isPaused) 0f else time.deltaTime,
-          elapsed = elapsed,
-          frameCount = time.frameCount,
-        )
-        if (time.deltaTime > 0f) {
-          val smoothedFps = currentState.fps * 0.9f + (1f / time.deltaTime) * 0.1f
-          NSOperationQueue.mainQueue.addOperationWithBlock {
-            store.dispatch(DemoIntent.UpdateFps(smoothedFps))
-          }
-        }
+        sc.tick(deltaTime = time.deltaTime, elapsed = time.totalTime, frameCount = time.frameCount)
       }
       log.i { "Compose iOS demo initialized" }
     } catch (e: Exception) {
@@ -155,16 +132,6 @@ private fun IosComposeDemoContent() {
           modifier = Modifier.align(Alignment.Center).padding(32.dp),
         )
       }
-
-      // Overlay Compose UI controls — safeDrawing insets avoid the Dynamic Island / notch
-      ComposeDemoControls(
-        state = uiState,
-        onIntent = store::dispatch,
-        modifier =
-          Modifier.align(Alignment.TopEnd)
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(8.dp),
-      )
     }
   }
 }
