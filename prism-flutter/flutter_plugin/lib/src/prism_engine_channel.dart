@@ -10,6 +10,9 @@ class PrismEngine implements PrismEngineInterface {
   static const MethodChannel _channel =
       MethodChannel('engine.prism.flutter/engine');
 
+  /// Always 0 on Android — the channel backend has no native handle.
+  int get handle => 0;
+
   /// No-op on mobile — canvas binding is only needed for web multi-instance support.
   void attachCanvas(String canvasId) {}
 
@@ -39,8 +42,10 @@ class PrismEngine implements PrismEngineInterface {
   }
 
   // Rendering methods — stubs for Android (no native prism-native binary).
+  // isRendererReady returns true so the loading overlay hides after initialize().
+  // GLB loading is handled natively on Android; Flutter-side loadGltfFromPath is a no-op.
   Future<void> loadGltfFromPath(String path) async {}
-  bool get isRendererReady => false;
+  bool get isRendererReady => true;
   double get fps => 0.0;
   void orbitBy(double dx, double dy) {}
   void zoom(double delta) {}

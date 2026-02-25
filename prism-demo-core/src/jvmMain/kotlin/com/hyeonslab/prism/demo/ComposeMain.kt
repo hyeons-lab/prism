@@ -1,8 +1,14 @@
 package com.hyeonslab.prism.demo
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.ComposePanel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.AwtRenderingContext
 import com.hyeonslab.prism.widget.PrismPanel
@@ -25,11 +31,11 @@ private val log = Logger.withTag("ComposeMain")
 private const val ORBIT_SENSITIVITY = 0.005f
 
 /**
- * Compose Desktop demo entry point using JFrame + PrismPanel.
+ * Compose Desktop demo entry point using JFrame + PrismPanel + ComposePanel.
  *
- * Uses a hidden 1x1 [ComposePanel] to drive the render loop via [withFrameNanos] (vsync-aligned,
- * same mechanism as the iOS Compose demo). PrismPanel fills the full window for 3D rendering.
- * Drag-to-orbit is wired via AWT mouse listeners on the Canvas.
+ * PrismPanel (heavyweight AWT Canvas) fills the main area for GPU rendering. A ComposePanel on the
+ * right hosts the PBR control sliders and drives the render loop via [withFrameNanos] (vsync-
+ * aligned, same mechanism as the iOS Compose demo). Drag-to-orbit is wired via AWT mouse listeners.
  *
  * All Swing/AWT setup runs on the EDT via [SwingUtilities.invokeLater] as required by AWT.
  */
@@ -40,6 +46,7 @@ fun main() {
 }
 
 private fun createAndShowUi() {
+  val store = DemoStore()
   // `scene` is only accessed from the EDT (onReady, onResized, withFrameNanos) — no sync needed.
   var scene: DemoScene? = null
 
@@ -48,7 +55,7 @@ private fun createAndShowUi() {
   frame.layout = BorderLayout()
 
   val prismPanel = PrismPanel()
-  prismPanel.preferredSize = Dimension(1000, 700)
+  prismPanel.preferredSize = Dimension(800, 700)
 
   // Drag-to-orbit: left-mouse drag rotates the orbit camera.
   var lastDragX = 0
@@ -104,19 +111,20 @@ private fun createAndShowUi() {
     }
   }
 
-  // Hidden 1x1 ComposePanel drives the render loop via withFrameNanos (vsync-aligned).
-  // A plain Swing Timer is not display-link-synchronized on macOS, causing the Metal layer
-  // to not update visually. withFrameNanos uses Compose Desktop's frame clock which is tied
-  // to the display refresh and correctly flushes the CAMetalLayer each frame.
+  // ComposePanel on the right: PBR controls + vsync-aligned render loop.
+  // withFrameNanos uses Compose Desktop's frame clock, which is tied to the display
+  // refresh and correctly flushes the CAMetalLayer each frame — a plain Swing Timer
+  // is not display-link-synchronized on macOS.
   val composePanel = ComposePanel()
-  composePanel.preferredSize = Dimension(1, 1)
+  composePanel.preferredSize = Dimension(280, 700)
   composePanel.setContent {
-    val startTimeNs = System.nanoTime()
-    var frameCount = 0L
-    var lastFrameTimeNs = startTimeNs
-    var fps = 0f
+    val uiState by store.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
+      val startTimeNs = System.nanoTime()
+      var frameCount = 0L
+      var lastFrameTimeNs = startTimeNs
+
       while (true) {
         withFrameNanos {
           val s = scene ?: return@withFrameNanos
@@ -128,14 +136,31 @@ private fun createAndShowUi() {
           lastFrameTimeNs = nowNs
           frameCount++
 
-          s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
+          val currentState = store.state.value
 
           if (deltaSec > 0f) {
-            fps = fps * 0.9f + (1f / deltaSec) * 0.1f
-            frame.title = "Prism 3D Engine \u2014 ${fps.toInt()} FPS"
+            val smoothedFps = currentState.fps * 0.9f + (1f / deltaSec) * 0.1f
+            store.dispatch(DemoIntent.UpdateFps(smoothedFps))
           }
+
+          // Apply PBR slider values and run ECS update. Pass 0 deltaTime when paused.
+          s.setMaterialOverride(currentState.metallic, currentState.roughness)
+          s.setEnvIntensity(currentState.envIntensity)
+          s.tick(
+            deltaTime = if (currentState.isPaused) 0f else deltaSec,
+            elapsed = totalSec,
+            frameCount = frameCount,
+          )
         }
       }
+    }
+
+    MaterialTheme(colorScheme = darkColorScheme()) {
+      ComposeDemoControls(
+        state = uiState,
+        onIntent = store::dispatch,
+        modifier = Modifier.fillMaxSize(),
+      )
     }
   }
 

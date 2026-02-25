@@ -84,14 +84,12 @@ class _PrismDemoPageState extends State<PrismDemoPage>
     return Scaffold(
       body: Stack(
         children: [
-          // 3D render view — on native platforms, only added once the engine
-          // handle is valid so that UiKitView/AppKitView is created with the
-          // correct handle and setupMtkView() is called on creation. On web,
-          // handle is always 0 (WASM drives itself), so we show it immediately.
-          if (kIsWeb || _engine.handle != 0)
-            Positioned.fill(
-              child: PrismRenderView(engineHandle: _engine.handle),
-            ),
+          // 3D render view. On iOS/macOS the widget defers platform-view
+          // creation internally until initialize() has supplied a valid handle,
+          // so it is safe to add unconditionally here.
+          Positioned.fill(
+            child: PrismRenderView(engine: _engine),
+          ),
           // FPS indicator — top-right corner, below Dynamic Island / status bar.
           Positioned(
             top: topPad + 8,

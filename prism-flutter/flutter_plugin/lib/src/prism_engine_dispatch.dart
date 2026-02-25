@@ -67,6 +67,9 @@ class PrismEngine {
   /// cannot resolve the path (e.g. Android).
   static const _channel = MethodChannel('engine.prism.flutter/engine');
   static Future<String?> resolveFlutterAssetPath(String assetKey) async {
+    // Android has no native scene loading from Flutter — return null so the
+    // caller skips loadGltfFromPath rather than hitting MissingPluginException.
+    if (Platform.isAndroid) return null;
     return _channel.invokeMethod<String>('resolveFlutterAssetPath', assetKey);
   }
 }
