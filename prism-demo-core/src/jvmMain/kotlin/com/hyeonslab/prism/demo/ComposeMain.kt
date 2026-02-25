@@ -1,5 +1,8 @@
 package com.hyeonslab.prism.demo
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.awt.ComposePanel
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.widget.AwtRenderingContext
 import com.hyeonslab.prism.widget.PrismPanel
@@ -24,13 +27,11 @@ private const val ORBIT_SENSITIVITY = 0.005f
 /**
  * Compose Desktop demo entry point using JFrame + PrismPanel.
  *
- * Uses JFrame (Swing) as the top-level container. On macOS, PrismPanel attaches a CAMetalLayer
- * sublayer to the Canvas's NSView, which means Metal rendering sits above any Java2D overlay — so
- * controls are shown in the window title bar rather than as an in-canvas overlay.
+ * Uses a hidden 1x1 [ComposePanel] to drive the render loop via [withFrameNanos] (vsync-aligned,
+ * same mechanism as the iOS Compose demo). PrismPanel fills the full window for 3D rendering.
+ * Drag-to-orbit is wired via AWT mouse listeners on the Canvas.
  *
  * All Swing/AWT setup runs on the EDT via [SwingUtilities.invokeLater] as required by AWT.
- * Rendering runs on a dedicated daemon thread; Metal's CAMetalLayer.nextDrawable naturally
- * throttles to vsync.
  */
 fun main() {
   log.i { "Starting Prism Compose Demo..." }
@@ -39,8 +40,8 @@ fun main() {
 }
 
 private fun createAndShowUi() {
+  // `scene` is only accessed from the EDT (onReady, onResized, withFrameNanos) — no sync needed.
   var scene: DemoScene? = null
-  var renderThread: Thread? = null
 
   val frame = JFrame("Prism 3D Engine \u2014 Compose Demo")
   frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
@@ -93,47 +94,6 @@ private fun createAndShowUi() {
         if (rc is AwtRenderingContext) rc.updateSize(w, h)
       }
       scene = s
-
-      // Render loop on a dedicated daemon thread. Metal's CAMetalLayer.nextDrawable
-      // naturally rate-limits to vsync (~60 fps) when displaySyncEnabled=true (default),
-      // so no explicit sleep is needed. The tight loop lets Metal control pacing.
-      val startTimeNs = System.nanoTime()
-      var lastFrameTimeNs = startTimeNs
-      var frameCount = 0L
-      var fpsSmoothed = 0f
-      var lastTitleUpdateMs = System.currentTimeMillis()
-
-      val t = Thread {
-        while (!Thread.currentThread().isInterrupted) {
-          try {
-            val nowNs = System.nanoTime()
-            val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
-            val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
-            lastFrameTimeNs = nowNs
-            frameCount++
-
-            s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
-
-            // Update window title at most once per second to avoid EDT flood.
-            val nowMs = System.currentTimeMillis()
-            if (deltaSec > 0f && nowMs - lastTitleUpdateMs >= 1000L) {
-              fpsSmoothed = fpsSmoothed * 0.8f + (1f / deltaSec) * 0.2f
-              val fps = fpsSmoothed.toInt()
-              lastTitleUpdateMs = nowMs
-              SwingUtilities.invokeLater { frame.title = "Prism 3D Engine \u2014 $fps FPS" }
-            }
-          } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            break
-          } catch (e: Exception) {
-            log.e(e) { "Render tick failed: ${e.message}" }
-            break
-          }
-        }
-      }
-      t.isDaemon = true
-      t.start()
-      renderThread = t
     }
   }
 
@@ -144,7 +104,43 @@ private fun createAndShowUi() {
     }
   }
 
+  // Hidden 1x1 ComposePanel drives the render loop via withFrameNanos (vsync-aligned).
+  // A plain Swing Timer is not display-link-synchronized on macOS, causing the Metal layer
+  // to not update visually. withFrameNanos uses Compose Desktop's frame clock which is tied
+  // to the display refresh and correctly flushes the CAMetalLayer each frame.
+  val composePanel = ComposePanel()
+  composePanel.preferredSize = Dimension(1, 1)
+  composePanel.setContent {
+    val startTimeNs = System.nanoTime()
+    var frameCount = 0L
+    var lastFrameTimeNs = startTimeNs
+    var fps = 0f
+
+    LaunchedEffect(Unit) {
+      while (true) {
+        withFrameNanos {
+          val s = scene ?: return@withFrameNanos
+          if (!prismPanel.isReady) return@withFrameNanos
+
+          val nowNs = System.nanoTime()
+          val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
+          val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
+          lastFrameTimeNs = nowNs
+          frameCount++
+
+          s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
+
+          if (deltaSec > 0f) {
+            fps = fps * 0.9f + (1f / deltaSec) * 0.1f
+            frame.title = "Prism 3D Engine \u2014 ${fps.toInt()} FPS"
+          }
+        }
+      }
+    }
+  }
+
   frame.add(prismPanel, BorderLayout.CENTER)
+  frame.add(composePanel, BorderLayout.EAST)
   frame.pack()
   frame.setLocationRelativeTo(null)
   frame.isVisible = true
@@ -152,8 +148,6 @@ private fun createAndShowUi() {
   frame.addWindowListener(
     object : WindowAdapter() {
       override fun windowClosing(e: WindowEvent) {
-        renderThread?.interrupt()
-        renderThread?.join(2000)
         scene?.let { s ->
           log.i { "Shutting down scene..." }
           s.shutdown()

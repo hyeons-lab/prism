@@ -57,7 +57,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — fixed `NativeFinalizer` (`.cast()` → module-level `_lib.lookup`), added `implements Finalizable` to Engine/World/Node/Scene
 - `prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart` — fixed `dataset.set()` → `dataset['module'] =`
 - `prism-flutter/example/` — deleted (wrong location; was scaffolded by flutter create incidentally)
-- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — refactored to full-screen layout matching other demos: removed ComposePanel side panel and DemoStore, PrismPanel fills full window (1000×700), Swing Timer render loop (~60 FPS), FPS shown in window title; drag-to-orbit via `MouseAdapter`/`MouseMotionAdapter` at `0.005f rad/px`; fixed unnecessary safe call (`scene?.tick` → `s.tick` inside the `onReady` block where `s` is known non-null)
+- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — refactored to full-screen layout matching other demos: removed ComposePanel side panel and DemoStore, PrismPanel fills full window (1000×700), dedicated daemon render thread (PrismRenderThread) letting Metal's `nextDrawable` throttle to vsync, FPS shown in window title; drag-to-orbit via `MouseAdapter`/`MouseMotionAdapter` at `0.005f rad/px`
 - `prism-demo-core/src/iosMain/kotlin/com/hyeonslab/prism/demo/ComposeIosEntry.kt` — simplified to match other demos: removed `sharedDemoStore` / `uiState` / `DemoStore` usage, removed `ComposeDemoControls` overlay and `WindowInsets.safeDrawing` padding; render callback now calls only `sc.tick()` with `time.totalTime` (no FPS dispatch or material overrides)
 - `prism-demo-core/src/androidMain/kotlin/com/hyeonslab/prism/demo/ComposeAndroidEntry.kt` — same simplification as iOS: removed `DemoStore` / `uiState`, removed FPS dispatch and `setMaterialOverride`/`setEnvIntensity` calls, removed `ComposeDemoControls` overlay and `WindowInsets.safeDrawing` padding
 
@@ -144,4 +144,9 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - e1d085f — fix: correct iOS pan gesture axis signs (both axes)
 - 85e0494 — feat: add drag-to-orbit to Compose Desktop demo
 - 5d49637 — refactor: Compose Desktop demo to full-screen, matching other demos
-- HEAD — refactor: simplify all Compose demos to match other platform demos
+- 3b05d41 — refactor: simplify all Compose demos to match other platform demos
+- 1502093 — fix: use dedicated render thread instead of Swing Timer in Compose demo
+- HEAD — fix: revert Compose Desktop to ComposePanel+withFrameNanos, fix detekt violations
+
+## Issues (continued)
+- `2026-02-24T21:04-08:00` **Detekt CI failure on `ComposeMain.kt`**: Commit `1502093` introduced a dedicated daemon render thread with `catch (e: Exception)` (→ `TooGenericExceptionCaught`) and a `while` loop with two `break` statements (→ `LoopWithTooManyJumpStatements`). Fix: revert `ComposeMain.kt` to the `ComposePanel + withFrameNanos` approach. Lambda `return@withFrameNanos` statements are not counted as loop jump statements by detekt, and there is no try-catch, so both violations are resolved.
