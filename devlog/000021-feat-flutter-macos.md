@@ -144,4 +144,4 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - e1d085f — fix: correct iOS pan gesture axis signs (both axes)
 - 85e0494 — feat: add drag-to-orbit to Compose Desktop demo
 - 5d49637 — refactor: Compose Desktop demo to full-screen, matching other demos
-- HEAD — refactor: simplify iOS Compose demo to match other demos
+- HEAD — refactor: simplify all Compose demos to match other platform demos
