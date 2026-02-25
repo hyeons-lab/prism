@@ -134,4 +134,6 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - ba52107 — feat: progressive glTF texture loading for macOS and iOS
 - 6c67d42 — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
 - fbca70b — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue
-- HEAD — fix: correct iOS pan gesture axis signs (both axes)
+- 4f07c95 — fix: iOS black screen, engine handle decode, gesture orientation, FPS safe area
+- e1d085f — fix: correct iOS pan gesture axis signs (both axes)
+- HEAD — chore: update devlog commit hashes
