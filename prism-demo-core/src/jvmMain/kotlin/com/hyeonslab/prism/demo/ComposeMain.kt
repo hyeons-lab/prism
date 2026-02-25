@@ -68,7 +68,7 @@ private fun createAndShowUi() {
         val dy = e.y - lastDragY
         lastDragX = e.x
         lastDragY = e.y
-        scene?.orbitBy(dx * ORBIT_SENSITIVITY, -dy * ORBIT_SENSITIVITY)
+        scene?.orbitBy(-dx * ORBIT_SENSITIVITY, dy * ORBIT_SENSITIVITY)
       }
     }
   )

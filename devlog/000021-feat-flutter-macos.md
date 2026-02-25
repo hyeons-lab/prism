@@ -150,3 +150,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 
 ## Issues (continued)
 - `2026-02-24T21:04-08:00` **Detekt CI failure on `ComposeMain.kt`**: Commit `1502093` introduced a dedicated daemon render thread with `catch (e: Exception)` (→ `TooGenericExceptionCaught`) and a `while` loop with two `break` statements (→ `LoopWithTooManyJumpStatements`). Fix: revert `ComposeMain.kt` to the `ComposePanel + withFrameNanos` approach. Lambda `return@withFrameNanos` statements are not counted as loop jump statements by detekt, and there is no try-catch, so both violations are resolved.
+- `2026-02-24T22:15-08:00` **Compose Desktop orbit axes flipped**: `orbitBy(dx, -dy)` had both signs wrong vs. the macOS native GLFW reference (`-dx`, `+dy`). AWT and GLFW share the same screen-coordinate convention (y increases downward), so the correct call is `orbitBy(-dx * ORBIT_SENSITIVITY, dy * ORBIT_SENSITIVITY)`.
+
+## Decisions (continued)
+- `2026-02-24T22:15-08:00` Compose Desktop orbit sign convention matches macOS native GLFW demo: `-dx` for azimuth (drag right → azimuth decreases, scene rotates right), `+dy` for elevation (drag down → elevation increases, camera goes up). WASM demo uses the same convention.
