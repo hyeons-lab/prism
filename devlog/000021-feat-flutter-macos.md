@@ -57,6 +57,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — fixed `NativeFinalizer` (`.cast()` → module-level `_lib.lookup`), added `implements Finalizable` to Engine/World/Node/Scene
 - `prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart` — fixed `dataset.set()` → `dataset['module'] =`
 - `prism-flutter/example/` — deleted (wrong location; was scaffolded by flutter create incidentally)
+- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — added drag-to-orbit: `MouseAdapter.mousePressed` captures initial position; `MouseMotionAdapter.mouseDragged` calls `scene.orbitBy(-dx * 0.005f, dy * 0.005f)`, matching GLFW/WASM sensitivity
 
 ## Decisions
 - `2026-02-23T22:09-08:00` C API for geometry rendering instead of Kotlin bridge — avoids SKIE/ObjC interop layer, no new SPM packages, ~300 lines new Kotlin + ~100 lines new Dart vs. complex bridge. `buildGltfScene` in `nativeMain` replicates demo-core logic using only library deps.
@@ -136,4 +137,4 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - fbca70b — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue
 - 4f07c95 — fix: iOS black screen, engine handle decode, gesture orientation, FPS safe area
 - e1d085f — fix: correct iOS pan gesture axis signs (both axes)
-- HEAD — chore: update devlog commit hashes
+- HEAD — feat: add drag-to-orbit to Compose Desktop demo

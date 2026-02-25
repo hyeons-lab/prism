@@ -15,6 +15,9 @@ import com.hyeonslab.prism.widget.PrismPanel
 import ffi.LibraryLoader
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import java.awt.event.MouseMotionAdapter
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
@@ -23,6 +26,9 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 
 private val log = Logger.withTag("ComposeMain")
+
+// Radians of orbit per pixel — matches the GLFW and WASM demos.
+private const val ORBIT_SENSITIVITY = 0.005f
 
 /**
  * Compose Desktop demo entry point using JFrame + ComposePanel.
@@ -57,6 +63,33 @@ private fun createAndShowUi() {
   // Left: 3D rendering canvas (heavyweight AWT Canvas for GPU rendering)
   val prismPanel = PrismPanel()
   prismPanel.preferredSize = Dimension(800, 700)
+
+  // Drag-to-orbit: track the last mouse position so each mouseDragged event computes a delta.
+  var lastMouseX = 0
+  var lastMouseY = 0
+  prismPanel.addMouseListener(
+    object : MouseAdapter() {
+      override fun mousePressed(e: MouseEvent) {
+        lastMouseX = e.x
+        lastMouseY = e.y
+      }
+    }
+  )
+  prismPanel.addMouseMotionListener(
+    object : MouseMotionAdapter() {
+      override fun mouseDragged(e: MouseEvent) {
+        val dx = e.x - lastMouseX
+        val dy = e.y - lastMouseY
+        lastMouseX = e.x
+        lastMouseY = e.y
+        scene?.orbitBy(
+          deltaAzimuth = -dx * ORBIT_SENSITIVITY,
+          deltaElevation = dy * ORBIT_SENSITIVITY,
+        )
+      }
+    }
+  )
+
   prismPanel.onReady = {
     log.i { "PrismPanel ready \u2014 initializing scene" }
     val ctx = prismPanel.wgpuContext
