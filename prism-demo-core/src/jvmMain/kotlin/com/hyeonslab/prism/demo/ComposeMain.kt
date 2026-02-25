@@ -14,7 +14,6 @@ import java.awt.event.WindowEvent
 import java.io.File
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
-import javax.swing.Timer
 import kotlinx.coroutines.runBlocking
 
 private val log = Logger.withTag("ComposeMain")
@@ -30,6 +29,8 @@ private const val ORBIT_SENSITIVITY = 0.005f
  * controls are shown in the window title bar rather than as an in-canvas overlay.
  *
  * All Swing/AWT setup runs on the EDT via [SwingUtilities.invokeLater] as required by AWT.
+ * Rendering runs on a dedicated daemon thread; Metal's CAMetalLayer.nextDrawable naturally
+ * throttles to vsync.
  */
 fun main() {
   log.i { "Starting Prism Compose Demo..." }
@@ -39,9 +40,9 @@ fun main() {
 
 private fun createAndShowUi() {
   var scene: DemoScene? = null
-  var renderTimer: Timer? = null
+  var renderThread: Thread? = null
 
-  val frame = JFrame("Prism 3D Engine — Compose Demo")
+  val frame = JFrame("Prism 3D Engine \u2014 Compose Demo")
   frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
   frame.layout = BorderLayout()
 
@@ -93,14 +94,18 @@ private fun createAndShowUi() {
       }
       scene = s
 
-      // Render loop: driven by a Swing Timer (~60 FPS) on the EDT.
+      // Render loop on a dedicated daemon thread. Metal's CAMetalLayer.nextDrawable
+      // naturally rate-limits to vsync (~60 fps) when displaySyncEnabled=true (default),
+      // so no explicit sleep is needed. The tight loop lets Metal control pacing.
       val startTimeNs = System.nanoTime()
       var lastFrameTimeNs = startTimeNs
       var frameCount = 0L
-      var fps = 0f
+      var fpsSmoothed = 0f
+      var lastTitleUpdateMs = System.currentTimeMillis()
 
-      renderTimer =
-        Timer(16) {
+      val t = Thread {
+        while (!Thread.currentThread().isInterrupted) {
+          try {
             val nowNs = System.nanoTime()
             val deltaSec = (nowNs - lastFrameTimeNs) / 1_000_000_000f
             val totalSec = (nowNs - startTimeNs) / 1_000_000_000f
@@ -109,12 +114,26 @@ private fun createAndShowUi() {
 
             s.tick(deltaTime = deltaSec, elapsed = totalSec, frameCount = frameCount)
 
-            if (deltaSec > 0f) {
-              fps = fps * 0.9f + (1f / deltaSec) * 0.1f
-              frame.title = "Prism 3D Engine \u2014 ${fps.toInt()} FPS"
+            // Update window title at most once per second to avoid EDT flood.
+            val nowMs = System.currentTimeMillis()
+            if (deltaSec > 0f && nowMs - lastTitleUpdateMs >= 1000L) {
+              fpsSmoothed = fpsSmoothed * 0.8f + (1f / deltaSec) * 0.2f
+              val fps = fpsSmoothed.toInt()
+              lastTitleUpdateMs = nowMs
+              SwingUtilities.invokeLater { frame.title = "Prism 3D Engine \u2014 $fps FPS" }
             }
+          } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            break
+          } catch (e: Exception) {
+            log.e(e) { "Render tick failed: ${e.message}" }
+            break
           }
-          .also { it.start() }
+        }
+      }
+      t.isDaemon = true
+      t.start()
+      renderThread = t
     }
   }
 
@@ -133,7 +152,8 @@ private fun createAndShowUi() {
   frame.addWindowListener(
     object : WindowAdapter() {
       override fun windowClosing(e: WindowEvent) {
-        renderTimer?.stop()
+        renderThread?.interrupt()
+        renderThread?.join(2000)
         scene?.let { s ->
           log.i { "Shutting down scene..." }
           s.shutdown()
