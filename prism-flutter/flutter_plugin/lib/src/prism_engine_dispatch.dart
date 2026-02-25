@@ -3,7 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 
 import 'prism_engine_channel.dart' as channel;
-import 'prism_engine_ffi.dart' as ffi;
+import 'prism_engine_ffi.dart' as ffi; // used for PrismEngine() constructor
+import 'prism_engine_interface.dart';
 
 /// Runtime dispatcher: MethodChannel on Android; FFI on all other
 /// native platforms (iOS, macOS, Linux, Windows).
@@ -14,7 +15,7 @@ import 'prism_engine_ffi.dart' as ffi;
 /// Prerequisite: run `./gradlew :prism-native:generateFfiBindings` before
 /// building on any FFI platform (generates prism_native_bindings.dart).
 class PrismEngine {
-  final dynamic _impl;
+  final PrismEngineInterface _impl;
 
   PrismEngine()
       : _impl = (Platform.isAndroid)
@@ -23,7 +24,7 @@ class PrismEngine {
 
   /// Raw engine handle (non-zero on FFI platforms). Used by platform views to
   /// call prism-native C API functions (e.g. prism_attach_metal_layer).
-  int get handle => (_impl is ffi.PrismEngine) ? _impl.handle : 0;
+  int get handle => _impl.handle;
 
   void attachCanvas(String canvasId) => _impl.attachCanvas(canvasId);
   Future<void> initialize({String appName = 'Prism', int targetFps = 60}) =>
@@ -44,10 +45,10 @@ class PrismEngine {
 
   /// Returns true once [loadGltfFromPath] has completed and the scene is ready to
   /// render.
-  bool get isRendererReady => _impl.isRendererReady as bool;
+  bool get isRendererReady => _impl.isRendererReady;
 
   /// Smoothed frames-per-second. Safe to call every frame.
-  double get fps => (_impl is ffi.PrismEngine) ? _impl.fps : 0.0;
+  double get fps => _impl.fps;
 
   // ── Camera control ───────────────────────────────────────────────────────────
 

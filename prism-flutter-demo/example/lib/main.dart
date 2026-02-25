@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:prism_flutter/prism_flutter.dart';
@@ -83,10 +84,11 @@ class _PrismDemoPageState extends State<PrismDemoPage>
     return Scaffold(
       body: Stack(
         children: [
-          // 3D render view — only added once the engine handle is valid so that
-          // the platform view (UiKitView / AppKitView) is created with the
-          // correct handle and setupMtkView() is called on creation.
-          if (_engine.handle != 0)
+          // 3D render view — on native platforms, only added once the engine
+          // handle is valid so that UiKitView/AppKitView is created with the
+          // correct handle and setupMtkView() is called on creation. On web,
+          // handle is always 0 (WASM drives itself), so we show it immediately.
+          if (kIsWeb || _engine.handle != 0)
             Positioned.fill(
               child: PrismRenderView(engineHandle: _engine.handle),
             ),
@@ -97,7 +99,8 @@ class _PrismDemoPageState extends State<PrismDemoPage>
             child: _FpsChip(fps: _fps),
           ),
           // Loading overlay — shown until the 3D scene is ready to render.
-          if (!_isSceneReady)
+          // Not shown on web: the WASM canvas manages its own startup state.
+          if (!kIsWeb && !_isSceneReady)
             const Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,

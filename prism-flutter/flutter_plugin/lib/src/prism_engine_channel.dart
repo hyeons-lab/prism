@@ -1,10 +1,12 @@
 import 'package:flutter/services.dart';
 
+import 'prism_engine_interface.dart';
+
 /// Mobile implementation of PrismEngine using platform method channels.
 ///
 /// The render loop is driven natively (Choreographer on Android, MTKView on iOS).
 /// This class provides control methods to adjust the demo scene.
-class PrismEngine {
+class PrismEngine implements PrismEngineInterface {
   static const MethodChannel _channel =
       MethodChannel('engine.prism.flutter/engine');
 

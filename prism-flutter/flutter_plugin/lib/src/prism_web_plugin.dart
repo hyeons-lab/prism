@@ -29,6 +29,10 @@ external void _prismShutdown(String canvasId);
 /// PrismRenderView widgets to coexist on the same page without conflicting.
 class PrismWebEngine {
   static bool _wasmLoaded = false;
+
+  /// True once the Kotlin/WASM module has been fully loaded and its exports
+  /// are available on [window.PrismSdk].
+  static bool get isWasmLoaded => _wasmLoaded;
   static String? _loadedModuleUrl;
   static Future<void>? _wasmLoadingFuture;
 

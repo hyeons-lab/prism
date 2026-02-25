@@ -1,3 +1,4 @@
+import 'prism_engine_interface.dart';
 import 'prism_web_plugin.dart';
 
 /// Web implementation of PrismEngine that delegates to WASM-exported JS functions.
@@ -5,7 +6,7 @@ import 'prism_web_plugin.dart';
 /// The render loop is driven by requestAnimationFrame inside the Kotlin/WASM module.
 /// Each instance is bound to a specific canvas via [attachCanvas], allowing multiple
 /// PrismRenderView widgets to coexist without state conflicts.
-class PrismEngine {
+class PrismEngine implements PrismEngineInterface {
   String? _canvasId;
 
   /// Bind this engine to a specific canvas element. Called by PrismRenderView
@@ -46,4 +47,32 @@ class PrismEngine {
     if (id != null) await PrismWebEngine.shutdown(id);
     _canvasId = null;
   }
+
+  // ── Scene loading ────────────────────────────────────────────────────────
+
+  /// No-op on web — the GLB is passed directly to [PrismWebEngine.init] via
+  /// the canvas render view (not as a filesystem path).
+  Future<void> loadGltfFromPath(String path) async {}
+
+  /// Always true on web — the WASM canvas manages its own startup state and
+  /// does not need a Flutter-level loading overlay.
+  bool get isRendererReady => true;
+
+  /// FPS is not exposed synchronously on web; always returns 0.
+  double get fps => 0.0;
+
+  // ── Camera control ───────────────────────────────────────────────────────
+
+  /// No-op on web — gesture handling is not wired via the engine API.
+  void orbitBy(double dx, double dy) {}
+
+  /// No-op on web.
+  void zoom(double delta) {}
+
+  // ── Asset path helper ────────────────────────────────────────────────────
+
+  /// Returns null on web — assets are fetched by URL inside the WASM module,
+  /// not via a filesystem path resolved from a method channel.
+  static Future<String?> resolveFlutterAssetPath(String assetKey) async =>
+      null;
 }

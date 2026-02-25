@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 
 import 'generated/prism_native_bindings.dart';
+import 'prism_engine_interface.dart';
 
 /// Native (FFI) implementation of PrismEngine.
 ///
@@ -31,7 +32,7 @@ PrismNativeBindings _loadBindings() {
   return PrismNativeBindings(lib);
 }
 
-class PrismEngine {
+class PrismEngine implements PrismEngineInterface {
   PrismEngine() : _bindings = _sharedBindings;
 
   final PrismNativeBindings _bindings;
@@ -70,7 +71,7 @@ class PrismEngine {
   /// Must be called after the platform view has been created (which triggers
   /// [prism_attach_metal_layer] on the native side). After this call,
   /// [prism_render_frame] renders the scene instead of the clear-colour stub.
-  void loadGltfFromPath(String glbPath) {
+  Future<void> loadGltfFromPath(String glbPath) async {
     final nativePath = glbPath.toNativeUtf8();
     try {
       _bindings.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
