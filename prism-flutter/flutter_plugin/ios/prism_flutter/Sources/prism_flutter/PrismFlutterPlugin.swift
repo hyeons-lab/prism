@@ -139,7 +139,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 
     @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
         let translation = recognizer.translation(in: recognizer.view)
-        prism_orbit_by(engineHandle, -Double(translation.x) * 0.01, Double(translation.y) * 0.01)
+        prism_orbit_by(engineHandle, Double(translation.x) * 0.01, -Double(translation.y) * 0.01)
         recognizer.setTranslation(.zero, in: recognizer.view)
     }
 

@@ -121,7 +121,8 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
   4. **Zero-size layout guard missing**: `layoutSubviews` fires before Flutter sets the real frame, calling `prism_attach_metal_layer` with 0×0, causing renderer init to fail permanently. Added `guard width > 0 && height > 0 else { return }` before the `isAttached` check.
   5. **`PrismRenderView` created before engine handle valid**: The widget was unconditionally rendered with `handle=0`, so `setupMtkView()` was skipped. Fixed by guarding with `if (_engine.handle != 0)` and calling `setState(() {})` after `initialize()` in `_setup()`.
   6. **FPS chip overlapping Dynamic Island**: Fixed with `MediaQuery.of(context).padding.top + 8` as `top` offset.
-  7. **Flipped pan gesture orbit**: `prism_orbit_by` called with `+translation.x, -translation.y`. Fixed to `-translation.x, +translation.y`.
+  7. **Flipped pan gesture orbit (first attempt)**: `prism_orbit_by` called with `+translation.x, -translation.y`. Changed to `-translation.x, +translation.y` — but user confirmed BOTH axes were still wrong after testing with a working scene.
+  8. **Flipped pan gesture orbit (corrected)**: With the scene rendering, user confirmed `-translation.x, +translation.y` still felt wrong for both axes. Reverted to `+translation.x, -translation.y`. Analysis: UIKit `translation.y` is negative when dragging up; negating it gives positive elevation (camera up), which is the natural expectation. UIKit `translation.x` positive when dragging right maps directly to increasing azimuth (camera orbits right). Final: `prism_orbit_by(handle, +translation.x * 0.01, -translation.y * 0.01)`.
 
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
@@ -133,3 +134,4 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - ba52107 — feat: progressive glTF texture loading for macOS and iOS
 - 6c67d42 — refactor: progressive glTF texture loading via withContext(Dispatchers.Default)
 - fbca70b — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue
+- HEAD — fix: correct iOS pan gesture axis signs (both axes)
