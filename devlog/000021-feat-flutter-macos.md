@@ -57,7 +57,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — fixed `NativeFinalizer` (`.cast()` → module-level `_lib.lookup`), added `implements Finalizable` to Engine/World/Node/Scene
 - `prism-flutter/flutter_plugin/lib/src/prism_web_plugin.dart` — fixed `dataset.set()` → `dataset['module'] =`
 - `prism-flutter/example/` — deleted (wrong location; was scaffolded by flutter create incidentally)
-- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — added drag-to-orbit: `MouseAdapter.mousePressed` captures initial position; `MouseMotionAdapter.mouseDragged` calls `scene.orbitBy(-dx * 0.005f, dy * 0.005f)`, matching GLFW/WASM sensitivity
+- `prism-demo-core/src/jvmMain/kotlin/com/hyeonslab/prism/demo/ComposeMain.kt` — refactored to full-screen layout matching other demos: removed ComposePanel side panel and DemoStore, PrismPanel fills full window (1000×700), Swing Timer render loop (~60 FPS), FPS shown in window title; drag-to-orbit via `MouseAdapter`/`MouseMotionAdapter` at `0.005f rad/px`
 
 ## Decisions
 - `2026-02-23T22:09-08:00` C API for geometry rendering instead of Kotlin bridge — avoids SKIE/ObjC interop layer, no new SPM packages, ~300 lines new Kotlin + ~100 lines new Dart vs. complex bridge. `buildGltfScene` in `nativeMain` replicates demo-core logic using only library deps.
@@ -125,6 +125,9 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
   7. **Flipped pan gesture orbit (first attempt)**: `prism_orbit_by` called with `+translation.x, -translation.y`. Changed to `-translation.x, +translation.y` — but user confirmed BOTH axes were still wrong after testing with a working scene.
   8. **Flipped pan gesture orbit (corrected)**: With the scene rendering, user confirmed `-translation.x, +translation.y` still felt wrong for both axes. Reverted to `+translation.x, -translation.y`. Analysis: UIKit `translation.y` is negative when dragging up; negating it gives positive elevation (camera up), which is the natural expectation. UIKit `translation.x` positive when dragging right maps directly to increasing azimuth (camera orbits right). Final: `prism_orbit_by(handle, +translation.x * 0.01, -translation.y * 0.01)`.
 
+- `2026-02-24T20:00-08:00` **macOS demo showing spinner (stale xcframework)**: Same root cause as iOS — `PrismNative.xcframework` (macos-arm64 slice) was built Feb 23 23:24, before the `fbca70b` pendingGlbPaths commit. Old `prismLoadGltfFromPath` returned immediately if no surface attached, without queuing the path. Since Dart calls `loadGltfFromPath` before the first `draw(in:)` fires (macOS merged UI+platform thread causes the path to arrive before the MTKView delegate runs), the path was discarded and `buildGltfScene` was never called. Fix: `./gradlew :prism-flutter:bundleNativeMacOS` (xcframework is gitignored, rebuilt locally). Verified: macOS demo renders the DamagedHelmet scene.
+- `2026-02-24T20:00-08:00` **"Lost connection to device" false positives**: Multiple concurrent `flutter run -d macos` instances competed for the same device; each triggered "Lost connection to device" in the others. Not a crash. Resolved by killing all instances before launching a fresh one.
+
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
@@ -137,4 +140,5 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - fbca70b — refactor: replace Flutter demo poll timer with Ticker + native pending-path queue
 - 4f07c95 — fix: iOS black screen, engine handle decode, gesture orientation, FPS safe area
 - e1d085f — fix: correct iOS pan gesture axis signs (both axes)
-- HEAD — feat: add drag-to-orbit to Compose Desktop demo
+- 85e0494 — feat: add drag-to-orbit to Compose Desktop demo
+- HEAD — refactor: Compose Desktop demo to full-screen, matching other demos
