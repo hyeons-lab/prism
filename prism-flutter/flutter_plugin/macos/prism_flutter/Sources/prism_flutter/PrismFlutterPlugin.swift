@@ -20,24 +20,12 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
             switch call.method {
             case "resolveFlutterAssetPath":
                 if let assetKey = call.arguments as? String {
-                    // Use Flutter's registrar to resolve the canonical lookup key
-                    // (e.g. "flutter_assets/assets/DamagedHelmet.glb"), then search
-                    // App.framework (where flutter_assets lives in all build modes).
-                    let key = registrar.lookupKey(forAsset: assetKey)
+                    // On macOS, Flutter assets live inside App.framework's Resources directory.
                     let appFrameworkPath = Bundle.main.bundlePath
                         + "/Contents/Frameworks/App.framework"
                     if let appBundle = Bundle(path: appFrameworkPath),
                        let resourcePath = appBundle.resourcePath {
-                        let path = resourcePath + "/" + key
-                        if FileManager.default.fileExists(atPath: path) {
-                            result(path)
-                            return
-                        }
-                    }
-                    // Fallback: check the main bundle resource path directly.
-                    if let resourcePath = Bundle.main.resourcePath {
-                        let path = resourcePath + "/" + key
-                        result(FileManager.default.fileExists(atPath: path) ? path : nil)
+                        result(resourcePath + "/flutter_assets/" + assetKey)
                     } else {
                         result(nil)
                     }
