@@ -6,9 +6,9 @@
 //  - TargetPlatformVariant.only(TargetPlatform.iOS) ensures PrismRenderView
 //    returns SizedBox.shrink() (handle == 0 before initialize()) instead of
 //    creating an AppKitView or AndroidView, which require a registered factory.
-//  - On the test host, PrismEngine uses the FFI backend. The FFI initialize()
-//    call will fail silently (no libprism in test binary), leaving handle == 0
-//    and isRendererReady == false — so the loading overlay stays visible.
+//  - On the test host, PrismEngine uses the FFI backend. _loadBindings() catches
+//    the ArgumentError from the missing libprism and returns null, leaving
+//    handle == 0 and isRendererReady == false — so the loading overlay stays.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

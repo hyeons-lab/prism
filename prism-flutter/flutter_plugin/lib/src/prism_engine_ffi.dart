@@ -18,24 +18,34 @@ import 'prism_engine_interface.dart';
 // Module-level singleton: the dynamic library is loaded exactly once here.
 // Using a single instance prevents loading a second copy of the dylib, which
 // would crash with duplicate ObjC class definitions on Apple platforms.
-final PrismNativeBindings _sharedBindings = _loadBindings();
+//
+// Returns null when the native library is unavailable (e.g., running Flutter
+// tests on a Linux/Windows host without a built libprism). All PrismEngine
+// methods guard against null bindings, so construction never throws.
+final PrismNativeBindings? _sharedBindings = _loadBindings();
 
-PrismNativeBindings _loadBindings() {
-  // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
-  // target and auto-loaded by dyld before Dart code runs — use process() to
-  // avoid loading a second copy, which causes duplicate ObjC class crashes.
-  final lib = Platform.isLinux
-      ? DynamicLibrary.open('libprism.so')
-      : Platform.isWindows
-          ? DynamicLibrary.open('prism.dll')
-          : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
-  return PrismNativeBindings(lib);
+PrismNativeBindings? _loadBindings() {
+  try {
+    // On Apple platforms (iOS + macOS) the dylib is embedded by the SPM binary
+    // target and auto-loaded by dyld before Dart code runs — use process() to
+    // avoid loading a second copy, which causes duplicate ObjC class crashes.
+    final lib = Platform.isLinux
+        ? DynamicLibrary.open('libprism.so')
+        : Platform.isWindows
+            ? DynamicLibrary.open('prism.dll')
+            : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
+    return PrismNativeBindings(lib);
+  } on ArgumentError {
+    // Native library not available (e.g., test environment without libprism).
+    // Engine methods become no-ops; isRendererReady / fps return safe defaults.
+    return null;
+  }
 }
 
 class PrismEngine implements PrismEngineInterface {
   PrismEngine() : _bindings = _sharedBindings;
 
-  final PrismNativeBindings _bindings;
+  final PrismNativeBindings? _bindings;
   int _engineHandle = 0;
   bool _initialized = false;
 
@@ -45,18 +55,19 @@ class PrismEngine implements PrismEngineInterface {
   // No-op: canvas binding is only needed for the web multi-instance model.
   void attachCanvas(String canvasId) {}
 
-  /// Creates and initializes the native engine (no-op if already initialized).
+  /// Creates and initializes the native engine (no-op if already initialized
+  /// or if the native library could not be loaded).
   Future<void> initialize({String appName = 'Prism', int targetFps = 60}) async {
-    if (_initialized) return;
+    if (_initialized || _bindings == null) return;
     final nativeName = appName.toNativeUtf8();
     try {
       _engineHandle =
-          _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
-      _bindings.prism_engine_initialize(_engineHandle);
+          _bindings!.prism_create_engine(nativeName.cast<Void>(), targetFps);
+      _bindings!.prism_engine_initialize(_engineHandle);
       _initialized = true;
     } on Exception {
       if (_engineHandle != 0) {
-        _bindings.prism_destroy_engine(_engineHandle);
+        _bindings!.prism_destroy_engine(_engineHandle);
         _engineHandle = 0;
       }
       rethrow;
@@ -75,7 +86,7 @@ class PrismEngine implements PrismEngineInterface {
     if (!_initialized) return;
     final nativePath = glbPath.toNativeUtf8();
     try {
-      _bindings.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
+      _bindings!.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
     } finally {
       malloc.free(nativePath);
     }
@@ -83,51 +94,68 @@ class PrismEngine implements PrismEngineInterface {
 
   /// Returns true once [loadGltfFromPath] has completed and the scene is
   /// rendering.
-  bool get isRendererReady => _initialized &&
-      _bindings.prism_is_renderer_ready(_engineHandle) != 0;
+  bool get isRendererReady =>
+      _initialized &&
+      _bindings != null &&
+      _bindings!.prism_is_renderer_ready(_engineHandle) != 0;
 
   /// Smoothed frames-per-second. Safe to call every frame.
-  double get fps => _initialized ? _bindings.prism_get_fps(_engineHandle) : 0.0;
+  double get fps =>
+      _initialized && _bindings != null
+          ? _bindings!.prism_get_fps(_engineHandle)
+          : 0.0;
 
   /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
   /// vertically. Wire to touch/mouse drag events.
   void orbitBy(double dx, double dy) {
     if (!_initialized) return;
-    _bindings.prism_orbit_by(_engineHandle, dx, dy);
+    _bindings!.prism_orbit_by(_engineHandle, dx, dy);
   }
 
   /// Adjusts the orbit radius by [delta] units (positive = zoom in).
   /// Wire to pinch or scroll-wheel events.
   void zoom(double delta) {
     if (!_initialized) return;
-    _bindings.prism_zoom(_engineHandle, delta);
+    _bindings!.prism_zoom(_engineHandle, delta);
   }
 
   /// Toggles the render-loop pause state.
   Future<void> togglePause() async {
     if (!_initialized) return;
-    _bindings.prism_toggle_pause(_engineHandle);
+    _bindings!.prism_toggle_pause(_engineHandle);
   }
 
   /// Returns true once the engine has been created and initialized.
   Future<bool> isInitialized() async => _initialized;
 
   /// Returns basic engine state including live FPS and pause flag.
-  Future<Map<String, dynamic>> getState() async => {
-        'initialized': _initialized,
-        'deltaTime': _bindings.prism_engine_get_delta_time(_engineHandle),
-        'totalTime': _bindings.prism_engine_get_total_time(_engineHandle),
-        'frameCount': _bindings.prism_engine_get_frame_count(_engineHandle),
-        'fps': _bindings.prism_get_fps(_engineHandle),
-        'isPaused': _bindings.prism_get_pause_state(_engineHandle) != 0,
+  Future<Map<String, dynamic>> getState() async {
+    if (!_initialized || _bindings == null) {
+      return {
+        'initialized': false,
+        'deltaTime': 0.0,
+        'totalTime': 0.0,
+        'frameCount': 0,
+        'fps': 0.0,
+        'isPaused': false,
       };
+    }
+    return {
+      'initialized': _initialized,
+      'deltaTime': _bindings!.prism_engine_get_delta_time(_engineHandle),
+      'totalTime': _bindings!.prism_engine_get_total_time(_engineHandle),
+      'frameCount': _bindings!.prism_engine_get_frame_count(_engineHandle),
+      'fps': _bindings!.prism_get_fps(_engineHandle),
+      'isPaused': _bindings!.prism_get_pause_state(_engineHandle) != 0,
+    };
+  }
 
   /// Shuts down and destroys the native engine. Guard against double-destroy:
   /// [_initialized] is cleared before returning so a second call is a no-op.
   Future<void> shutdown() async {
     if (!_initialized) return;
     _initialized = false; // clear before destroy so double-calls are no-ops
-    _bindings.prism_destroy_engine(_engineHandle);
+    _bindings!.prism_destroy_engine(_engineHandle);
     _engineHandle = 0;
   }
 }
