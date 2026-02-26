@@ -1,0 +1,31 @@
+{
+  "object" : {
+    "artifacts" : [
+      {
+        "kind" : {
+          "xcframework" : {
+
+          }
+        },
+        "packageRef" : {
+          "identity" : "prism_flutter",
+          "kind" : "root",
+          "location" : "/Users/dberrios/development/prism/worktrees/flutter-macos/prism-flutter/flutter_plugin/ios/prism_flutter",
+          "name" : "prism_flutter"
+        },
+        "path" : "/Users/dberrios/development/prism/worktrees/flutter-macos/prism-flutter/flutter_plugin/ios/prism_flutter/Frameworks/PrismNative.xcframework",
+        "source" : {
+          "type" : "local"
+        },
+        "targetName" : "PrismNative"
+      }
+    ],
+    "dependencies" : [
+
+    ],
+    "prebuilts" : [
+
+    ]
+  },
+  "version" : 7
+}

@@ -50,13 +50,19 @@ class _PrismDemoPageState extends State<PrismDemoPage>
   }
 
   Future<void> _setup() async {
-    await _engine.initialize();
+    try {
+      await _engine.initialize();
+    } catch (_) {
+      // Engine initialization failed (e.g., native library not available in
+      // test environment). The loading overlay remains visible.
+      return;
+    }
     // Trigger a rebuild so PrismRenderView is created with the now-valid engine
     // handle. Without this the UiKitView/AppKitView is built with handle=0,
     // setupMtkView() is skipped, and prism_attach_metal_layer is never called.
     if (mounted) setState(() {});
     final path = await PrismEngine.resolveFlutterAssetPath(_glbAsset);
-    if (path != null) _engine.loadGltfFromPath(path);
+    if (path != null) unawaited(_engine.loadGltfFromPath(path));
   }
 
   void _onFrame(Duration elapsed) {

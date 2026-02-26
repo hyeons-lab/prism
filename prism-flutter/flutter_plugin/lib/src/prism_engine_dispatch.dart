@@ -14,7 +14,7 @@ import 'prism_engine_interface.dart';
 ///
 /// Prerequisite: run `./gradlew :prism-native:generateFfiBindings` before
 /// building on any FFI platform (generates prism_native_bindings.dart).
-class PrismEngine {
+class PrismEngine implements PrismEngineInterface {
   final PrismEngineInterface _impl;
 
   PrismEngine()

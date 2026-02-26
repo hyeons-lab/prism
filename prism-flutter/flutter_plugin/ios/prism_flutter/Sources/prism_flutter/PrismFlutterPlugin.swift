@@ -20,18 +20,19 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
                     // On iOS, Flutter assets live inside App.framework (not Bundle.main directly).
                     let appFramework = Bundle.main.bundlePath + "/Frameworks/App.framework"
                     let path = appFramework + "/flutter_assets/" + assetKey
-                    result(path)
+                    // Return nil if the path doesn't exist so callers can skip loadGltfFromPath
+                    // rather than passing a nonexistent path to the native file reader.
+                    if FileManager.default.fileExists(atPath: path) {
+                        result(path)
+                    } else {
+                        result(nil)
+                    }
                 } else {
                     result(nil)
                 }
-            case "togglePause":
-                result(nil)
-            case "isInitialized":
-                result(false)
-            case "getState":
-                result(["initialized": false])
-            case "shutdown":
-                result(nil)
+            // The remaining methods are handled via Dart FFI on iOS (not the channel).
+            // Return FlutterMethodNotImplemented so callers get a clear signal rather
+            // than silently wrong values (e.g. isInitialized: false).
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -159,6 +160,8 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 }
 
 // C API bindings (provided by PrismNative.xcframework)
+// NOTE: on iOS `ptr` must be a `MTKView *`.
+//       On macOS the same symbol expects a `CAMetalLayer *`. Both are void* at the C level.
 @_silgen_name("prism_attach_metal_layer")
 func prism_attach_metal_layer(_ handle: Int64, _ ptr: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
 

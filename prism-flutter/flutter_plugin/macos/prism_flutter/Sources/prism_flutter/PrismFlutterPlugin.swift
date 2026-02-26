@@ -32,14 +32,9 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
                 } else {
                     result(nil)
                 }
-            case "togglePause":
-                result(nil)
-            case "isInitialized":
-                result(false)
-            case "getState":
-                result(["initialized": false])
-            case "shutdown":
-                result(nil)
+            // The remaining methods are handled via Dart FFI on macOS (not the channel).
+            // Return FlutterMethodNotImplemented so callers get a clear signal rather
+            // than silently wrong values (e.g. isInitialized: false).
             default:
                 result(FlutterMethodNotImplemented)
             }

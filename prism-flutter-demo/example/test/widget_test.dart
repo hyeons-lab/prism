@@ -3,11 +3,12 @@
 // Widget tests for the Prism Flutter demo app.
 //
 // _FpsChip and PrismDemoPage are tested through PrismDemoApp:
-//  - On macOS host, PrismEngine uses the method channel (no-op initialize,
-//    channel returns null → isInitialized() returns false, getState() returns {}).
 //  - TargetPlatformVariant.only(TargetPlatform.iOS) ensures PrismRenderView
-//    falls through to its "not yet available" fallback instead of creating an
-//    AppKitView or AndroidView (which require a registered platform view factory).
+//    returns SizedBox.shrink() (handle == 0 before initialize()) instead of
+//    creating an AppKitView or AndroidView, which require a registered factory.
+//  - On the test host, PrismEngine uses the FFI backend. The FFI initialize()
+//    call will fail silently (no libprism in test binary), leaving handle == 0
+//    and isRendererReady == false — so the loading overlay stays visible.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,10 +37,10 @@ void main() {
     await tester.pumpWidget(const PrismDemoApp());
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
-    // The poll timer fires every 500 ms. Advance time past one tick so the
-    // timer callback runs. On iOS target the engine is not initialized (channel
-    // returns null → false), so the overlay persists — confirming the timer
-    // alone does not prematurely hide it.
+    // Advance a few frames via the Ticker. On the iOS target variant the FFI
+    // engine has handle == 0 (no libprism in test binary), so isRendererReady
+    // is false and the overlay persists — confirming the Ticker alone does not
+    // prematurely hide it.
     await tester.pump(const Duration(milliseconds: 600));
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));

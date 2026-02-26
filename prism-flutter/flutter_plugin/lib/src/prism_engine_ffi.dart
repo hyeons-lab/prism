@@ -54,7 +54,7 @@ class PrismEngine implements PrismEngineInterface {
           _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
       _bindings.prism_engine_initialize(_engineHandle);
       _initialized = true;
-    } catch (_) {
+    } on Exception {
       if (_engineHandle != 0) {
         _bindings.prism_destroy_engine(_engineHandle);
         _engineHandle = 0;
@@ -72,6 +72,7 @@ class PrismEngine implements PrismEngineInterface {
   /// [prism_attach_metal_layer] on the native side). After this call,
   /// [prism_render_frame] renders the scene instead of the clear-colour stub.
   Future<void> loadGltfFromPath(String glbPath) async {
+    if (!_initialized) return;
     final nativePath = glbPath.toNativeUtf8();
     try {
       _bindings.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
@@ -82,24 +83,31 @@ class PrismEngine implements PrismEngineInterface {
 
   /// Returns true once [loadGltfFromPath] has completed and the scene is
   /// rendering.
-  bool get isRendererReady =>
+  bool get isRendererReady => _initialized &&
       _bindings.prism_is_renderer_ready(_engineHandle) != 0;
 
   /// Smoothed frames-per-second. Safe to call every frame.
-  double get fps => _bindings.prism_get_fps(_engineHandle);
+  double get fps => _initialized ? _bindings.prism_get_fps(_engineHandle) : 0.0;
 
   /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
   /// vertically. Wire to touch/mouse drag events.
-  void orbitBy(double dx, double dy) =>
-      _bindings.prism_orbit_by(_engineHandle, dx, dy);
+  void orbitBy(double dx, double dy) {
+    if (!_initialized) return;
+    _bindings.prism_orbit_by(_engineHandle, dx, dy);
+  }
 
   /// Adjusts the orbit radius by [delta] units (positive = zoom in).
   /// Wire to pinch or scroll-wheel events.
-  void zoom(double delta) => _bindings.prism_zoom(_engineHandle, delta);
+  void zoom(double delta) {
+    if (!_initialized) return;
+    _bindings.prism_zoom(_engineHandle, delta);
+  }
 
   /// Toggles the render-loop pause state.
-  Future<void> togglePause() async =>
-      _bindings.prism_toggle_pause(_engineHandle);
+  Future<void> togglePause() async {
+    if (!_initialized) return;
+    _bindings.prism_toggle_pause(_engineHandle);
+  }
 
   /// Returns true once the engine has been created and initialized.
   Future<bool> isInitialized() async => _initialized;

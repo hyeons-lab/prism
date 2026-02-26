@@ -46,7 +46,15 @@ class PrismEngine implements PrismEngineInterface {
   // GLB loading is handled natively on Android; Flutter-side loadGltfFromPath is a no-op.
   Future<void> loadGltfFromPath(String path) async {}
   bool get isRendererReady => true;
+
+  /// Always 0.0 on Android — FPS is tracked natively but not yet bridged to Dart.
+  /// The AndroidView handles gestures natively via its PrismSurface touch listener;
+  /// calling orbitBy/zoom from Dart has no effect on Android.
   double get fps => 0.0;
+
+  /// No-op on Android — orbit is driven by the native platform view's touch listener.
   void orbitBy(double dx, double dy) {}
+
+  /// No-op on Android — zoom is driven by the native platform view's touch listener.
   void zoom(double delta) {}
 }

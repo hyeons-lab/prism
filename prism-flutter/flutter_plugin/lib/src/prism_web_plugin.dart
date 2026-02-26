@@ -147,6 +147,8 @@ class PrismWebEngine {
     return _prismIsInitialized(canvasId);
   }
 
-  static Future<void> shutdown(String canvasId) async =>
-      _prismShutdown(canvasId);
+  static Future<void> shutdown(String canvasId) async {
+    if (!_wasmLoaded) return;
+    _prismShutdown(canvasId);
+  }
 }

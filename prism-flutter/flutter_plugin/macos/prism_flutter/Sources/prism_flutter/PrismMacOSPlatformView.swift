@@ -48,8 +48,10 @@ class PrismMacOSMetalView: MTKView, MTKViewDelegate {
     required init(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
     deinit {
-        let handle = engineHandle
-        DispatchQueue.main.async { prism_detach_surface(handle) }
+        // Nil out the delegate synchronously so any draw call queued in the run
+        // loop cannot fire after deallocation has begun.
+        delegate = nil
+        prism_detach_surface(engineHandle)
     }
 
     // MARK: MTKViewDelegate
@@ -93,6 +95,8 @@ class PrismMacOSMetalView: MTKView, MTKViewDelegate {
 }
 
 // C API bindings — provided by PrismNative.xcframework.
+// NOTE: on macOS `ptr` must be a `CAMetalLayer *` (retrieved from MTKView.layer).
+//       On iOS the same symbol expects a `MTKView *`. Both are void* at the C level.
 @_silgen_name("prism_attach_metal_layer")
 func prism_attach_metal_layer(_ handle: Int64, _ ptr: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
 

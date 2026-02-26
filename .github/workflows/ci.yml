@@ -131,6 +131,7 @@ jobs:
         run: |
           START=$SECONDS
           ./gradlew iosSimulatorArm64Test \
+            macosArm64Test \
             :prism-demo-core:assemblePrismDemoDebugXCFramework \
             :prism-ios:assemblePrismDebugXCFramework \
             :prism-native:linkDebugSharedIosSimulatorArm64 \
@@ -259,12 +260,20 @@ jobs:
         run: flutter analyze --no-pub
         working-directory: prism-flutter/flutter_plugin
 
+      - name: Dart test — plugin
+        run: flutter test --no-pub
+        working-directory: prism-flutter/flutter_plugin
+
       - name: Pub get — demo
         run: flutter pub get
         working-directory: prism-flutter-demo/example
 
       - name: Dart analyze — demo
         run: flutter analyze --no-pub
+        working-directory: prism-flutter-demo/example
+
+      - name: Dart test — demo
+        run: flutter test --no-pub
         working-directory: prism-flutter-demo/example
 
   docker:

@@ -49,5 +49,9 @@ class PrismRenderView extends StatelessWidget {
     );
   }
 
+  // Android readiness: the native PrismSurface initialises itself when the
+  // SurfaceHolder is available (surfaceCreated callback). The channel backend
+  // returns isRendererReady == true immediately, so the Dart overlay hides
+  // without needing a platform-view-created signal here.
   void _onPlatformViewCreated(int id) {}
 }
