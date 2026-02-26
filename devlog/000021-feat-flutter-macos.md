@@ -157,6 +157,10 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - 289cf31 — fix: correct iOS pan gesture axis signs (-x, +y)
 - 8346e2d — chore: update devlog with gesture fix and platform verification
 - HEAD — chore: commit generated Dart FFI/JS bindings so flutter analyze passes in CI
+- 87a0ae6 — fix: address critical review issues across Flutter plugin and CI
+- a3a5c41 — chore: remove accidentally committed Swift PM build artifacts
+- 1ca6faf — fix: make FFI library loading non-fatal in test environments
+- HEAD — fix: resolve asset via rootBundle+temp file; remove method channel from iOS/macOS
 
 ## Issues (continued)
 - `2026-02-24T21:04-08:00` **Detekt CI failure on `ComposeMain.kt`**: Commit `1502093` introduced a dedicated daemon render thread with `catch (e: Exception)` (→ `TooGenericExceptionCaught`) and a `while` loop with two `break` statements (→ `LoopWithTooManyJumpStatements`). Fix: revert `ComposeMain.kt` to the `ComposePanel + withFrameNanos` approach. Lambda `return@withFrameNanos` statements are not counted as loop jump statements by detekt, and there is no try-catch, so both violations are resolved.
@@ -174,3 +178,8 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 
 ## Decisions (continued)
 - `2026-02-24T22:15-08:00` Compose Desktop orbit sign convention matches macOS native GLFW demo: `-dx` for azimuth (drag right → azimuth decreases, scene rotates right), `+dy` for elevation (drag down → elevation increases, camera goes up). WASM demo uses the same convention.
+- `2026-02-26T06:53-0800` **Flutter Dart Analysis CI still failing**: Demo widget tests crashed with `ArgumentError: Failed to load dynamic library 'libprism.so'`. Root cause: `_sharedBindings` module-level initializer in `prism_engine_ffi.dart` called `DynamicLibrary.open('libprism.so')` on Linux CI, which threw before `_setup()`'s try-catch could help. Fix: `_loadBindings()` now catches `ArgumentError` and returns null; `_bindings` is nullable (`PrismNativeBindings?`); all methods guard against null. Construction no longer throws — engine silently becomes a no-op with `isRendererReady == false`, `fps == 0.0`.
+- `2026-02-26T06:53-0800` **`resolveFlutterAssetPath` fragile Swift bundle path**: Hardcoded `App.framework/flutter_assets/` path worked in release but was fragile and required the iOS/macOS method channel. Replaced with `rootBundle.load(assetKey)` + write to `Directory.systemTemp` in Dart dispatch. Cache ensures one-time extraction per session. Removed `resolveFlutterAssetPath` handler and channel registration from both iOS and macOS Swift plugins — no method channel needed on Apple targets.
+
+## Decisions (continued)
+- `2026-02-26T06:53-0800` Use `rootBundle` + temp file for asset resolution — avoids platform-specific bundle path logic, works on all FFI platforms (iOS, macOS, Linux, Windows), uses Flutter's official asset API. `Directory.systemTemp` avoids `path_provider` dependency for the demo use-case.

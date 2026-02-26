@@ -6,37 +6,8 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let factory = PrismIOSPlatformViewFactory(messenger: registrar.messenger())
         registrar.register(factory, withId: "engine.prism.flutter/render_view")
-
-        // Register a method channel for engine control. Handlers below are stubs
-        // that will be wired to the native C API once the engine model stabilises.
-        let channel = FlutterMethodChannel(
-            name: "engine.prism.flutter/engine",
-            binaryMessenger: registrar.messenger()
-        )
-        channel.setMethodCallHandler { call, result in
-            switch call.method {
-            case "resolveFlutterAssetPath":
-                if let assetKey = call.arguments as? String {
-                    // On iOS, Flutter assets live inside App.framework (not Bundle.main directly).
-                    let appFramework = Bundle.main.bundlePath + "/Frameworks/App.framework"
-                    let path = appFramework + "/flutter_assets/" + assetKey
-                    // Return nil if the path doesn't exist so callers can skip loadGltfFromPath
-                    // rather than passing a nonexistent path to the native file reader.
-                    if FileManager.default.fileExists(atPath: path) {
-                        result(path)
-                    } else {
-                        result(nil)
-                    }
-                } else {
-                    result(nil)
-                }
-            // The remaining methods are handled via Dart FFI on iOS (not the channel).
-            // Return FlutterMethodNotImplemented so callers get a clear signal rather
-            // than silently wrong values (e.g. isInitialized: false).
-            default:
-                result(FlutterMethodNotImplemented)
-            }
-        }
+        // Asset path resolution is handled entirely in Dart via rootBundle + temp files.
+        // No method channel registration needed on iOS.
     }
 }
 

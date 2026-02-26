@@ -62,12 +62,12 @@ class PrismEngine implements PrismEngineInterface {
     final nativeName = appName.toNativeUtf8();
     try {
       _engineHandle =
-          _bindings!.prism_create_engine(nativeName.cast<Void>(), targetFps);
-      _bindings!.prism_engine_initialize(_engineHandle);
+          _bindings.prism_create_engine(nativeName.cast<Void>(), targetFps);
+      _bindings.prism_engine_initialize(_engineHandle);
       _initialized = true;
     } on Exception {
       if (_engineHandle != 0) {
-        _bindings!.prism_destroy_engine(_engineHandle);
+        _bindings.prism_destroy_engine(_engineHandle);
         _engineHandle = 0;
       }
       rethrow;
@@ -97,12 +97,12 @@ class PrismEngine implements PrismEngineInterface {
   bool get isRendererReady =>
       _initialized &&
       _bindings != null &&
-      _bindings!.prism_is_renderer_ready(_engineHandle) != 0;
+      _bindings.prism_is_renderer_ready(_engineHandle) != 0;
 
   /// Smoothed frames-per-second. Safe to call every frame.
   double get fps =>
       _initialized && _bindings != null
-          ? _bindings!.prism_get_fps(_engineHandle)
+          ? _bindings.prism_get_fps(_engineHandle)
           : 0.0;
 
   /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
@@ -142,11 +142,11 @@ class PrismEngine implements PrismEngineInterface {
     }
     return {
       'initialized': _initialized,
-      'deltaTime': _bindings!.prism_engine_get_delta_time(_engineHandle),
-      'totalTime': _bindings!.prism_engine_get_total_time(_engineHandle),
-      'frameCount': _bindings!.prism_engine_get_frame_count(_engineHandle),
-      'fps': _bindings!.prism_get_fps(_engineHandle),
-      'isPaused': _bindings!.prism_get_pause_state(_engineHandle) != 0,
+      'deltaTime': _bindings.prism_engine_get_delta_time(_engineHandle),
+      'totalTime': _bindings.prism_engine_get_total_time(_engineHandle),
+      'frameCount': _bindings.prism_engine_get_frame_count(_engineHandle),
+      'fps': _bindings.prism_get_fps(_engineHandle),
+      'isPaused': _bindings.prism_get_pause_state(_engineHandle) != 0,
     };
   }
 

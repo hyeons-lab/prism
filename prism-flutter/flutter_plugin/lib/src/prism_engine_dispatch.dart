@@ -1,6 +1,6 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform;
 
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import 'prism_engine_channel.dart' as channel;
 import 'prism_engine_ffi.dart' as ffi; // used for PrismEngine() constructor
@@ -62,14 +62,33 @@ class PrismEngine implements PrismEngineInterface {
 
   // ── Asset path helper ────────────────────────────────────────────────────────
 
-  /// Resolves a Flutter asset key (e.g. `'assets/DamagedHelmet.glb'`) to its
-  /// absolute filesystem path inside the app bundle. Returns null if the platform
-  /// cannot resolve the path (e.g. Android).
-  static const _channel = MethodChannel('engine.prism.flutter/engine');
+  /// In-memory cache mapping asset keys to their extracted temp-file paths.
+  static final _assetPathCache = <String, String>{};
+
+  /// Resolves a Flutter asset key (e.g. `'assets/DamagedHelmet.glb'`) to an
+  /// absolute filesystem path the native engine can open directly.
+  ///
+  /// The asset is read from Flutter's asset bundle via [rootBundle] and written
+  /// to the system temp directory on first use. Subsequent calls return the
+  /// cached path without re-reading the bundle. This approach works on all FFI
+  /// platforms (iOS, macOS, Linux, Windows) without platform-specific Swift or
+  /// native code.
+  ///
+  /// Returns null on Android (the native PrismSurface loads assets directly via
+  /// the AssetManager) and when the asset cannot be loaded.
   static Future<String?> resolveFlutterAssetPath(String assetKey) async {
-    // Android has no native scene loading from Flutter — return null so the
-    // caller skips loadGltfFromPath rather than hitting MissingPluginException.
     if (Platform.isAndroid) return null;
-    return _channel.invokeMethod<String>('resolveFlutterAssetPath', assetKey);
+    final cached = _assetPathCache[assetKey];
+    if (cached != null) return cached;
+    try {
+      final bytes = await rootBundle.load(assetKey);
+      final fileName = assetKey.split('/').last;
+      final tempFile = File('${Directory.systemTemp.path}/$fileName');
+      await tempFile.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      _assetPathCache[assetKey] = tempFile.path;
+      return tempFile.path;
+    } catch (_) {
+      return null;
+    }
   }
 }

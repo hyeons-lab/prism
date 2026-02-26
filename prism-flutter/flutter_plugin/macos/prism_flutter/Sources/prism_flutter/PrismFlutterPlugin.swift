@@ -12,32 +12,7 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
         registrar.register(
             PrismMacOSPlatformViewFactory(),
             withId: "engine.prism.flutter/render_view")
-
-        let channel = FlutterMethodChannel(
-            name: "engine.prism.flutter/engine",
-            binaryMessenger: registrar.messenger)
-        channel.setMethodCallHandler { call, result in
-            switch call.method {
-            case "resolveFlutterAssetPath":
-                if let assetKey = call.arguments as? String {
-                    // On macOS, Flutter assets live inside App.framework's Resources directory.
-                    let appFrameworkPath = Bundle.main.bundlePath
-                        + "/Contents/Frameworks/App.framework"
-                    if let appBundle = Bundle(path: appFrameworkPath),
-                       let resourcePath = appBundle.resourcePath {
-                        result(resourcePath + "/flutter_assets/" + assetKey)
-                    } else {
-                        result(nil)
-                    }
-                } else {
-                    result(nil)
-                }
-            // The remaining methods are handled via Dart FFI on macOS (not the channel).
-            // Return FlutterMethodNotImplemented so callers get a clear signal rather
-            // than silently wrong values (e.g. isInitialized: false).
-            default:
-                result(FlutterMethodNotImplemented)
-            }
-        }
+        // Asset path resolution is handled entirely in Dart via rootBundle + temp files.
+        // No method channel registration needed on macOS.
     }
 }
