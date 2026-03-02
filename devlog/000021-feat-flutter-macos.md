@@ -74,6 +74,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-03-01T22:50-0800` `prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — temp file name uses `assetKey.replaceAll('/', '_')` instead of `split('/').last` to avoid basename collision
 - `2026-03-01T22:50-0800` `prism-flutter/flutter_plugin/lib/src/prism_engine_web.dart` — `fps` getter now prefers `_canvasId` over `PrismWebEngine.lastCanvasId` for correct per-instance FPS in multi-engine setups
 - `2026-03-01T22:50-0800` `prism-native/build.gradle.kts` — added explicit `implementation(project(":prism-renderer"))` to `nativeMain.dependencies`
+- `2026-03-01T23:23-0800` `prism-native/src/nativeMain/.../NativeBridge.kt` — `*_ptr` wrappers: replaced `import kotlinx.cinterop.rawValue` + `token?.rawValue` with `import kotlinx.cinterop.toLong` + `token?.toLong()`; `rawValue` returns `NativePtr` which doesn't implicitly coerce to `Long`; `CPointer<*>.toLong()` is the correct Kotlin/Native idiom
 
 ## Decisions
 - `2026-02-23T22:09-08:00` C API for geometry rendering instead of Kotlin bridge — avoids SKIE/ObjC interop layer, no new SPM packages, ~300 lines new Kotlin + ~100 lines new Dart vs. complex bridge. `buildGltfScene` in `nativeMain` replicates demo-core logic using only library deps.
@@ -93,6 +94,7 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-02-26T06:53-0800` Use `rootBundle` + temp file for asset resolution — avoids platform-specific bundle path logic, works on all FFI platforms (iOS, macOS, Linux, Windows), uses Flutter's official asset API. `Directory.systemTemp` avoids `path_provider` dependency for the demo use-case.
 - `2026-03-01T22:50-0800` `*_ptr` C wrappers for NativeFinalizer: Dart's `NativeFinalizerFunction` is `Void Function(Pointer<Void>)` but the Kotlin destroy functions take `Long`. On arm64, a `void*` argument and a `Long` argument follow different calling-convention rules (pointer vs. integer register class on some ABIs), making the original lookup technically UB. The `*_ptr` wrappers have exactly the right C signature; `rawValue` on the `COpaquePointer` token recovers the handle stored as `Pointer.fromAddress(handle)` on the Dart side.
 - `2026-03-01T22:50-0800` Explicit `:prism-renderer` dep: `WgpuRenderer` is referenced directly in `SceneState.kt`. Transitive resolution worked in practice but making it explicit documents the dependency and guards against future refactoring that removes the transitive path.
+- `2026-03-01T23:23-0800` CI failure: `NativePtr` is not implicitly `Long` in Kotlin/Native — the plan assumed `rawValue` (type `NativePtr`) could be passed directly to functions expecting `Long` since `NativePtr = typealias Long` on 64-bit. The compiler rejects this without explicit conversion on all targets (iOS, Linux, Windows). Fix: use `CPointer<*>.toLong()` (from `kotlinx.cinterop`) which is the standard Kotlin/Native idiom for pointer-to-Long conversion and calls `rawValue.toLong()` internally.
 
 ## Issues
 - `2026-02-23T22:48-08:00` `renderer.initialize(engine)` not called before `initializeIbl()`: `WgpuRenderer` requires `initialize()` to be called first to create bind group layouts, default textures, and PBR pipelines. Calling `initializeIbl()` before `initialize()` caused `NullPointerException` at `envBindGroupLayout!!`. `RenderSystem.initialize(world)` has an empty body — doesn't call `renderer.initialize()`. Fix: pass `Engine` to `buildGltfScene` and call `renderer.initialize(engine)` before `initializeIbl()`.
@@ -159,4 +161,6 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - a3a5c41 — chore: remove accidentally committed Swift PM build artifacts
 - 1ca6faf — fix: make FFI library loading non-fatal in test environments
 - 81273d4 — fix: resolve asset via rootBundle+temp file; remove method channel from iOS/macOS
-- HEAD — fix: address Copilot PR #48 review comments (cmd buf leak, finalizer UB, temp file collision, web FPS affinity, explicit renderer dep)
+- 8e5a708 — fix: address Copilot PR #48 review comments (cmd buf leak, finalizer UB, temp file collision, web FPS affinity, explicit renderer dep)
+- abb3aae — chore: consolidate devlog sections into single flat structure
+- HEAD — fix: NativeBridge *_ptr wrappers use CPointer.toLong() not rawValue

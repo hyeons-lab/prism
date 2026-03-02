@@ -20,7 +20,7 @@ import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.rawValue
+import kotlinx.cinterop.toLong
 import kotlinx.cinterop.toKString
 
 // ---------------------------------------------------------------------------
@@ -231,29 +231,29 @@ fun prismDestroyNode(handle: Long) {
 //
 // NativeFinalizerFunction requires Void Function(Pointer<Void>). The Dart
 // side stores the handle as the token address via Pointer.fromAddress(handle),
-// so rawValue recovers the original Long handle.
+// so toLong() recovers the original Long handle.
 // ---------------------------------------------------------------------------
 
 /** Pointer-typed wrapper around [prismDestroyEngine] for Dart [NativeFinalizer]. */
 @CName("prism_destroy_engine_ptr")
 fun prismDestroyEnginePtr(token: COpaquePointer?) {
-  prismDestroyEngine(token?.rawValue ?: return)
+  prismDestroyEngine(token?.toLong() ?: return)
 }
 
 /** Pointer-typed wrapper around [prismDestroyWorld] for Dart [NativeFinalizer]. */
 @CName("prism_destroy_world_ptr")
 fun prismDestroyWorldPtr(token: COpaquePointer?) {
-  prismDestroyWorld(token?.rawValue ?: return)
+  prismDestroyWorld(token?.toLong() ?: return)
 }
 
 /** Pointer-typed wrapper around [prismDestroyScene] for Dart [NativeFinalizer]. */
 @CName("prism_destroy_scene_ptr")
 fun prismDestroyScenePtr(token: COpaquePointer?) {
-  prismDestroyScene(token?.rawValue ?: return)
+  prismDestroyScene(token?.toLong() ?: return)
 }
 
 /** Pointer-typed wrapper around [prismDestroyNode] for Dart [NativeFinalizer]. */
 @CName("prism_destroy_node_ptr")
 fun prismDestroyNodePtr(token: COpaquePointer?) {
-  prismDestroyNode(token?.rawValue ?: return)
+  prismDestroyNode(token?.toLong() ?: return)
 }
