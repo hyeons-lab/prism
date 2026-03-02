@@ -20,8 +20,8 @@ import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.toLong
 import kotlinx.cinterop.toKString
+import kotlinx.cinterop.toLong
 
 // ---------------------------------------------------------------------------
 // Engine API
