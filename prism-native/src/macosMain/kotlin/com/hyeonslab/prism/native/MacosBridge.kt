@@ -195,7 +195,7 @@ fun prismRenderFrame(engineHandle: Long) {
             )
           )
           .end()
-        ctx.device.queue.submit(listOf(encoder.finish()))
+        encoder.finish().use { cmdBuf -> ctx.device.queue.submit(listOf(cmdBuf)) }
       }
     }
   }

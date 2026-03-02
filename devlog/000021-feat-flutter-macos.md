@@ -156,11 +156,11 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - fa784af — test: unit tests for channel PrismEngine interface contract
 - 289cf31 — fix: correct iOS pan gesture axis signs (-x, +y)
 - 8346e2d — chore: update devlog with gesture fix and platform verification
-- HEAD — chore: commit generated Dart FFI/JS bindings so flutter analyze passes in CI
+- 3fbf597 — chore: commit generated Dart FFI/JS bindings so flutter analyze passes in CI
 - 87a0ae6 — fix: address critical review issues across Flutter plugin and CI
 - a3a5c41 — chore: remove accidentally committed Swift PM build artifacts
 - 1ca6faf — fix: make FFI library loading non-fatal in test environments
-- HEAD — fix: resolve asset via rootBundle+temp file; remove method channel from iOS/macOS
+- 81273d4 — fix: resolve asset via rootBundle+temp file; remove method channel from iOS/macOS
 
 ## Issues (continued)
 - `2026-02-24T21:04-08:00` **Detekt CI failure on `ComposeMain.kt`**: Commit `1502093` introduced a dedicated daemon render thread with `catch (e: Exception)` (→ `TooGenericExceptionCaught`) and a `while` loop with two `break` statements (→ `LoopWithTooManyJumpStatements`). Fix: revert `ComposeMain.kt` to the `ComposePanel + withFrameNanos` approach. Lambda `return@withFrameNanos` statements are not counted as loop jump statements by detekt, and there is no try-catch, so both violations are resolved.
@@ -183,3 +183,20 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 
 ## Decisions (continued)
 - `2026-02-26T06:53-0800` Use `rootBundle` + temp file for asset resolution — avoids platform-specific bundle path logic, works on all FFI platforms (iOS, macOS, Linux, Windows), uses Flutter's official asset API. `Directory.systemTemp` avoids `path_provider` dependency for the demo use-case.
+
+## What Changed (continued) — `2026-03-01T22:50-0800` Copilot PR #48 review fixes (plan `000021-03`)
+
+- `prism-native/src/macosMain/.../MacosBridge.kt` — `encoder.finish().use { cmdBuf -> ... }` in fallback clear pass; closes the `GPUCommandBuffer` every frame instead of leaking it
+- `prism-native/src/iosMain/.../IosBridge.kt` — identical `encoder.finish().use` fix
+- `prism-native/src/nativeMain/.../NativeBridge.kt` — added `import kotlinx.cinterop.COpaquePointer` + `rawValue`; added 4 `*_ptr` wrapper functions (`prism_destroy_engine_ptr`, `prism_destroy_world_ptr`, `prism_destroy_scene_ptr`, `prism_destroy_node_ptr`) that take `COpaquePointer?` and forward to the `Long`-typed originals
+- `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — updated all 4 `NativeFinalizer` lookups from `prism_destroy_*` to `prism_destroy_*_ptr` to match the new C signature
+- `prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — temp file name uses `assetKey.replaceAll('/', '_')` instead of `split('/').last` to avoid basename collision
+- `prism-flutter/flutter_plugin/lib/src/prism_engine_web.dart` — `fps` getter now prefers `_canvasId` over `PrismWebEngine.lastCanvasId` for correct per-instance FPS in multi-engine setups
+- `prism-native/build.gradle.kts` — added explicit `implementation(project(":prism-renderer"))` to `nativeMain.dependencies`
+
+## Decisions (continued) — `2026-03-01T22:50-0800`
+- `*_ptr` C wrappers for NativeFinalizer: Dart's `NativeFinalizerFunction` is `Void Function(Pointer<Void>)` but the Kotlin destroy functions take `Long`. On arm64, a `void*` argument and a `Long` argument follow different calling-convention rules (pointer vs. integer register class on some ABIs), making the original lookup technically UB. The `*_ptr` wrappers have exactly the right C signature; `rawValue` on the `COpaquePointer` token recovers the handle stored as `Pointer.fromAddress(handle)` on the Dart side.
+- Explicit `:prism-renderer` dep: `WgpuRenderer` is referenced directly in `SceneState.kt`. Transitive resolution worked in practice but making it explicit documents the dependency and guards against future refactoring that removes the transitive path.
+
+## Commits (continued)
+- HEAD — fix: address Copilot PR #48 review comments (cmd buf leak, finalizer UB, temp file collision, web FPS affinity, explicit renderer dep)

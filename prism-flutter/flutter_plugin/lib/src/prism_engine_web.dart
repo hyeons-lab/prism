@@ -59,7 +59,8 @@ class PrismEngine implements PrismEngineInterface {
   bool get isRendererReady => true;
 
   /// Smoothed FPS for the most recently initialised canvas. Synchronous.
-  double get fps => PrismWebEngine.getFps(PrismWebEngine.lastCanvasId ?? '');
+  double get fps =>
+      PrismWebEngine.getFps(_canvasId ?? PrismWebEngine.lastCanvasId ?? '');
 
   // ── Camera control ───────────────────────────────────────────────────────
 

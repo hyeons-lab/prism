@@ -19,21 +19,22 @@ DynamicLibrary _openLibrary() {
 final _lib = _openLibrary();
 final _bindings = PrismNativeBindings(_lib);
 
-// NativeFinalizer function pointers — the C functions take Int64 handles, but
-// NativeFinalizerFunction requires Pointer<Void>. The token passed to attach()
-// carries the handle as its address so the cast is safe on 64-bit targets.
+// NativeFinalizer function pointers — the _ptr variants accept Pointer<Void>
+// directly. The token passed to attach() carries the handle as its address
+// via Pointer.fromAddress(handle); rawValue in the Kotlin wrapper recovers the
+// original Long handle so the correct destroy function is called.
 final _destroyEngineFinalizer = NativeFinalizer(
     _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-        'prism_destroy_engine'));
+        'prism_destroy_engine_ptr'));
 final _destroyWorldFinalizer = NativeFinalizer(
     _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-        'prism_destroy_world'));
+        'prism_destroy_world_ptr'));
 final _destroyNodeFinalizer = NativeFinalizer(
     _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-        'prism_destroy_node'));
+        'prism_destroy_node_ptr'));
 final _destroySceneFinalizer = NativeFinalizer(
     _lib.lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-        'prism_destroy_scene'));
+        'prism_destroy_scene_ptr'));
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 

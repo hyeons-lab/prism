@@ -82,7 +82,7 @@ class PrismEngine implements PrismEngineInterface {
     if (cached != null) return cached;
     try {
       final bytes = await rootBundle.load(assetKey);
-      final fileName = assetKey.split('/').last;
+      final fileName = assetKey.replaceAll('/', '_');
       final tempFile = File('${Directory.systemTemp.path}/$fileName');
       await tempFile.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
       _assetPathCache[assetKey] = tempFile.path;
