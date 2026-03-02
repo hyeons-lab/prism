@@ -131,6 +131,21 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-02-26T06:53-0800` **Flutter Dart Analysis CI still failing**: Demo widget tests crashed with `ArgumentError: Failed to load dynamic library 'libprism.so'`. Root cause: `_sharedBindings` module-level initializer in `prism_engine_ffi.dart` called `DynamicLibrary.open('libprism.so')` on Linux CI, which threw before `_setup()`'s try-catch could help. Fix: `_loadBindings()` now catches `ArgumentError` and returns null; `_bindings` is nullable (`PrismNativeBindings?`); all methods guard against null. Construction no longer throws — engine silently becomes a no-op with `isRendererReady == false`, `fps == 0.0`.
 - `2026-02-26T06:53-0800` **`resolveFlutterAssetPath` fragile Swift bundle path**: Hardcoded `App.framework/flutter_assets/` path worked in release but was fragile and required the iOS/macOS method channel. Replaced with `rootBundle.load(assetKey)` + write to `Directory.systemTemp` in Dart dispatch. Cache ensures one-time extraction per session. Removed `resolveFlutterAssetPath` handler and channel registration from both iOS and macOS Swift plugins — no method channel needed on Apple targets.
 
+## What Changed (continued)
+- `2026-03-02T07:14-0800` `prism-native/src/nativeMain/.../SceneState.kt:shutdown()` — added `renderer.shutdown()` before `world.shutdown()` to release all GPU resources (pipeline objects, uniform buffers, HDR render target, IBL textures, bind groups) on scene teardown
+- `2026-03-02T07:14-0800` `prism-native/src/nativeMain/.../SceneState.kt:advanceTiming()` — seed `_fps` on first frame via `if (_fps == 0.0) _fps = 1.0 / delta`; EMA now converges immediately instead of ramping from 0 over ~20 frames
+- `2026-03-02T07:14-0800` `prism-flutter/flutter_plugin/ios/.../PrismFlutterPlugin.swift` — added `PrismDisplayLinkProxy` weak-reference class; `setupMtkView()` creates a proxy and passes it to `CADisplayLink` instead of `self`; breaks the `self → displayLink → self` ARC retain cycle that prevented `deinit` from ever firing
+- `2026-03-02T07:14-0800` `prism-flutter/flutter_plugin/ios/.../PrismFlutterPlugin.swift:layoutSubviews` — removed `DispatchQueue.global().async` wrapper around `prism_attach_metal_layer`; call is now synchronous on the main thread, eliminating the attach/detach race that became live once the retain-cycle fix allowed `deinit` to fire
+- `2026-03-02T07:14-0800` `prism-flutter/flutter_plugin/lib/src/prism_sdk_ffi.dart` — wrapped `DynamicLibrary.open()` in `_openLibraryOrNull()` with `ArgumentError` catch; `_lib` and `_bindings` are now nullable; `_lookupFinalizer()` guards symbol lookups; all class constructors and methods guard against null bindings — construction never throws even when `libprism.so`/`prism.dll` is absent
+
+## Decisions (continued)
+- `2026-03-02T07:14-0800` `renderer.shutdown()` order: called before `world.shutdown()` to ensure GPU resources are destroyed before the ECS world (which owns the components). Matches the existing macOS/iOS bridge teardown order in `prismDetachSurface`.
+- `2026-03-02T07:14-0800` Synchronous `prism_attach_metal_layer` on iOS: the original async dispatch was introduced to avoid a hypothetical deadlock from `runBlocking(Dispatchers.Default)` on the main thread. Analysis: `Dispatchers.Default` dispatches to a worker-thread pool; the coroutine never resumes on the main `RunLoop`, so blocking the main thread is safe. Making it synchronous eliminates the attach/detach race entirely without requiring a mutex or cancellation mechanism.
+- `2026-03-02T07:14-0800` `renderFrame()` access level: `PrismDisplayLinkProxy.renderFrame()` calls `target?.renderFrame()`, requiring `renderFrame` to be accessible from the proxy (different class). Changed from `@objc private` to `@objc` (`internal`). This is safe since `PrismIOSPlatformView` is itself private to the file.
+
+## Issues (continued)
+- `2026-03-02T07:14-0800` Dart type narrowing: `_lib != null ? PrismNativeBindings(_lib) : null` did not narrow `DynamicLibrary?` to `DynamicLibrary` for top-level finals; required `_lib!` in the true branch.
+
 ## Commits
 - 475dfd7 — chore: add devlog and plan for Flutter macOS demo
 - 9037ebb — feat: Flutter macOS demo, align plugin with iOS pattern
@@ -163,4 +178,6 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - 81273d4 — fix: resolve asset via rootBundle+temp file; remove method channel from iOS/macOS
 - 8e5a708 — fix: address Copilot PR #48 review comments (cmd buf leak, finalizer UB, temp file collision, web FPS affinity, explicit renderer dep)
 - abb3aae — chore: consolidate devlog sections into single flat structure
-- HEAD — fix: NativeBridge *_ptr wrappers use CPointer.toLong() not rawValue
+- 84cb7bb — fix: NativeBridge *_ptr wrappers use CPointer.toLong() not rawValue
+- a50b8df — chore: ktfmt import order in NativeBridge.kt
+- HEAD — fix: PR review — renderer shutdown, iOS retain cycle, attach race, SDK FFI safe load

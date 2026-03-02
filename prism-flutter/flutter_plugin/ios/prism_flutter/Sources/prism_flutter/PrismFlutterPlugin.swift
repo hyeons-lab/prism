@@ -53,18 +53,27 @@ private class PrismMetalView: UIView {
         if !isAttached {
             isAttached = true
             let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
-            // prism_attach_metal_layer runs runBlocking{iosContextRenderer()} which can
-            // internally dispatch to background queues; calling it from the main thread
-            // with runBlocking risks a deadlock on the main-thread RunLoop. Move it to
-            // a background queue so the main thread stays free.
             let handle = engineHandle
-            DispatchQueue.global(qos: .userInitiated).async {
-                prism_attach_metal_layer(handle, rawPtr, width, height)
-            }
+            // Call synchronously. prism_attach_metal_layer calls
+            // runBlocking(Dispatchers.Default){iosContextRenderer()} which dispatches to a
+            // worker-thread pool — it does NOT resume on the main RunLoop, so blocking here
+            // is safe and eliminates the attach/detach race that an async dispatch would create.
+            prism_attach_metal_layer(handle, rawPtr, width, height)
         } else {
             prism_resize(engineHandle, width, height)
         }
     }
+}
+
+/// Weak-reference proxy used to break the CADisplayLink → PrismIOSPlatformView retain cycle.
+///
+/// `CADisplayLink` strongly retains its target. Without indirection, the cycle
+/// `PrismIOSPlatformView → displayLink → PrismIOSPlatformView` would prevent `deinit` from
+/// ever firing, leaking the engine, surface, and GPU resources permanently.
+private class PrismDisplayLinkProxy: NSObject {
+    weak var target: PrismIOSPlatformView?
+    init(_ target: PrismIOSPlatformView) { self.target = target }
+    @objc func renderFrame() { target?.renderFrame() }
 }
 
 class PrismIOSPlatformView: NSObject, FlutterPlatformView {
@@ -100,7 +109,10 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         // sees a valid drawable size (the view is in the window hierarchy at that point).
         _view.mtkView = mtkView
 
-        displayLink = CADisplayLink(target: self, selector: #selector(renderFrame))
+        // Use a weak proxy so CADisplayLink does not strongly retain self, breaking the
+        // retain cycle that would otherwise prevent deinit from firing.
+        let proxy = PrismDisplayLinkProxy(self)
+        displayLink = CADisplayLink(target: proxy, selector: #selector(PrismDisplayLinkProxy.renderFrame))
         displayLink?.add(to: .main, forMode: .common)
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
@@ -119,7 +131,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         prism_zoom(engineHandle, Double(recognizer.velocity) * 0.05)
     }
 
-    @objc private func renderFrame() {
+    @objc func renderFrame() {
         prism_render_frame(engineHandle)
     }
 
