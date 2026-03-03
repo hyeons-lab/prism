@@ -2,19 +2,21 @@ import FlutterMacOS
 import MetalKit
 import QuartzCore
 
-/// Factory that creates PrismMetalView instances backed by a shared bridge.
-/// The same bridge instance is reused across view re-creations so the method
-/// channel always has a reference to the active rendering state.
+/// Factory that creates `PrismMacOSMetalView` instances.
+///
+/// The engine handle is read from the Dart creationParams dictionary
+/// (`{'engineHandle': <int64>}`) passed via `AppKitView`. This matches the iOS
+/// plugin pattern — no pre-configured bridge object is needed.
 public class PrismMacOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
 
-    private let bridge: PrismMetalBridgeProtocol
-
-    public init(bridge: PrismMetalBridgeProtocol) {
-        self.bridge = bridge
+    public override init() {
+        super.init()
     }
 
     public func create(withViewIdentifier viewId: Int64, arguments args: Any?) -> NSView {
-        return PrismMetalView(bridge: bridge)
+        let params = args as? [String: Any]
+        let engineHandle = (params?["engineHandle"] as? NSNumber)?.int64Value ?? 0
+        return PrismMacOSMetalView(engineHandle: engineHandle)
     }
 
     public func createArgsCodec() -> (FlutterMessageCodec & NSObjectProtocol)? {
@@ -22,14 +24,19 @@ public class PrismMacOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory
     }
 }
 
-/// Generic MTKView-backed Flutter platform view.
-/// Drives any [PrismMetalBridgeProtocol] through the standard Metal layer lifecycle.
-class PrismMetalView: MTKView, MTKViewDelegate {
+/// MTKView-backed Flutter platform view for macOS.
+///
+/// On the first draw call, retrieves the `CAMetalLayer` from the view's layer tree
+/// and passes its raw pointer to `prism_attach_metal_layer` so the Kotlin/Native
+/// side can configure a wgpu surface on it. Subsequent draw calls invoke
+/// `prism_render_frame` to render one frame.
+class PrismMacOSMetalView: MTKView, MTKViewDelegate {
 
-    private let bridge: PrismMetalBridgeProtocol
+    private let engineHandle: Int64
+    private var surfaceAttached = false
 
-    init(bridge: PrismMetalBridgeProtocol) {
-        self.bridge = bridge
+    init(engineHandle: Int64) {
+        self.engineHandle = engineHandle
         let device = MTLCreateSystemDefaultDevice()
         super.init(frame: .zero, device: device)
         isPaused = false
@@ -41,8 +48,10 @@ class PrismMetalView: MTKView, MTKViewDelegate {
     required init(coder: NSCoder) { fatalError("init(coder:) not supported") }
 
     deinit {
-        let b = bridge
-        DispatchQueue.main.async { b.detachSurface() }
+        // Nil out the delegate synchronously so any draw call queued in the run
+        // loop cannot fire after deallocation has begun.
+        delegate = nil
+        prism_detach_surface(engineHandle)
     }
 
     // MARK: MTKViewDelegate
@@ -50,23 +59,23 @@ class PrismMetalView: MTKView, MTKViewDelegate {
     func draw(in view: MTKView) {
         let size = view.drawableSize
         guard size.width > 0 && size.height > 0 else { return }
-        if !bridge.isInitialized {
+        guard engineHandle != 0 else { return }
+
+        if !surfaceAttached {
             guard let metalLayer = view.layer as? CAMetalLayer else { return }
             let rawPtr = Unmanaged.passUnretained(metalLayer).toOpaque()
-            bridge.attachMetalLayer(
-                layerPtr: rawPtr,
-                width: Int32(size.width),
-                height: Int32(size.height))
-            // Don't render on the initialization frame; wait for the next draw call.
-            // This ensures the surface reconfiguration in attachMetalLayer takes effect.
+            prism_attach_metal_layer(engineHandle, rawPtr, Int32(size.width), Int32(size.height))
+            surfaceAttached = true
+            // Skip rendering on the attachment frame; wait for the surface to be ready.
             return
         }
-        bridge.renderFrame()
+
+        prism_render_frame(engineHandle)
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
-        guard size.width > 0 && size.height > 0 else { return }
-        bridge.resize(width: Int32(size.width), height: Int32(size.height))
+        guard surfaceAttached && size.width > 0 && size.height > 0 else { return }
+        prism_resize(engineHandle, Int32(size.width), Int32(size.height))
     }
 
     // MARK: Mouse / scroll input
@@ -75,20 +84,38 @@ class PrismMetalView: MTKView, MTKViewDelegate {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
-    /// Orbit the camera: horizontal drag → azimuth, vertical drag → elevation.
-    /// Sensitivity of 0.01 rad/pt gives roughly 628 px per full revolution (2π / 0.01).
-    /// Both axes are negated so dragging right/up feels like grabbing the scene.
-    /// No-op when the bridge does not conform to PrismInputDelegate.
     override func mouseDragged(with event: NSEvent) {
-        guard let input = bridge as? PrismInputDelegate else { return }
-        let sensitivity = 0.01
-        input.orbitBy(dx: -event.deltaX * sensitivity, dy: event.deltaY * sensitivity)
+        guard engineHandle != 0 else { return }
+        // 0.005 rad/pt — AppKit deltaX/Y are continuous per-event deltas (typically 1–5 pt),
+        // so 0.005 is intentionally half the iOS pan sensitivity (0.01) which uses accumulated
+        // UIPanGestureRecognizer translation reset each frame (typically 5–20 pt per callback).
+        let sensitivity = 0.005
+        prism_orbit_by(engineHandle, -event.deltaX * sensitivity, event.deltaY * sensitivity)
     }
 
-    /// Zoom by adjusting orbit radius. Scroll up (positive scrollingDeltaY) zooms in.
-    /// No-op when the bridge does not conform to PrismInputDelegate.
     override func scrollWheel(with event: NSEvent) {
-        guard let input = bridge as? PrismInputDelegate else { return }
-        input.zoom(delta: Double(event.scrollingDeltaY) * 0.1)
+        guard engineHandle != 0 else { return }
+        prism_zoom(engineHandle, event.scrollingDeltaY * 0.01)
     }
 }
+
+// C API bindings — provided by PrismNative.xcframework.
+// NOTE: on macOS `ptr` must be a `CAMetalLayer *` (retrieved from MTKView.layer).
+//       On iOS the same symbol expects a `MTKView *`. Both are void* at the C level.
+@_silgen_name("prism_attach_metal_layer")
+func prism_attach_metal_layer(_ handle: Int64, _ ptr: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
+
+@_silgen_name("prism_render_frame")
+func prism_render_frame(_ handle: Int64)
+
+@_silgen_name("prism_detach_surface")
+func prism_detach_surface(_ handle: Int64)
+
+@_silgen_name("prism_resize")
+func prism_resize(_ handle: Int64, _ width: Int32, _ height: Int32)
+
+@_silgen_name("prism_orbit_by")
+func prism_orbit_by(_ handle: Int64, _ dx: Double, _ dy: Double)
+
+@_silgen_name("prism_zoom")
+func prism_zoom(_ handle: Int64, _ delta: Double)

@@ -6,30 +6,8 @@ public class PrismFlutterPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let factory = PrismIOSPlatformViewFactory(messenger: registrar.messenger())
         registrar.register(factory, withId: "engine.prism.flutter/render_view")
-
-        // Register a method channel for engine control. Handlers below are stubs
-        // that will be wired to the native C API once the engine model stabilises.
-        let channel = FlutterMethodChannel(
-            name: "engine.prism.flutter/engine",
-            binaryMessenger: registrar.messenger()
-        )
-        channel.setMethodCallHandler { call, result in
-            switch call.method {
-            case "togglePause":
-                // TODO: wire to prism_native C API when a pause/resume function is exposed.
-                result(nil)
-            case "isInitialized":
-                // Return true if the platform view has been created (engine handle non-zero).
-                result(false)
-            case "getState":
-                result(["initialized": false])
-            case "shutdown":
-                // TODO: call prism_detach_surface for the associated engine handle.
-                result(nil)
-            default:
-                result(FlutterMethodNotImplemented)
-            }
-        }
+        // Asset path resolution is handled entirely in Dart via rootBundle + temp files.
+        // No method channel registration needed on iOS.
     }
 }
 
@@ -50,13 +28,16 @@ class PrismIOSPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
     }
 }
 
-/// A UIView subclass that holds the embedded MTKView and forwards layout changes to
-/// the Kotlin/Native prism_resize C API.
+/// A UIView subclass that holds the embedded MTKView and drives the initial attach + resize.
+///
+/// `prism_attach_metal_layer` is deferred to the first `layoutSubviews` call so that wgpu
+/// sees a valid Metal drawable size. Subsequent layout changes call `prism_resize`.
 private class PrismMetalView: UIView {
     var engineHandle: Int64 = 0
     /// Strong reference to the embedded MTKView. MTKView is a subview of this container so ARC
     /// keeps it alive while the Kotlin/Native side holds a raw pointer to it.
     var mtkView: MTKView?
+    private var isAttached = false
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -65,8 +46,34 @@ private class PrismMetalView: UIView {
         let scale = (window?.screen ?? UIScreen.main).scale
         let width = Int32(bounds.width * scale)
         let height = Int32(bounds.height * scale)
-        prism_resize(engineHandle, width, height)
+        // Skip zero-size layouts (fired before Flutter sets the real frame).
+        // Without this guard, prism_attach_metal_layer is called with 0×0 which
+        // causes renderer init to fail and isAttached is set, blocking any retry.
+        guard width > 0 && height > 0 else { return }
+        if !isAttached {
+            isAttached = true
+            let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
+            let handle = engineHandle
+            // Call synchronously. prism_attach_metal_layer calls
+            // runBlocking(Dispatchers.Default){iosContextRenderer()} which dispatches to a
+            // worker-thread pool — it does NOT resume on the main RunLoop, so blocking here
+            // is safe and eliminates the attach/detach race that an async dispatch would create.
+            prism_attach_metal_layer(handle, rawPtr, width, height)
+        } else {
+            prism_resize(engineHandle, width, height)
+        }
     }
+}
+
+/// Weak-reference proxy used to break the CADisplayLink → PrismIOSPlatformView retain cycle.
+///
+/// `CADisplayLink` strongly retains its target. Without indirection, the cycle
+/// `PrismIOSPlatformView → displayLink → PrismIOSPlatformView` would prevent `deinit` from
+/// ever firing, leaking the engine, surface, and GPU resources permanently.
+private class PrismDisplayLinkProxy: NSObject {
+    weak var target: PrismIOSPlatformView?
+    init(_ target: PrismIOSPlatformView) { self.target = target }
+    @objc func renderFrame() { target?.renderFrame() }
 }
 
 class PrismIOSPlatformView: NSObject, FlutterPlatformView {
@@ -76,7 +83,7 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 
     init(frame: CGRect, arguments args: Any?) {
         let params = args as? [String: Any]
-        self.engineHandle = params?["engineHandle"] as? Int64 ?? 0
+        self.engineHandle = (params?["engineHandle"] as? NSNumber)?.int64Value ?? 0
         self._view = PrismMetalView(frame: frame)
         self._view.backgroundColor = .black
         self._view.engineHandle = self.engineHandle
@@ -98,20 +105,33 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
         _view.addSubview(mtkView)
         // Retain via the strong property on the container view so ARC keeps the MTKView alive
         // while the Kotlin/Native side holds a raw pointer to it.
+        // prism_attach_metal_layer is deferred to PrismMetalView.layoutSubviews so that wgpu
+        // sees a valid drawable size (the view is in the window hierarchy at that point).
         _view.mtkView = mtkView
 
-        let rawPtr = Unmanaged.passUnretained(mtkView).toOpaque()
-        let scale = _view.window?.screen?.scale ?? UIScreen.main.scale
-        let width = Int32(_view.bounds.width * scale)
-        let height = Int32(_view.bounds.height * scale)
-
-        prism_attach_metal_layer(engineHandle, rawPtr, width, height)
-
-        displayLink = CADisplayLink(target: self, selector: #selector(renderFrame))
+        // Use a weak proxy so CADisplayLink does not strongly retain self, breaking the
+        // retain cycle that would otherwise prevent deinit from firing.
+        let proxy = PrismDisplayLinkProxy(self)
+        displayLink = CADisplayLink(target: proxy, selector: #selector(PrismDisplayLinkProxy.renderFrame))
         displayLink?.add(to: .main, forMode: .common)
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        _view.addGestureRecognizer(pan)
+        let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch(_:)))
+        _view.addGestureRecognizer(pinch)
     }
 
-    @objc private func renderFrame() {
+    @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
+        let translation = recognizer.translation(in: recognizer.view)
+        prism_orbit_by(engineHandle, -Double(translation.x) * 0.01, Double(translation.y) * 0.01)
+        recognizer.setTranslation(.zero, in: recognizer.view)
+    }
+
+    @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
+        prism_zoom(engineHandle, Double(recognizer.velocity) * 0.05)
+    }
+
+    @objc func renderFrame() {
         prism_render_frame(engineHandle)
     }
 
@@ -123,6 +143,8 @@ class PrismIOSPlatformView: NSObject, FlutterPlatformView {
 }
 
 // C API bindings (provided by PrismNative.xcframework)
+// NOTE: on iOS `ptr` must be a `MTKView *`.
+//       On macOS the same symbol expects a `CAMetalLayer *`. Both are void* at the C level.
 @_silgen_name("prism_attach_metal_layer")
 func prism_attach_metal_layer(_ handle: Int64, _ ptr: UnsafeMutableRawPointer, _ width: Int32, _ height: Int32)
 
@@ -134,3 +156,9 @@ func prism_detach_surface(_ handle: Int64)
 
 @_silgen_name("prism_resize")
 func prism_resize(_ handle: Int64, _ width: Int32, _ height: Int32)
+
+@_silgen_name("prism_orbit_by")
+func prism_orbit_by(_ handle: Int64, _ dx: Double, _ dy: Double)
+
+@_silgen_name("prism_zoom")
+func prism_zoom(_ handle: Int64, _ delta: Double)

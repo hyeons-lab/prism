@@ -110,6 +110,8 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
 
   // Create instance with store before launching the coroutine so control methods work immediately.
   val instance = EngineInstance(store = DemoStore())
+  // Flutter demo uses drag-to-orbit; no auto-rotation.
+  instance.store.dispatch(DemoIntent.SetRotationSpeed(0f))
   instances[canvasId] = instance
 
   val handler = CoroutineExceptionHandler { _, throwable ->
@@ -195,6 +197,14 @@ fun prismInit(canvasId: String, glbUrl: String = "DamagedHelmet.glb") {
 @JsExport
 fun prismTogglePause(canvasId: String) {
   instances[canvasId]?.store?.dispatch(DemoIntent.TogglePause)
+}
+
+/** Get current smoothed FPS for the given canvas. Returns 0 if not yet initialised. */
+@JsExport
+fun prismGetFps(canvasId: String): Double {
+  val state = instances[canvasId]?.store?.state?.value ?: return 0.0
+  val fps = state.fps
+  return if (fps.isFinite()) fps.toDouble() else 0.0
 }
 
 /** Get current state as a JSON string. */

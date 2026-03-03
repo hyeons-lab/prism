@@ -45,3 +45,8 @@ prism-demo-core/assets/DamagedHelmet.glb
 
 # Build output log
 .output.txt
+
+# Swift Package Manager build artifacts
+.build/
+**/.build/
+**/.swiftpm/

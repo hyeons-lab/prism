@@ -54,7 +54,10 @@ class _PrismRenderViewState extends State<PrismRenderView> {
       canvas.height = height;
     }
 
+    // Wire the engine instance to this canvas so that togglePause/shutdown/etc.
+    // are routed to the correct WASM canvas instance.
     widget.engine.attachCanvas(_canvasId);
+
     try {
       await PrismWebEngine.ensureWasmLoaded('prism-flutter.mjs');
       PrismWebEngine.init(_canvasId);
@@ -84,6 +87,6 @@ class _PrismRenderViewState extends State<PrismRenderView> {
     );
   }
 
-  // Shutdown is NOT called here — the PrismEngine owner (parent widget) is
+  // Shutdown is NOT called here — the engine owner (parent widget) is
   // responsible for calling engine.shutdown() in its own dispose().
 }

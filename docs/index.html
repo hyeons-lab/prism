@@ -218,7 +218,7 @@
 <span class="hl-green">prism-renderer</span> + <span class="hl">prism-core</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-native-widgets</span>   <span class="dim">Platform surfaces &mdash; GLFW, MTKView, SurfaceView, Canvas/Wasm</span>
        <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-compose</span>     <span class="dim">Compose Multiplatform 3D surface + MVI</span>
-       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Generic Flutter bridge &mdash; PrismBridge&lt;T,S&gt;, PrismMetalBridge, PrismAndroidBridge</span>
+       <span class="dim">&#x2514;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter</span>     <span class="dim">Flutter plugin &mdash; PrismRenderView, engineHandle pattern, dart:ffi for native, @JS() for web</span>
 
 <span class="dim">Bindings</span>
 <span class="hl">prism-js</span>       <span class="dim">@JsExport &#x2192; .d.mts &#x2192; Dart @JS() bindings  (Kotlin/Wasm)</span>
@@ -227,7 +227,7 @@
 
 <span class="dim">Demo &amp; Consumer</span>
 <span class="hl">prism-demo-core</span>              <span class="dim">Shared PBR scene &mdash; glTF 2.0, IBL, ECS instantiation</span>
-  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter consumer &mdash; DemoMacosBridge, DemoAndroidBridge, FlutterMethodHandler</span>
+  <span class="dim">&#x251C;&#x2500;&#x25BA;</span> <span class="hl-purple">prism-flutter-demo</span>   <span class="dim">Flutter demo &mdash; PrismEngine, PrismRenderView, glTF asset loading, all platforms</span>
   <span class="dim">&#x251C;&#x2500;&#x25BA;</span> prism-android-demo   <span class="dim">Android standalone demo app</span>
   <span class="dim">&#x2514;&#x2500;&#x25BA;</span> prism-ios-demo       <span class="dim">iOS demo app (Xcode, links prism-ios XCFramework)</span></pre>
         </div>
@@ -298,24 +298,30 @@ print("dt: \(engine.time.deltaTime)")</pre>
           <div class="lang-card">
             <div class="lang-label">TypeScript &middot; JavaScript &middot; Web</div>
 <pre class="code-block"><span class="comment">// prism-sdk.d.mts ships alongside prism-sdk.mjs for full TS type coverage</span>
-import { Engine, World, Scene, MeshNode, CameraNode,
-         EngineConfig, TransformComponent, Vec3 } from './prism-sdk.mjs';
+import {
+  prismCreateEngine, prismEngineGetDeltaTime, prismDestroyEngine,
+  prismCreateScene, prismCreateMeshNode, prismCreateCameraNode,
+  prismSceneAddNode, prismSceneSetActiveCamera,
+  prismNodeSetPosition, prismSceneUpdate,
+  prismDestroyNode, prismDestroyScene,
+} from './prism-sdk.mjs';
 
-<span class="comment">// Create engine and ECS world</span>
-const engine = new Engine(new EngineConfig({ targetFps: 60 }));
-const world  = new World();
-const entity: number = world.createEntity();
-world.addComponent(entity, new TransformComponent({ position: new Vec3(0, 0, -5) }));
+<span class="comment">// Create engine and scene graph</span>
+const engine = prismCreateEngine('MyApp', 60);
+const scene  = prismCreateScene('main');
+const mesh   = prismCreateMeshNode('helmet');
+const cam    = prismCreateCameraNode('cam');
+prismSceneAddNode(scene, mesh);
+prismSceneSetActiveCamera(scene, cam);
+prismNodeSetPosition(mesh, 0, 0, -5);
 
-<span class="comment">// Scene graph: mesh node + camera</span>
-const scene = new Scene('main');
-const mesh  = new MeshNode('helmet');
-const cam   = new CameraNode('cam');
-scene.addNode(mesh);
-scene.activeCamera = cam;
+<span class="comment">// Render loop</span>
+prismSceneUpdate(scene, prismEngineGetDeltaTime(engine));
+console.log('dt:', prismEngineGetDeltaTime(engine));
 
-<span class="comment">// Query state</span>
-console.log('dt:', engine.time.deltaTime);</pre>
+<span class="comment">// Cleanup</span>
+prismDestroyNode(mesh); prismDestroyNode(cam);
+prismDestroyScene(scene); prismDestroyEngine(engine);</pre>
           </div>
 
           <div class="lang-card">
@@ -414,7 +420,7 @@ print('dt: \${engine.time.deltaTime}');</pre>
               </tr>
               <tr>
                 <td>Flutter macOS</td>
-                <td>PrismMetalBridge (KMP) + PrismMetalBridgeProtocol (Swift) + PrismFlutter.xcframework</td>
+                <td>Direct C API (<code>@_silgen_name</code>) + PrismNative.xcframework &middot; progressive glTF texture loading</td>
                 <td class="status-done">Working</td>
               </tr>
               <tr>
@@ -546,7 +552,7 @@ print('dt: \${engine.time.deltaTime}');</pre>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>Flutter macOS</h4>
-              <p>FlutterPlatformView + MethodChannel + KMP XCFramework &middot; Metal rendering with drag-to-orbit camera</p>
+              <p>FlutterPlatformView + direct C API (dart:ffi) + PrismNative.xcframework &middot; Metal rendering, drag-to-orbit, progressive glTF texture loading</p>
             </div>
           </div>
           <div class="milestone done">
@@ -554,7 +560,7 @@ print('dt: \${engine.time.deltaTime}');</pre>
             <div class="milestone-dot"></div>
             <div class="milestone-text">
               <h4>Generalized Flutter plugin</h4>
-              <p>prism-flutter-demo consumer module &middot; PrismBridge&lt;T,S&gt; generic architecture &middot; 20+ unit tests across KMP + Dart</p>
+              <p>prism-flutter-demo consumer module &middot; engineHandle pattern across all platforms &middot; 20+ unit tests across KMP + Dart</p>
             </div>
           </div>
         </div>
@@ -568,10 +574,18 @@ print('dt: \${engine.time.deltaTime}');</pre>
         <h2 class="section-title">Up and running in minutes</h2>
         <div class="quickstart-steps">
           <div class="quickstart-step">
-            <h3><span class="step-num">1</span> Build wgpu4k from source</h3>
-            <pre class="code-block"><span class="cmd">git clone</span> https://github.com/wgpu4k/wgpu4k.git
-<span class="cmd">cd</span> wgpu4k
-<span class="cmd">./gradlew</span> publishToMavenLocal</pre>
+            <h3><span class="step-num">1</span> Build wgpu4k dependencies from source</h3>
+            <pre class="code-block"><span class="comment"># Three forked repos must be published to Maven local in order.
+# Pinned commits are in gradle/libs.versions.toml.</span>
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/webgpu-ktypes.git
+<span class="cmd">cd</span> webgpu-ktypes &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/wgpu4k-native.git
+<span class="cmd">cd</span> wgpu4k-native &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..
+
+<span class="cmd">git clone</span> https://github.com/hyeons-lab/wgpu4k.git
+<span class="cmd">cd</span> wgpu4k &amp;&amp; <span class="cmd">./gradlew</span> publishToMavenLocal &amp;&amp; <span class="cmd">cd</span> ..</pre>
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">2</span> Clone and build Prism</h3>
@@ -581,14 +595,28 @@ print('dt: \${engine.time.deltaTime}');</pre>
           </div>
           <div class="quickstart-step">
             <h3><span class="step-num">3</span> Run the demo</h3>
-            <pre class="code-block"><span class="comment"># GLFW window — DamagedHelmet glTF (Metal on macOS)</span>
+            <pre class="code-block"><span class="comment"># JVM — GLFW window, Metal on macOS (DamagedHelmet glTF)</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:jvmRun
 
-<span class="comment"># Compose Desktop with embedded 3D + PBR sliders</span>
+<span class="comment"># JVM — Compose Desktop with embedded 3D + PBR sliders</span>
 <span class="cmd">./gradlew</span> :prism-demo-core:runCompose
 
-<span class="comment"># WASM in the browser</span>
-<span class="cmd">./gradlew</span> :prism-demo-core:wasmJsBrowserDistribution</pre>
+<span class="comment"># macOS native binary</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:runDebugExecutableMacosArm64
+
+<span class="comment"># Web — Kotlin/WASM + WebGPU (serve build/dist/wasmJs/developmentExecutable/)</span>
+<span class="cmd">./gradlew</span> :prism-demo-core:wasmJsBrowserDistribution
+
+<span class="comment"># iOS — build XCFramework, then open prism-ios-demo/ in Xcode</span>
+<span class="cmd">./gradlew</span> :prism-ios:assemblePrismDebugXCFramework
+
+<span class="comment"># Android — open prism-android-demo/ in Android Studio</span>
+<span class="cmd">./gradlew</span> :prism-android-demo:assembleDebug
+
+<span class="comment"># Flutter — iOS, Android, macOS, or Web</span>
+<span class="cmd">cd</span> prism-flutter-demo/example
+<span class="cmd">flutter</span> pub get
+<span class="cmd">flutter</span> run -d macos   <span class="comment"># or: ios  android  chrome</span></pre>
           </div>
         </div>
       </div>

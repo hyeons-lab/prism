@@ -45,6 +45,10 @@ kotlin {
       implementation(libs.kermit)
     }
     macosMain.dependencies { implementation(libs.wgpu4k.toolkit) }
+    wasmJsMain.dependencies {
+      implementation(libs.wgpu4k)
+      implementation(libs.wgpu4k.toolkit)
+    }
     androidMain.dependencies { implementation(libs.kotlinx.coroutines.android) }
     commonTest.dependencies { implementation(libs.kotlin.test) }
   }

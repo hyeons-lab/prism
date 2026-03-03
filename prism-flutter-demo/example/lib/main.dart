@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:prism_flutter/prism_flutter.dart';
 
 void main() {
@@ -31,54 +33,78 @@ class PrismDemoPage extends StatefulWidget {
   State<PrismDemoPage> createState() => _PrismDemoPageState();
 }
 
-class _PrismDemoPageState extends State<PrismDemoPage> {
+class _PrismDemoPageState extends State<PrismDemoPage>
+    with SingleTickerProviderStateMixin {
   final _engine = PrismEngine();
-  bool _isInitialized = false;
+  bool _isSceneReady = false;
   double _fps = 0.0;
-  Timer? _pollTimer;
+  late final Ticker _ticker;
+
+  static const _glbAsset = 'assets/DamagedHelmet.glb';
 
   @override
   void initState() {
     super.initState();
-    _engine.initialize();
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
-      if (!_isInitialized) {
-        final ready = await _engine.isInitialized();
-        if (ready && mounted) setState(() => _isInitialized = true);
-      }
-      final state = await _engine.getState();
-      if (mounted) {
-        setState(() {
-          _fps = (state['fps'] as num?)?.toDouble() ?? 0.0;
-        });
-      }
-    });
+    unawaited(_setup());
+    _ticker = createTicker(_onFrame)..start();
+  }
+
+  Future<void> _setup() async {
+    try {
+      await _engine.initialize();
+    } catch (_) {
+      // Engine initialization failed (e.g., native library not available in
+      // test environment). The loading overlay remains visible.
+      return;
+    }
+    // Trigger a rebuild so PrismRenderView is created with the now-valid engine
+    // handle. Without this the UiKitView/AppKitView is built with handle=0,
+    // setupMtkView() is skipped, and prism_attach_metal_layer is never called.
+    if (mounted) setState(() {});
+    final path = await PrismEngine.resolveFlutterAssetPath(_glbAsset);
+    if (path != null) unawaited(_engine.loadGltfFromPath(path));
+  }
+
+  void _onFrame(Duration elapsed) {
+    if (!mounted) return;
+    final newFps = _engine.fps;
+    final nowReady = _isSceneReady || _engine.isRendererReady;
+    if (nowReady != _isSceneReady || (nowReady && (newFps - _fps).abs() >= 1.0)) {
+      setState(() {
+        _isSceneReady = nowReady;
+        _fps = newFps;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _ticker.dispose();
     unawaited(_engine.shutdown());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       body: Stack(
         children: [
-          // 3D render view fills the entire screen.
+          // 3D render view. On iOS/macOS the widget defers platform-view
+          // creation internally until initialize() has supplied a valid handle,
+          // so it is safe to add unconditionally here.
           Positioned.fill(
             child: PrismRenderView(engine: _engine),
           ),
-          // FPS indicator — top-right corner.
+          // FPS indicator — top-right corner, below Dynamic Island / status bar.
           Positioned(
-            top: 16,
+            top: topPad + 8,
             right: 16,
             child: _FpsChip(fps: _fps),
           ),
-          // Loading overlay — shown while the engine initializes.
-          if (!_isInitialized)
+          // Loading overlay — shown until the 3D scene is ready to render.
+          // Not shown on web: the WASM canvas manages its own startup state.
+          if (!kIsWeb && !_isSceneReady)
             const Positioned.fill(
               child: ColoredBox(
                 color: Colors.black,

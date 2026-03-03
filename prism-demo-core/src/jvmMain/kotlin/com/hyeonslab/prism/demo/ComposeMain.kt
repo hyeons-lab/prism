@@ -15,6 +15,9 @@ import com.hyeonslab.prism.widget.PrismPanel
 import ffi.LibraryLoader
 import java.awt.BorderLayout
 import java.awt.Dimension
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
+import java.awt.event.MouseMotionAdapter
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
@@ -24,46 +27,66 @@ import kotlinx.coroutines.runBlocking
 
 private val log = Logger.withTag("ComposeMain")
 
+/** Radians of orbit per pixel of drag — matches GLFW and WASM demos. */
+private const val ORBIT_SENSITIVITY = 0.005f
+
 /**
- * Compose Desktop demo entry point using JFrame + ComposePanel.
+ * Compose Desktop demo entry point using JFrame + PrismPanel + ComposePanel.
  *
- * Uses JFrame (Swing) as the top-level container instead of Compose Desktop's `application {}`
- * function. This avoids the `-XstartOnFirstThread` deadlock on macOS: Compose's `application {}`
- * conflicts with the flag, but `ComposePanel` (a standard Swing component) works fine with it.
- * `-XstartOnFirstThread` is required for `Native.getComponentPointer()` to return a valid NSView
- * pointer on macOS.
+ * PrismPanel (heavyweight AWT Canvas) fills the main area for GPU rendering. A ComposePanel on the
+ * right hosts the PBR control sliders and drives the render loop via [withFrameNanos] (vsync-
+ * aligned, same mechanism as the iOS Compose demo). Drag-to-orbit is wired via AWT mouse listeners.
  *
- * All Swing/AWT setup runs on the EDT via [SwingUtilities.invokeLater] as required by
- * [ComposePanel].
+ * All Swing/AWT setup runs on the EDT via [SwingUtilities.invokeLater] as required by AWT.
  */
 fun main() {
   log.i { "Starting Prism Compose Demo..." }
   LibraryLoader.load()
-
   SwingUtilities.invokeLater { createAndShowUi() }
 }
 
 private fun createAndShowUi() {
   val store = DemoStore()
-  // `scene` is only accessed from the Swing EDT: createAndShowUi() is invoked via
-  // SwingUtilities.invokeLater, and all callbacks (onReady, onResized, withFrameNanos)
-  // run on the EDT. No additional synchronization is required.
+  // `scene` is only accessed from the EDT (onReady, onResized, withFrameNanos) — no sync needed.
   var scene: DemoScene? = null
 
   val frame = JFrame("Prism 3D Engine \u2014 Compose Demo")
   frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
   frame.layout = BorderLayout()
 
-  // Left: 3D rendering canvas (heavyweight AWT Canvas for GPU rendering)
   val prismPanel = PrismPanel()
   prismPanel.preferredSize = Dimension(800, 700)
+
+  // Drag-to-orbit: left-mouse drag rotates the orbit camera.
+  var lastDragX = 0
+  var lastDragY = 0
+  prismPanel.addMouseListener(
+    object : MouseAdapter() {
+      override fun mousePressed(e: MouseEvent) {
+        lastDragX = e.x
+        lastDragY = e.y
+      }
+    }
+  )
+  prismPanel.addMouseMotionListener(
+    object : MouseMotionAdapter() {
+      override fun mouseDragged(e: MouseEvent) {
+        val dx = e.x - lastDragX
+        val dy = e.y - lastDragY
+        lastDragX = e.x
+        lastDragY = e.y
+        scene?.orbitBy(-dx * ORBIT_SENSITIVITY, dy * ORBIT_SENSITIVITY)
+      }
+    }
+  )
+
   prismPanel.onReady = {
     log.i { "PrismPanel ready \u2014 initializing scene" }
     val ctx = prismPanel.wgpuContext
     if (ctx != null) {
       val glbData =
         File("DamagedHelmet.glb").takeIf { it.exists() }?.readBytes()
-          ?: error("DamagedHelmet.glb not found — place the file in the working directory")
+          ?: error("DamagedHelmet.glb not found \u2014 run ./gradlew downloadDemoAssets")
       val s = runBlocking {
         createGltfDemoScene(
           ctx,
@@ -75,29 +98,28 @@ private fun createAndShowUi() {
       }
       s.renderer.onResize = { w, h ->
         val rc = ctx.renderingContext
-        if (rc is AwtRenderingContext) {
-          rc.updateSize(w, h)
-        }
+        if (rc is AwtRenderingContext) rc.updateSize(w, h)
       }
       scene = s
     }
   }
+
   prismPanel.onResized = { w, h ->
     scene?.let { s ->
       s.renderer.resize(w, h)
       s.updateAspectRatio(w, h)
     }
   }
-  frame.add(prismPanel, BorderLayout.CENTER)
 
-  // Right: Compose UI controls via ComposePanel (embeds Compose in Swing)
+  // ComposePanel on the right: PBR controls + vsync-aligned render loop.
+  // withFrameNanos uses Compose Desktop's frame clock, which is tied to the display
+  // refresh and correctly flushes the CAMetalLayer each frame — a plain Swing Timer
+  // is not display-link-synchronized on macOS.
   val composePanel = ComposePanel()
   composePanel.preferredSize = Dimension(280, 700)
   composePanel.setContent {
     val uiState by store.state.collectAsStateWithLifecycle()
 
-    // Render loop driven by Compose's frame scheduling, synchronized with the display
-    // refresh rate. withFrameNanos suspends until the next vsync, then runs on the EDT.
     LaunchedEffect(Unit) {
       val startTimeNs = System.nanoTime()
       var frameCount = 0L
@@ -116,17 +138,14 @@ private fun createAndShowUi() {
 
           val currentState = store.state.value
 
-          // Update FPS (smoothed)
           if (deltaSec > 0f) {
             val smoothedFps = currentState.fps * 0.9f + (1f / deltaSec) * 0.1f
             store.dispatch(DemoIntent.UpdateFps(smoothedFps))
           }
 
-          // Apply PBR slider values each frame.
+          // Apply PBR slider values and run ECS update. Pass 0 deltaTime when paused.
           s.setMaterialOverride(currentState.metallic, currentState.roughness)
           s.setEnvIntensity(currentState.envIntensity)
-
-          // Run ECS update (triggers RenderSystem); pass 0 when paused.
           s.tick(
             deltaTime = if (currentState.isPaused) 0f else deltaSec,
             elapsed = totalSec,
@@ -144,13 +163,13 @@ private fun createAndShowUi() {
       )
     }
   }
-  frame.add(composePanel, BorderLayout.EAST)
 
+  frame.add(prismPanel, BorderLayout.CENTER)
+  frame.add(composePanel, BorderLayout.EAST)
   frame.pack()
   frame.setLocationRelativeTo(null)
   frame.isVisible = true
 
-  // Shut down gracefully when window closes
   frame.addWindowListener(
     object : WindowAdapter() {
       override fun windowClosing(e: WindowEvent) {

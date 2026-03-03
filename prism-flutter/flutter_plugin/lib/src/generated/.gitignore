@@ -1,5 +1,4 @@
-# Auto-generated Dart bindings — do not commit.
-# Run generation steps before building:
+# Auto-generated Dart bindings — committed so flutter analyze works in CI.
+# Regenerate when the C API or WASM exports change:
 #   JS bindings:     ./gradlew :prism-flutter:generateDartJsBindings
 #   Native bindings: ./gradlew :prism-native:generateFfiBindings
-*.dart
