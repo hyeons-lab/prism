@@ -91,11 +91,11 @@ internal class SceneState(
     val delta = (now - lastMark).inWholeNanoseconds / 1_000_000_000f
     lastMark = now
     val elapsed = (now - start).inWholeNanoseconds / 1_000_000_000f
-    // Exponential smoothing: weight recent FPS at 10% per frame. Seed on first frame so the
-    // display converges immediately rather than ramping up from 0 over ~20 frames.
+    // Exponential smoothing: weight recent FPS at 10% per frame. On the first frame (_fps == 0),
+    // skip the EMA and seed directly so the display shows the real value immediately rather than
+    // ramping up from near-0 over ~20 frames.
     if (delta > 0f && delta < 1f) {
-      if (_fps == 0.0) _fps = 1.0 / delta
-      _fps = _fps * 0.9 + (1.0 / delta) * 0.1
+      _fps = if (_fps == 0.0) 1.0 / delta else _fps * 0.9 + (1.0 / delta) * 0.1
     }
     return delta to elapsed
   }

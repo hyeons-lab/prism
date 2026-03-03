@@ -83,10 +83,10 @@ class PrismEngine implements PrismEngineInterface {
   /// [prism_attach_metal_layer] on the native side). After this call,
   /// [prism_render_frame] renders the scene instead of the clear-colour stub.
   Future<void> loadGltfFromPath(String glbPath) async {
-    if (!_initialized) return;
+    if (!_initialized || _bindings == null) return;
     final nativePath = glbPath.toNativeUtf8();
     try {
-      _bindings!.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
+      _bindings.prism_load_gltf_from_path(_engineHandle, nativePath.cast());
     } finally {
       malloc.free(nativePath);
     }
@@ -108,21 +108,21 @@ class PrismEngine implements PrismEngineInterface {
   /// Rotates the orbit camera by [dx] radians horizontally and [dy] radians
   /// vertically. Wire to touch/mouse drag events.
   void orbitBy(double dx, double dy) {
-    if (!_initialized) return;
-    _bindings!.prism_orbit_by(_engineHandle, dx, dy);
+    if (!_initialized || _bindings == null) return;
+    _bindings.prism_orbit_by(_engineHandle, dx, dy);
   }
 
   /// Adjusts the orbit radius by [delta] units (positive = zoom in).
   /// Wire to pinch or scroll-wheel events.
   void zoom(double delta) {
-    if (!_initialized) return;
-    _bindings!.prism_zoom(_engineHandle, delta);
+    if (!_initialized || _bindings == null) return;
+    _bindings.prism_zoom(_engineHandle, delta);
   }
 
   /// Toggles the render-loop pause state.
   Future<void> togglePause() async {
-    if (!_initialized) return;
-    _bindings!.prism_toggle_pause(_engineHandle);
+    if (!_initialized || _bindings == null) return;
+    _bindings.prism_toggle_pause(_engineHandle);
   }
 
   /// Returns true once the engine has been created and initialized.
@@ -153,9 +153,9 @@ class PrismEngine implements PrismEngineInterface {
   /// Shuts down and destroys the native engine. Guard against double-destroy:
   /// [_initialized] is cleared before returning so a second call is a no-op.
   Future<void> shutdown() async {
-    if (!_initialized) return;
+    if (!_initialized || _bindings == null) return;
     _initialized = false; // clear before destroy so double-calls are no-ops
-    _bindings!.prism_destroy_engine(_engineHandle);
+    _bindings.prism_destroy_engine(_engineHandle);
     _engineHandle = 0;
   }
 }

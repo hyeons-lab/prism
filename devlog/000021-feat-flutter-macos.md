@@ -131,6 +131,17 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - `2026-02-26T06:53-0800` **Flutter Dart Analysis CI still failing**: Demo widget tests crashed with `ArgumentError: Failed to load dynamic library 'libprism.so'`. Root cause: `_sharedBindings` module-level initializer in `prism_engine_ffi.dart` called `DynamicLibrary.open('libprism.so')` on Linux CI, which threw before `_setup()`'s try-catch could help. Fix: `_loadBindings()` now catches `ArgumentError` and returns null; `_bindings` is nullable (`PrismNativeBindings?`); all methods guard against null. Construction no longer throws — engine silently becomes a no-op with `isRendererReady == false`, `fps == 0.0`.
 - `2026-02-26T06:53-0800` **`resolveFlutterAssetPath` fragile Swift bundle path**: Hardcoded `App.framework/flutter_assets/` path worked in release but was fragile and required the iOS/macOS method channel. Replaced with `rootBundle.load(assetKey)` + write to `Directory.systemTemp` in Dart dispatch. Cache ensures one-time extraction per session. Removed `resolveFlutterAssetPath` handler and channel registration from both iOS and macOS Swift plugins — no method channel needed on Apple targets.
 
+## What Changed (continued 2)
+- `2026-03-02T18:00-0800` `prism-flutter/flutter_plugin/lib/src/prism_engine_ffi.dart` — added `|| _bindings == null` to the guard in `loadGltfFromPath`, `orbitBy`, `zoom`, `togglePause`, and `shutdown`; removed `_bindings!` force-unwraps in those methods — Dart now infers non-null from the explicit null check, making the class invariant visible to the type system
+- `2026-03-02T18:00-0800` `prism-native/src/nativeMain/.../SceneState.kt:advanceTiming()` — replaced two-statement seed + EMA with a single ternary: `_fps = if (_fps == 0.0) 1.0/delta else _fps*0.9 + (1.0/delta)*0.1`; the old form was correct but the seed was redundant (was immediately overwritten by the EMA to the same value); ternary makes the first-frame vs. steady-state distinction explicit
+- `2026-03-02T18:00-0800` `prism-flutter/flutter_plugin/macos/.../PrismMacOSPlatformView.swift` — added `guard engineHandle != 0 else { return }` to `mouseDragged` and `scrollWheel`; added inline comment explaining why 0.005 (macOS AppKit per-event delta) differs from iOS 0.01 (UIKit accumulated per-frame translation)
+- `2026-03-02T18:00-0800` `prism-flutter/flutter_plugin/lib/src/prism_engine_dispatch.dart` — tightened temp filename sanitization from `replaceAll('/', '_')` to `replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_')`; guards against Windows-reserved chars and any future platform-problematic characters in asset keys
+
+## Decisions (continued 2)
+- `2026-03-02T18:00-0800` `_bindings == null` guard pattern: the invariant `_initialized == true → _bindings != null` was always maintained (initialize() returns early when bindings == null, so `_initialized` never reaches true without bindings). Making the null check explicit removes the implicit dependency and lets Dart's type system verify it without force-unwrap.
+- `2026-03-02T18:00-0800` FPS ternary: replacing `if (_fps == 0.0) seed; EMA;` with `_fps = if (0.0) seed else EMA` is semantically equivalent but removes the redundant application of EMA to the seed value on frame 1. Both forms produce the same result; the ternary form documents intent.
+- `2026-03-02T18:00-0800` macOS sensitivity documented, not changed: AppKit `event.deltaX/Y` and UIKit `translation.x/y` have different per-callback magnitudes; 0.005 vs 0.01 is a calibrated difference, not an oversight.
+
 ## What Changed (continued)
 - `2026-03-02T07:14-0800` `prism-native/src/nativeMain/.../SceneState.kt:shutdown()` — added `renderer.shutdown()` before `world.shutdown()` to release all GPU resources (pipeline objects, uniform buffers, HDR render target, IBL textures, bind groups) on scene teardown
 - `2026-03-02T07:14-0800` `prism-native/src/nativeMain/.../SceneState.kt:advanceTiming()` — seed `_fps` on first frame via `if (_fps == 0.0) _fps = 1.0 / delta`; EMA now converges immediately instead of ramping from 0 over ~20 frames
@@ -180,4 +191,5 @@ app, and rewrite `main.dart` to use the idiomatic `prism_sdk.dart` API.
 - abb3aae — chore: consolidate devlog sections into single flat structure
 - 84cb7bb — fix: NativeBridge *_ptr wrappers use CPointer.toLong() not rawValue
 - a50b8df — chore: ktfmt import order in NativeBridge.kt
-- HEAD — fix: PR review — renderer shutdown, iOS retain cycle, attach race, SDK FFI safe load
+- 2e4aef1 — fix: PR review — renderer shutdown, iOS retain cycle, attach race, SDK FFI safe load
+- HEAD — fix: second-pass review — bindings null guards, FPS ternary, macOS handle guards, filename sanitization

@@ -85,11 +85,16 @@ class PrismMacOSMetalView: MTKView, MTKViewDelegate {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDragged(with event: NSEvent) {
+        guard engineHandle != 0 else { return }
+        // 0.005 rad/pt — AppKit deltaX/Y are continuous per-event deltas (typically 1–5 pt),
+        // so 0.005 is intentionally half the iOS pan sensitivity (0.01) which uses accumulated
+        // UIPanGestureRecognizer translation reset each frame (typically 5–20 pt per callback).
         let sensitivity = 0.005
         prism_orbit_by(engineHandle, -event.deltaX * sensitivity, event.deltaY * sensitivity)
     }
 
     override func scrollWheel(with event: NSEvent) {
+        guard engineHandle != 0 else { return }
         prism_zoom(engineHandle, event.scrollingDeltaY * 0.01)
     }
 }
