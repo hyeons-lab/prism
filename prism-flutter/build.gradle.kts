@@ -201,3 +201,38 @@ tasks.register<Exec>("bundleNativeMacOS") {
       .writeText("module PrismNative {\n    umbrella header \"libprism_api.h\"\n    export *\n}\n")
   }
 }
+
+// ---------------------------------------------------------------------------
+// Copy libprism.so (Kotlin/Native) into the Android plugin's jniLibs directory.
+// Run: ./gradlew :prism-flutter:bundleNativeAndroid
+// ---------------------------------------------------------------------------
+tasks.register("bundleNativeAndroid") {
+  dependsOn(
+    ":prism-native:linkDebugSharedAndroidNativeArm64",
+    ":prism-native:linkDebugSharedAndroidNativeX64",
+  )
+  doLast {
+    val prismNative = project(":prism-native")
+    val arm64So =
+      prismNative.layout.buildDirectory
+        .file("bin/androidNativeArm64/debugShared/libprism.so")
+        .get()
+        .asFile
+    val x64So =
+      prismNative.layout.buildDirectory
+        .file("bin/androidNativeX64/debugShared/libprism.so")
+        .get()
+        .asFile
+
+    val jniLibs = file("flutter_plugin/android/src/main/jniLibs")
+    copy {
+      from(arm64So)
+      into(jniLibs.resolve("arm64-v8a"))
+    }
+    copy {
+      from(x64So)
+      into(jniLibs.resolve("x86_64"))
+    }
+    logger.lifecycle("Android native libraries copied to $jniLibs")
+  }
+}

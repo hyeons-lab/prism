@@ -1,0 +1,3 @@
+headers = android/native_window_jni.h
+headerFilter = android/*
+linkerOpts.android = -landroid

@@ -4,6 +4,8 @@ import android.content.Context
 import com.hyeonslab.prism.flutter.AbstractFlutterMethodHandler
 import com.hyeonslab.prism.flutter.MethodNotImplementedException
 import com.hyeonslab.prism.flutter.PrismAndroidBridge
+import com.hyeonslab.prism.flutter.PrismAndroidPlatformView
+import com.hyeonslab.prism.flutter.PrismAndroidPlatformViewFactory
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -58,6 +60,7 @@ class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activ
     private lateinit var bridge: PrismAndroidBridge<*, *>
     private lateinit var handler: AbstractFlutterMethodHandler
     private var platformView: PrismPlatformView? = null
+    private var nativePlatformView: PrismAndroidPlatformView? = null
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         val bundle = checkNotNull(bundleFactory) {
@@ -72,6 +75,11 @@ class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activ
         binding.platformViewRegistry.registerViewFactory(
             "engine.prism.flutter/render_view",
             PrismPlatformViewFactory(bridge) { platformView = it }
+        )
+
+        binding.platformViewRegistry.registerViewFactory(
+            "engine.prism.flutter/render_view_native",
+            PrismAndroidPlatformViewFactory { nativePlatformView = it }
         )
     }
 
@@ -97,17 +105,21 @@ class PrismFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activ
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         platformView?.resumeRendering()
+        nativePlatformView?.resumeRendering()
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         platformView?.resumeRendering()
+        nativePlatformView?.resumeRendering()
     }
 
     override fun onDetachedFromActivity() {
         platformView?.pauseRendering()
+        nativePlatformView?.pauseRendering()
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
         platformView?.pauseRendering()
+        nativePlatformView?.pauseRendering()
     }
 }

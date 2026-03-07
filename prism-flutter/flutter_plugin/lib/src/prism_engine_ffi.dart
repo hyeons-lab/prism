@@ -33,7 +33,9 @@ PrismNativeBindings? _loadBindings() {
         ? DynamicLibrary.open('libprism.so')
         : Platform.isWindows
             ? DynamicLibrary.open('prism.dll')
-            : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
+            : Platform.isAndroid
+                ? DynamicLibrary.open('libprism.so')
+                : DynamicLibrary.process(); // iOS, macOS: dylib pre-loaded via SPM
     return PrismNativeBindings(lib);
   } on ArgumentError {
     // Native library not available (e.g., test environment without libprism).

@@ -19,7 +19,9 @@ class PrismRenderView extends StatelessWidget {
       // Android: render loop is driven by Choreographer natively.
       // The engine handle is not used for creation — show unconditionally.
       return AndroidView(
-        viewType: 'engine.prism.flutter/render_view',
+        viewType: 'engine.prism.flutter/render_view_native',
+        creationParams: {'engineHandle': engine.handle},
+        creationParamsCodec: const StandardMessageCodec(),
         onPlatformViewCreated: _onPlatformViewCreated,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {

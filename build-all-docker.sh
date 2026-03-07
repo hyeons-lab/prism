@@ -58,5 +58,6 @@ docker run --rm \
     :prism-native:linkReleaseSharedMingwX64 \
     :prism-js:wasmJsBrowserDistribution \
     :prism-js:generateSdkTypes \
+    :prism-flutter:bundleNativeAndroid \
     :prism-android-demo:assembleDebug \
     --no-daemon
