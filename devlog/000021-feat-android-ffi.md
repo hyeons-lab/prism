@@ -55,4 +55,4 @@ Claude's completions (2026-03-07T11:45-08:00):
 
 ## Commits
 
-- HEAD — feat: Android FFI bridge with full scene rendering
+- 0f1145f — feat: Android FFI bridge with full scene rendering
