@@ -24,11 +24,8 @@ kotlin {
       xcf.add(this)
     }
   }
-  val isMac = System.getProperty("os.name").startsWith("Mac")
-  if (!isMac) {
-    linuxX64()
-    mingwX64()
-  }
+  linuxX64()
+  mingwX64()
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
   wasmJs {
