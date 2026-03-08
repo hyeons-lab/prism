@@ -1,0 +1,76 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one deployment at a time; don't cancel in-progress deployments.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build WASM & Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          add-job-summary: always
+
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
+
+      - name: Build WASM distribution
+        run: |
+          START=$SECONDS
+          ./gradlew :prism-demo-core:wasmJsBrowserDistribution --configuration-cache
+          echo "### WASM Build: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stage docs site
+        run: |
+          cp -r docs/ _site/
+          # Overlay freshly built WASM artifacts; hand-written files in docs/wasm/
+          # (DamagedHelmet.glb, index.html, pbr.html) are preserved from the cp above.
+          cp prism-demo-core/build/dist/wasmJs/productionExecutable/* _site/wasm/
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

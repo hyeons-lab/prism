@@ -20,7 +20,8 @@
 - `prism-demo-core/src/macosMain/kotlin/.../TextureUploadHelper.macos.kt` — deleted; replaced by `nativeMain` actual above
 - `prism-demo-core/src/iosMain/kotlin/.../TextureUploadHelper.ios.kt` — deleted; replaced by `nativeMain` actual above
 - `prism-android-demo/build.gradle.kts` — broadened `tasks.matching` pattern to include all lint-related task names (not just `merge*Assets`); AGP lint model tasks (`lintAnalyze*`, `lintVitalAnalyze*`, `generate*LintReportModel`) also read from the assets source directory and need `downloadDemoAssets` declared as a dependency
-- `detekt.yml` — added `wasmJs`, `apple`, `native`, `androidNative`, `macos`, `linux`, `mingw` to `MatchingDeclarationName.multiplatformTargets`; only `ios`, `android`, `js`, `jvm` were listed, causing `FileReader.wasmJs.kt` and similar platform-suffix files to fail the rule
+- `detekt.yml` — added `wasmJs`, `apple`, `native`, `androidNative`, `macos`, `linux`, `mingw` to `MatchingDeclarationName.multiplatformTargets`; only `ios`, `android`, `js`, `jvm` were listed, causing `FileReader.wasmJs.kt` and similar platform-suffix files to fail the rule; also removed duplicate `'native'` entry introduced during that edit
+- `.github/workflows/deploy-docs.yml` — new workflow: builds `wasmJsBrowserDistribution` on push to main, stages `docs/` with the freshly built WASM artifacts overlaid into `wasm/`, and deploys to GitHub Pages via `actions/upload-pages-artifact` + `actions/deploy-pages`
 
 ## Decisions
 
@@ -30,6 +31,7 @@
 - 2026-03-07T21:29-08:00 `prism-native` was the only module without `applyDefaultHierarchyTemplate()`. All other modules already called it. Adding it allows `nativeMain` to be obtained with `by getting` instead of `by creating`, and removes the explicit `forEach` wiring that conflicted with the template. The default hierarchy already includes `androidNativeArm64/X64` under `nativeMain`, so no manual edges are needed.
 - 2026-03-07T21:29-08:00 `detekt.yml` `MatchingDeclarationName.multiplatformTargets` was missing 7 KMP platform suffixes actually used in the project. Kotlin's `expect`/`actual` convention uses `.platformSuffix.kt` filenames (e.g., `FileReader.wasmJs.kt`). Detekt must be told which suffixes to strip when comparing file names to declaration names.
 - 2026-03-07T21:29-08:00 `./gradlew build` on macOS has two pre-existing failures unrelated to this PR: (a) `prism-demo-core:compileIosMainKotlinMetadata` fails due to Compose 1.10.1 KLIB duplicate unique-names between `org.jetbrains.compose` and `androidx.compose` transitive deps; (b) `prism-assets:linkDebugTestLinuxX64` fails because macOS LLD cannot link Linux binaries. Neither is in CI's dependency chain (CI runs specific tasks, not `build`).
+- 2026-03-08T13:35-0700 Added `deploy-docs.yml` GitHub Actions workflow to build WASM from source on every main push and deploy to GitHub Pages, replacing the current approach of committing WASM artifacts into `docs/wasm/`. The workflow reuses the existing `setup-wgpu4k` action and JDK setup from `ci.yml`. Hand-written files in `docs/wasm/` (`DamagedHelmet.glb`, `index.html`, `pbr.html`) are preserved; only the webpack-generated JS/WASM artifacts are overlaid from the fresh build.
 - 2026-03-08T13:27-0700 `prism-demo-core` was conditionally declaring `linuxX64/mingwX64` only on non-macOS. This meant macOS builds silently omitted those targets while `prism-flutter-demo` (which has always declared them unconditionally) caused Gradle variant-resolution failure on macOS. Correct fix: add the targets unconditionally to `prism-demo-core` (they cross-compile fine on macOS). Adding them also required a consolidated `nativeMain` actual for `TextureUploadHelper` (replacing the identical macosMain/iosMain copies) and `nativeMain.dependencies { compose.runtime }` (Compose Compiler applies to all native targets).
 
 ## Issues
@@ -43,4 +45,6 @@
 - ffc6346 — fix: scope DerivedData cache key to Xcode version to prevent stale module cache
 - 434406b — chore: update macOS CI runners to macos-26
 - e39a6f4 — fix: hierarchy, lint deps, detekt multiplatform targets, flutter-demo target scope
-- HEAD — fix: add linuxX64/mingwX64 to prism-demo-core, consolidate nativeMain actual
+- 38e2693 — fix: add linuxX64/mingwX64 to prism-demo-core, consolidate nativeMain actual
+- 642f11d — fix: remove duplicate native entry in detekt multiplatformTargets; correct devlog
+- HEAD — ci: deploy docs to GitHub Pages on push to main
