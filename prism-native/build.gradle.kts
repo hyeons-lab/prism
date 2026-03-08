@@ -5,6 +5,8 @@ plugins {
 
 kotlin {
   val isMac = System.getProperty("os.name").startsWith("Mac")
+  val isAndroidBuild =
+    System.getenv("ANDROID_NDK_HOME") != null || System.getenv("ANDROID_HOME") != null
   // Apple targets can only be compiled on macOS; Linux/Windows targets are built in Docker CI.
   val nativeTargets =
     if (isMac) {
@@ -13,9 +15,52 @@ kotlin {
       listOf(linuxX64(), mingwX64())
     }
 
-  nativeTargets.forEach { target -> target.binaries.sharedLib { baseName = "prism" } }
+  val androidNativeTargets =
+    if (isAndroidBuild) {
+      listOf(androidNativeArm64(), androidNativeX64())
+    } else {
+      emptyList()
+    }
+
+  (nativeTargets + androidNativeTargets).forEach { target ->
+    target.binaries.sharedLib { baseName = "prism" }
+  }
+
+  if (isAndroidBuild) {
+    androidNativeArm64 {
+      compilations.getByName("main") {
+        cinterops {
+          create("androidNativeWindow") {
+            definitionFile = file("src/androidNativeMain/cinterop/androidNativeWindow.def")
+          }
+        }
+      }
+    }
+    androidNativeX64 {
+      compilations.getByName("main") {
+        cinterops {
+          create("androidNativeWindow") {
+            definitionFile = file("src/androidNativeMain/cinterop/androidNativeWindow.def")
+          }
+        }
+      }
+    }
+  }
 
   sourceSets {
+    val commonMain by getting
+    val nativeMain by creating { dependsOn(commonMain) }
+
+    androidNativeTargets.forEach { target ->
+      target.compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+    }
+
+    if (isMac) {
+      macosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+      iosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+      iosSimulatorArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+    }
+
     nativeMain.dependencies {
       implementation(project(":prism-math"))
       implementation(project(":prism-core"))
@@ -29,6 +74,16 @@ kotlin {
     if (isMac) {
       macosMain.dependencies { implementation(libs.wgpu4k.toolkit) }
       iosMain.dependencies { implementation(libs.wgpu4k.toolkit) }
+    }
+    if (isAndroidBuild) {
+      androidNativeArm64Main.dependencies {
+        implementation(libs.wgpu4k.toolkit)
+        implementation(libs.kotlinx.coroutines.core)
+      }
+      androidNativeX64Main.dependencies {
+        implementation(libs.wgpu4k.toolkit)
+        implementation(libs.kotlinx.coroutines.core)
+      }
     }
   }
 

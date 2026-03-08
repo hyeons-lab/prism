@@ -1,26 +1,21 @@
-import 'dart:io' show Directory, File, Platform;
+import 'dart:io' show Directory, File;
 
 import 'package:flutter/services.dart' show rootBundle;
 
-import 'prism_engine_channel.dart' as channel;
 import 'prism_engine_ffi.dart' as ffi; // used for PrismEngine() constructor
 import 'prism_engine_interface.dart';
 
-/// Runtime dispatcher: MethodChannel on Android; FFI on all other
-/// native platforms (iOS, macOS, Linux, Windows).
+/// Runtime dispatcher: MethodChannel on Web; FFI on all
+/// native platforms (iOS, macOS, Android, Linux, Windows).
 ///
-/// Android uses the MethodChannel bridge because it lacks a prism-native binary.
-/// iOS, macOS, Linux, and Windows talk directly to the prism-native C API via Dart FFI.
+/// iOS, macOS, Android, Linux, and Windows talk directly to the prism-native C API via Dart FFI.
 ///
 /// Prerequisite: run `./gradlew :prism-native:generateFfiBindings` before
 /// building on any FFI platform (generates prism_native_bindings.dart).
 class PrismEngine implements PrismEngineInterface {
   final PrismEngineInterface _impl;
 
-  PrismEngine()
-      : _impl = (Platform.isAndroid)
-            ? channel.PrismEngine()
-            : ffi.PrismEngine();
+  PrismEngine() : _impl = ffi.PrismEngine();
 
   /// Raw engine handle (non-zero on FFI platforms). Used by platform views to
   /// call prism-native C API functions (e.g. prism_attach_metal_layer).
@@ -71,13 +66,11 @@ class PrismEngine implements PrismEngineInterface {
   /// The asset is read from Flutter's asset bundle via [rootBundle] and written
   /// to the system temp directory on first use. Subsequent calls return the
   /// cached path without re-reading the bundle. This approach works on all FFI
-  /// platforms (iOS, macOS, Linux, Windows) without platform-specific Swift or
+  /// platforms (iOS, macOS, Android, Linux, Windows) without platform-specific
   /// native code.
   ///
-  /// Returns null on Android (the native PrismSurface loads assets directly via
-  /// the AssetManager) and when the asset cannot be loaded.
+  /// Returns null when the asset cannot be loaded.
   static Future<String?> resolveFlutterAssetPath(String assetKey) async {
-    if (Platform.isAndroid) return null;
     final cached = _assetPathCache[assetKey];
     if (cached != null) return cached;
     try {

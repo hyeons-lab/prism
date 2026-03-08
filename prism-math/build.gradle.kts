@@ -16,6 +16,8 @@ kotlin {
   iosArm64()
   iosSimulatorArm64()
   if (isMac) macosArm64()
+  androidNativeArm64()
+  androidNativeX64()
   linuxX64()
   mingwX64()
 
