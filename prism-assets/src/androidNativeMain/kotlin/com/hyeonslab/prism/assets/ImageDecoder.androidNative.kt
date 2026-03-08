@@ -1,9 +1,7 @@
 package com.hyeonslab.prism.assets
 
 actual object ImageDecoder {
-  actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? {
-    TODO("Image decoding for Android Native is not yet implemented")
-  }
+  actual suspend fun decode(bytes: ByteArray, unpremultiply: Boolean): ImageData? = null
 
   actual suspend fun decodeFromNativeBuffer(
     nativeBuffer: Any,

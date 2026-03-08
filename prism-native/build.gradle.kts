@@ -51,14 +51,8 @@ kotlin {
     val commonMain by getting
     val nativeMain by creating { dependsOn(commonMain) }
 
-    androidNativeTargets.forEach { target ->
+    (nativeTargets + androidNativeTargets).forEach { target ->
       target.compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
-    }
-
-    if (isMac) {
-      macosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
-      iosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
-      iosSimulatorArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
     }
 
     nativeMain.dependencies {

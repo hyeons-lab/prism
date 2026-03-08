@@ -270,6 +270,7 @@ fun prismIsRendererReady(engineHandle: Long): Int =
 // JNI Bridge (JVM side calls from PrismAndroidNative.kt)
 // ---------------------------------------------------------------------------
 
+@Suppress("UNUSED_PARAMETER")
 @CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nAttachSurface")
 fun jniAttachSurface(
   env: CPointer<JNIEnvVar>,
@@ -283,14 +284,17 @@ fun jniAttachSurface(
   prismAttachAndroidSurface(handle, window, w, h)
 }
 
+@Suppress("UNUSED_PARAMETER")
 @CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nRenderFrame")
 fun jniRenderFrame(env: CPointer<JNIEnvVar>, cls: jobject, handle: Long) =
   prismRenderFrame(handle)
 
+@Suppress("UNUSED_PARAMETER")
 @CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nResize")
 fun jniResize(env: CPointer<JNIEnvVar>, cls: jobject, handle: Long, w: Int, h: Int) =
   prismResize(handle, w, h)
 
+@Suppress("UNUSED_PARAMETER")
 @CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nDetachSurface")
 fun jniDetachSurface(env: CPointer<JNIEnvVar>, cls: jobject, handle: Long) =
   prismDetachSurface(handle)

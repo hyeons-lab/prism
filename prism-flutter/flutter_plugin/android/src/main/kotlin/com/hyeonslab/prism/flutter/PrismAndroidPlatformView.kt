@@ -33,6 +33,7 @@ class PrismAndroidPlatformView(
   private val surfaceView = SurfaceView(context)
   private var running = false
   private var paused = false
+  private var attached = false
 
   init {
     surfaceView.holder.addCallback(this)
@@ -50,7 +51,12 @@ class PrismAndroidPlatformView(
   override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
     log.i { "surfaceChanged: ${width}x${height}" }
     if (engineHandle != 0L) {
-      PrismAndroidNative.nAttachSurface(engineHandle, holder.surface, width, height)
+      if (!attached) {
+        PrismAndroidNative.nAttachSurface(engineHandle, holder.surface, width, height)
+        attached = true
+      } else {
+        PrismAndroidNative.nResize(engineHandle, width, height)
+      }
       if (!running) {
         running = true
         Choreographer.getInstance().postFrameCallback(this)
@@ -103,6 +109,7 @@ class PrismAndroidPlatformView(
   private fun stopRendering() {
     running = false
     paused = false
+    attached = false
     Choreographer.getInstance().removeFrameCallback(this)
     if (engineHandle != 0L) {
       PrismAndroidNative.nDetachSurface(engineHandle)
