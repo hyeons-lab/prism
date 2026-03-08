@@ -12,11 +12,13 @@
 - `prism-native/build.gradle.kts` — replaced separate `androidNativeTargets.forEach` + `if (isMac)` blocks with `(nativeTargets + androidNativeTargets).forEach` so `linuxX64`/`mingwX64` also wire to `nativeMain` (Copilot fix 3)
 - `prism-native/src/androidNativeMain/.../AndroidBridge.kt` — `@Suppress("UNUSED_PARAMETER")` on all four JNI wrapper functions (Copilot fix 4/5)
 - `prism-flutter/build.gradle.kts` — `bundleNativeAndroidArm64`/`X64` tasks changed from `debugShared` to `releaseShared` (Copilot fix 6)
+- `.github/workflows/ci.yml` — added "Get Xcode version" step and included `steps.xcode-version.outputs.version` in the DerivedData cache key; `restore-keys` also scoped to Xcode version so stale module cache from a prior Xcode install is never restored
 
 ## Decisions
 
 - 2026-03-07T19:05-08:00 Porting Copilot review fixes from PR #49 into this branch since android-ffi was merged without them. These fixes are correctness issues (GPU resource leak, crash on progressive texture decode) and belong in main.
 - 2026-03-07T19:05-08:00 Kept WASM rebuild and android fixes in one PR rather than splitting — both are housekeeping/correctness work targeting the same base.
+- 2026-03-07T19:28-08:00 DerivedData cache key now includes Xcode version — the `restore-keys` fallback `xcode-dd-${{ runner.os }}-` was restoring stale module cache from pre-16.4 Xcode, causing mtime mismatch errors on `.pcm` files. Scoping to version ensures a fresh cache on Xcode upgrades.
 
 ## Issues
 
@@ -25,4 +27,5 @@
 ## Commits
 
 - 295bd47 — chore: rebuild WASM demo from latest main (PRs #45, #47, #48)
-- HEAD — fix: Android FFI Copilot review fixes (surfaceChanged, nativeMain wiring, JNI suppression, release .so)
+- 6c337c3 — fix: Android FFI Copilot review fixes (surfaceChanged, nativeMain wiring, JNI suppression, release .so)
+- HEAD — fix: scope DerivedData cache key to Xcode version to prevent stale module cache
