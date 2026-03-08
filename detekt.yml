@@ -361,7 +361,6 @@ naming:
       - 'macos'
       - 'linux'
       - 'mingw'
-      - 'native'
       - 'iosArm64'
       - 'iosX64'
       - 'macosX64'
