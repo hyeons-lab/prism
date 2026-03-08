@@ -2,7 +2,6 @@ import 'dart:io' show Directory, File;
 
 import 'package:flutter/services.dart' show rootBundle;
 
-import 'prism_engine_channel.dart' as channel;
 import 'prism_engine_ffi.dart' as ffi; // used for PrismEngine() constructor
 import 'prism_engine_interface.dart';
 
