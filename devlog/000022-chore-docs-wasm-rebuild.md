@@ -14,12 +14,19 @@
 - `prism-flutter/build.gradle.kts` — `bundleNativeAndroidArm64`/`X64` tasks changed from `debugShared` to `releaseShared` (Copilot fix 6)
 - `.github/workflows/ci.yml` — added "Get Xcode version" step and included `steps.xcode-version.outputs.version` in the DerivedData cache key; `restore-keys` also scoped to Xcode version so stale module cache from a prior Xcode install is never restored; runner updated to `macos-26`
 - `.github/workflows/release.yml` — runner updated to `macos-26`
+- `prism-native/build.gradle.kts` — added `applyDefaultHierarchyTemplate()`; replaced `val nativeMain by creating { dependsOn(commonMain) }` with `val nativeMain by getting` (the template creates and wires it); removed the explicit `(nativeTargets + androidNativeTargets).forEach { dependsOn(nativeMain) }` loop — the default hierarchy handles all targets including `androidNativeArm64/X64`
+- `prism-flutter-demo/build.gradle.kts` — wrapped `linuxX64()` / `mingwX64()` in `if (!isMac)` block; on macOS these targets were not declared in `prism-demo-core` (its upstream), causing a Gradle variant-resolution failure
+- `prism-android-demo/build.gradle.kts` — broadened `tasks.matching` pattern to include all lint-related task names (not just `merge*Assets`); AGP lint model tasks (`lintAnalyze*`, `lintVitalAnalyze*`, `generate*LintReportModel`) also read from the assets source directory and need `downloadDemoAssets` declared as a dependency
+- `detekt.yml` — added `wasmJs`, `apple`, `native`, `androidNative`, `macos`, `linux`, `mingw` to `MatchingDeclarationName.multiplatformTargets`; only `ios`, `android`, `js`, `jvm` were listed, causing `FileReader.wasmJs.kt` and similar platform-suffix files to fail the rule
 
 ## Decisions
 
 - 2026-03-07T19:05-08:00 Porting Copilot review fixes from PR #49 into this branch since android-ffi was merged without them. These fixes are correctness issues (GPU resource leak, crash on progressive texture decode) and belong in main.
 - 2026-03-07T19:05-08:00 Kept WASM rebuild and android fixes in one PR rather than splitting — both are housekeeping/correctness work targeting the same base.
 - 2026-03-07T19:28-08:00 DerivedData cache key now includes Xcode version — the `restore-keys` fallback `xcode-dd-${{ runner.os }}-` was restoring stale module cache from pre-16.4 Xcode, causing mtime mismatch errors on `.pcm` files. Scoping to version ensures a fresh cache on Xcode upgrades.
+- 2026-03-07T21:29-08:00 `prism-native` was the only module without `applyDefaultHierarchyTemplate()`. All other modules already called it. Adding it allows `nativeMain` to be obtained with `by getting` instead of `by creating`, and removes the explicit `forEach` wiring that conflicted with the template. The default hierarchy already includes `androidNativeArm64/X64` under `nativeMain`, so no manual edges are needed.
+- 2026-03-07T21:29-08:00 `detekt.yml` `MatchingDeclarationName.multiplatformTargets` was missing 7 KMP platform suffixes actually used in the project. Kotlin's `expect`/`actual` convention uses `.platformSuffix.kt` filenames (e.g., `FileReader.wasmJs.kt`). Detekt must be told which suffixes to strip when comparing file names to declaration names.
+- 2026-03-07T21:29-08:00 `./gradlew build` on macOS has two pre-existing failures unrelated to this PR: (a) `prism-demo-core:compileIosMainKotlinMetadata` fails due to Compose 1.10.1 KLIB duplicate unique-names between `org.jetbrains.compose` and `androidx.compose` transitive deps; (b) `prism-assets:linkDebugTestLinuxX64` fails because macOS LLD cannot link Linux binaries. Neither is in CI's dependency chain (CI runs specific tasks, not `build`).
 
 ## Issues
 
@@ -30,4 +37,5 @@
 - 295bd47 — chore: rebuild WASM demo from latest main (PRs #45, #47, #48)
 - 6c337c3 — fix: Android FFI Copilot review fixes (surfaceChanged, nativeMain wiring, JNI suppression, release .so)
 - ffc6346 — fix: scope DerivedData cache key to Xcode version to prevent stale module cache
-- HEAD — chore: update macOS CI runners to macos-26
+- 434406b — chore: update macOS CI runners to macos-26
+- HEAD — fix: hierarchy, lint deps, detekt multiplatform targets, flutter-demo target scope

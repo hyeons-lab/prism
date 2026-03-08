@@ -26,6 +26,8 @@ kotlin {
     target.binaries.sharedLib { baseName = "prism" }
   }
 
+  applyDefaultHierarchyTemplate()
+
   if (isAndroidBuild) {
     androidNativeArm64 {
       compilations.getByName("main") {
@@ -48,12 +50,9 @@ kotlin {
   }
 
   sourceSets {
-    val commonMain by getting
-    val nativeMain by creating { dependsOn(commonMain) }
-
-    (nativeTargets + androidNativeTargets).forEach { target ->
-      target.compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
-    }
+    // nativeMain is created by applyDefaultHierarchyTemplate() and automatically wired to all
+    // native targets (iOS, macOS, Linux, Windows, and Android native).
+    val nativeMain by getting
 
     nativeMain.dependencies {
       implementation(project(":prism-math"))

@@ -28,11 +28,11 @@ android {
   }
 }
 
-// Download the shared demo asset before AGP merges assets into the APK.
-// Scoped to merge*Assets (not preBuild) so lint/unit-test runs are unaffected.
-tasks.matching { it.name.matches(Regex("merge(Debug|Release)Assets")) }.configureEach {
-  dependsOn(":downloadDemoAssets")
-}
+// Download the shared demo asset before any task that reads the assets source directory.
+// This covers AGP merge tasks, all AGP lint tasks (lintAnalyze, lintVitalAnalyze,
+// generate*LintReportModel, generate*LintVitalReportModel, etc.) and future consumers.
+tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") || "lint" in it.name.lowercase() }
+  .configureEach { dependsOn(":downloadDemoAssets") }
 
 dependencies {
   implementation(project(":prism-demo-core"))
