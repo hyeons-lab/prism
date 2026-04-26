@@ -26,8 +26,6 @@ kotlin {
     target.binaries.sharedLib { baseName = "prism" }
   }
 
-  applyDefaultHierarchyTemplate()
-
   if (isAndroidBuild) {
     androidNativeArm64 {
       compilations.getByName("main") {
@@ -50,9 +48,22 @@ kotlin {
   }
 
   sourceSets {
-    // nativeMain is created by applyDefaultHierarchyTemplate() and automatically wired to all
-    // native targets (iOS, macOS, Linux, Windows, and Android native).
-    val nativeMain by getting
+    // Manual nativeMain wiring (do NOT call applyDefaultHierarchyTemplate()) — the explicit
+    // template promotes androidNativeMain into a real shared source set, which then loses
+    // visibility into the per-target androidNativeWindow cinterop and breaks compilation
+    // of AndroidBridge.kt's ANativeWindow_fromSurface use site.
+    val commonMain by getting
+    val nativeMain by creating { dependsOn(commonMain) }
+
+    androidNativeTargets.forEach { target ->
+      target.compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+    }
+
+    if (isMac) {
+      macosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+      iosArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+      iosSimulatorArm64().compilations.getByName("main").defaultSourceSet.dependsOn(nativeMain)
+    }
 
     nativeMain.dependencies {
       implementation(project(":prism-math"))
