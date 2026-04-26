@@ -31,10 +31,9 @@ kotlin {
         }
       }
     }
-  } else {
-    linuxX64()
-    mingwX64()
   }
+  linuxX64()
+  mingwX64()
 
   val xcf = XCFramework("PrismDemo")
   listOf(iosArm64(), iosSimulatorArm64()).forEach { target ->
@@ -87,6 +86,8 @@ kotlin {
       implementation(libs.compose.material3)
       implementation(libs.lifecycle.runtime.compose)
     }
+
+    nativeMain.dependencies { implementation(libs.compose.runtime) }
 
     commonMain.dependencies {
       api(project(":prism-math"))

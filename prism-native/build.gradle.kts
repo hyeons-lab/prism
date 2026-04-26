@@ -48,6 +48,10 @@ kotlin {
   }
 
   sourceSets {
+    // Manual nativeMain wiring (do NOT call applyDefaultHierarchyTemplate()) — the explicit
+    // template promotes androidNativeMain into a real shared source set, which then loses
+    // visibility into the per-target androidNativeWindow cinterop and breaks compilation
+    // of AndroidBridge.kt's ANativeWindow_fromSurface use site.
     val commonMain by getting
     val nativeMain by creating { dependsOn(commonMain) }
 

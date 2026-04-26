@@ -211,14 +211,14 @@ tasks.register<Exec>("bundleNativeMacOS") {
 val prismNativeBuildDir = project(":prism-native").layout.buildDirectory
 
 tasks.register<Copy>("bundleNativeAndroidArm64") {
-  dependsOn(":prism-native:linkDebugSharedAndroidNativeArm64")
-  from(prismNativeBuildDir.file("bin/androidNativeArm64/debugShared/libprism.so"))
+  dependsOn(":prism-native:linkReleaseSharedAndroidNativeArm64")
+  from(prismNativeBuildDir.file("bin/androidNativeArm64/releaseShared/libprism.so"))
   into(layout.projectDirectory.dir("flutter_plugin/android/src/main/jniLibs/arm64-v8a"))
 }
 
 tasks.register<Copy>("bundleNativeAndroidX64") {
-  dependsOn(":prism-native:linkDebugSharedAndroidNativeX64")
-  from(prismNativeBuildDir.file("bin/androidNativeX64/debugShared/libprism.so"))
+  dependsOn(":prism-native:linkReleaseSharedAndroidNativeX64")
+  from(prismNativeBuildDir.file("bin/androidNativeX64/releaseShared/libprism.so"))
   into(layout.projectDirectory.dir("flutter_plugin/android/src/main/jniLibs/x86_64"))
 }
 

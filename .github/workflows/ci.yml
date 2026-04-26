@@ -75,7 +75,7 @@ jobs:
 
   apple:
     name: Apple Targets
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 70
 
     steps:
@@ -213,13 +213,17 @@ jobs:
       - name: Generate Xcode project
         run: cd prism-ios-demo && xcodegen generate
 
+      - name: Get Xcode version
+        id: xcode-version
+        run: echo "version=$(xcodebuild -version | head -1 | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+
       - name: Cache Xcode DerivedData
         uses: actions/cache@v4
         with:
           path: prism-ios-demo/DerivedData
-          key: xcode-dd-${{ runner.os }}-${{ hashFiles('prism-ios-demo/Sources/**', 'prism-ios-demo/project.yml', '**/src/commonMain/**/*.kt', '**/src/iosMain/**/*.kt', '**/src/appleMain/**/*.kt', 'gradle/libs.versions.toml') }}
+          key: xcode-dd-${{ runner.os }}-${{ steps.xcode-version.outputs.version }}-${{ hashFiles('prism-ios-demo/Sources/**', 'prism-ios-demo/project.yml', '**/src/commonMain/**/*.kt', '**/src/iosMain/**/*.kt', '**/src/appleMain/**/*.kt', 'gradle/libs.versions.toml') }}
           restore-keys: |
-            xcode-dd-${{ runner.os }}-
+            xcode-dd-${{ runner.os }}-${{ steps.xcode-version.outputs.version }}-
 
       - name: Build iOS app
         run: |
