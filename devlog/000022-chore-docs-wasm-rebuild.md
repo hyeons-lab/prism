@@ -22,6 +22,9 @@
 - `prism-android-demo/build.gradle.kts` — broadened `tasks.matching` pattern to include all lint-related task names (not just `merge*Assets`); AGP lint model tasks (`lintAnalyze*`, `lintVitalAnalyze*`, `generate*LintReportModel`) also read from the assets source directory and need `downloadDemoAssets` declared as a dependency
 - `detekt.yml` — added `wasmJs`, `apple`, `native`, `androidNative`, `macos`, `linux`, `mingw` to `MatchingDeclarationName.multiplatformTargets`; only `ios`, `android`, `js`, `jvm` were listed, causing `FileReader.wasmJs.kt` and similar platform-suffix files to fail the rule; also removed duplicate `'native'` entry introduced during that edit
 - `.github/workflows/deploy-docs.yml` — new workflow: builds `wasmJsBrowserDistribution` on push to main, stages `docs/` with the freshly built WASM artifacts overlaid into `wasm/`, and deploys to GitHub Pages via `actions/upload-pages-artifact` + `actions/deploy-pages`
+- `prism-native/src/androidNativeMain/.../AndroidBridge.kt` — removed `import androidNativeWindow.ANativeWindow_fromSurface` and the `jniAttachSurface` function; replaced with a comment pointing to the leaf source sets
+- `prism-native/src/androidNativeArm64Main/.../AndroidJniAttach.kt` — new file; contains `jniAttachSurface` (single-use site of the `androidNativeWindow` cinterop)
+- `prism-native/src/androidNativeX64Main/.../AndroidJniAttach.kt` — new file; identical content to the arm64 leaf copy
 
 ## Decisions
 
@@ -33,6 +36,7 @@
 - 2026-03-07T21:29-08:00 `./gradlew build` on macOS has two pre-existing failures unrelated to this PR: (a) `prism-demo-core:compileIosMainKotlinMetadata` fails due to Compose 1.10.1 KLIB duplicate unique-names between `org.jetbrains.compose` and `androidx.compose` transitive deps; (b) `prism-assets:linkDebugTestLinuxX64` fails because macOS LLD cannot link Linux binaries. Neither is in CI's dependency chain (CI runs specific tasks, not `build`).
 - 2026-03-08T13:35-0700 Added `deploy-docs.yml` GitHub Actions workflow to build WASM from source on every main push and deploy to GitHub Pages, replacing the current approach of committing WASM artifacts into `docs/wasm/`. The workflow reuses the existing `setup-wgpu4k` action and JDK setup from `ci.yml`. Hand-written files in `docs/wasm/` (`DamagedHelmet.glb`, `index.html`, `pbr.html`) are preserved; only the webpack-generated JS/WASM artifacts are overlaid from the fresh build.
 - 2026-03-08T13:27-0700 `prism-demo-core` was conditionally declaring `linuxX64/mingwX64` only on non-macOS. This meant macOS builds silently omitted those targets while `prism-flutter-demo` (which has always declared them unconditionally) caused Gradle variant-resolution failure on macOS. Correct fix: add the targets unconditionally to `prism-demo-core` (they cross-compile fine on macOS). Adding them also required a consolidated `nativeMain` actual for `TextureUploadHelper` (replacing the identical macosMain/iosMain copies) and `nativeMain.dependencies { compose.runtime }` (Compose Compiler applies to all native targets).
+- 2026-04-26T07:28-0700 Docker CI failed with `Unresolved reference 'ANativeWindow_fromSurface'` on `:prism-native:compileKotlinAndroidNativeArm64` after `applyDefaultHierarchyTemplate()` was added in e39a6f4. The template promoted `androidNativeMain` from a non-existent source set into a real shared source set, which caused `AndroidBridge.kt` (already at `src/androidNativeMain/kotlin/`) to be treated as commonized code. The `androidNativeWindow` cinterop is registered on the leaf compilations (`androidNativeArm64`, `androidNativeX64`) and is not visible from the shared source set without commonized klibs being available — and Gradle aborted before x64's cinterop ran, so commonization could not complete. Fix: extract the single use site (`jniAttachSurface`) into a new `AndroidJniAttach.kt` placed in both `androidNativeArm64Main` and `androidNativeX64Main` leaf source sets, where the cinterop is directly accessible. Bulk of `AndroidBridge.kt` stays shared. Considered reverting the hierarchy template change (Option A) but kept it for consistency with all other modules; chose surgical leaf-extraction (Option B) instead.
 
 ## Issues
 
@@ -47,4 +51,5 @@
 - e39a6f4 — fix: hierarchy, lint deps, detekt multiplatform targets, flutter-demo target scope
 - 38e2693 — fix: add linuxX64/mingwX64 to prism-demo-core, consolidate nativeMain actual
 - 642f11d — fix: remove duplicate native entry in detekt multiplatformTargets; correct devlog
-- HEAD — ci: deploy docs to GitHub Pages on push to main
+- 6ec7d3b — ci: deploy docs to GitHub Pages on push to main
+- HEAD — fix: move jniAttachSurface to androidNative leaf source sets

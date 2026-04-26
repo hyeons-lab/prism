@@ -2,7 +2,6 @@
 
 package com.hyeonslab.prism.native
 
-import androidNativeWindow.ANativeWindow_fromSurface
 import co.touchlab.kermit.Logger
 import com.hyeonslab.prism.core.Engine
 import com.hyeonslab.prism.core.Time
@@ -270,19 +269,8 @@ fun prismIsRendererReady(engineHandle: Long): Int =
 // JNI Bridge (JVM side calls from PrismAndroidNative.kt)
 // ---------------------------------------------------------------------------
 
-@Suppress("UNUSED_PARAMETER")
-@CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nAttachSurface")
-fun jniAttachSurface(
-  env: CPointer<JNIEnvVar>,
-  cls: jobject,
-  handle: Long,
-  surface: jobject,
-  w: Int,
-  h: Int,
-) {
-  val window = ANativeWindow_fromSurface(env, surface) ?: return
-  prismAttachAndroidSurface(handle, window, w, h)
-}
+// jniAttachSurface lives in androidNativeArm64Main/X64Main — its body uses the
+// androidNativeWindow cinterop which is registered on the leaf compilations only.
 
 @Suppress("UNUSED_PARAMETER")
 @CName("Java_com_hyeonslab_prism_flutter_PrismAndroidNative_nRenderFrame")
