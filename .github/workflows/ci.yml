@@ -73,10 +73,18 @@ jobs:
           done
           echo "| **Total ~/.gradle** | $(du -sh ~/.gradle | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
 
-  apple:
-    name: Apple Targets
+  # The Apple build is split into per-slice matrix jobs that compile each
+  # Kotlin/Native target in parallel, then a finalize job that merges the
+  # per-slice .framework directories into XCFrameworks via
+  # `xcodebuild -create-xcframework` and runs the iOS demo build.
+  apple-slice:
+    name: Apple Slice (${{ matrix.target }})
     runs-on: macos-26
-    timeout-minutes: 70
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [iosArm64, iosSimulatorArm64, macosArm64]
 
     steps:
       - name: Checkout
@@ -127,24 +135,41 @@ jobs:
         with:
           rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
-      - name: Apple native tests + XCFrameworks
+      - name: Build slice
         run: |
           START=$SECONDS
-          ./gradlew iosSimulatorArm64Test \
-            macosArm64Test \
-            :prism-demo-core:assemblePrismDemoDebugXCFramework \
-            :prism-ios:assemblePrismDebugXCFramework \
-            :prism-native:linkDebugSharedIosSimulatorArm64 \
-            :prism-native:linkDebugSharedMacosArm64 \
-            --configuration-cache \
-            -Pkotlin.native.parallelThreads=3 || EXIT=$?
-          echo "### Apple Tests + XCFrameworks: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
+          case "${{ matrix.target }}" in
+            iosArm64)
+              ./gradlew \
+                :prism-ios:linkDebugFrameworkIosArm64 \
+                :prism-demo-core:linkDebugFrameworkIosArm64 \
+                --configuration-cache \
+                -Pkotlin.native.parallelThreads=3 || EXIT=$?
+              ;;
+            iosSimulatorArm64)
+              ./gradlew \
+                :prism-ios:linkDebugFrameworkIosSimulatorArm64 \
+                :prism-demo-core:linkDebugFrameworkIosSimulatorArm64 \
+                :prism-native:linkDebugSharedIosSimulatorArm64 \
+                iosSimulatorArm64Test \
+                --configuration-cache \
+                -Pkotlin.native.parallelThreads=3 || EXIT=$?
+              ;;
+            macosArm64)
+              ./gradlew \
+                :prism-native:linkDebugSharedMacosArm64 \
+                macosArm64Test \
+                --configuration-cache \
+                -Pkotlin.native.parallelThreads=3 || EXIT=$?
+              ;;
+          esac
+          echo "### ${{ matrix.target }} slice: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
 
       - name: Gradle home cache size breakdown
         if: always()
         run: |
-          echo "### Gradle Home Cache Size" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Gradle Home Cache Size — ${{ matrix.target }}" >> "$GITHUB_STEP_SUMMARY"
           echo "| Directory | Size |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-----------|------|" >> "$GITHUB_STEP_SUMMARY"
           for D in modules-2 transforms-3 transforms-4 build-cache-1 kotlin-dce; do
@@ -155,6 +180,74 @@ jobs:
             fi
           done
           echo "| **Total ~/.gradle** | $(du -sh ~/.gradle | cut -f1) |" >> "$GITHUB_STEP_SUMMARY"
+
+      # Only the iOS slices contribute frameworks to the XCFramework merge.
+      # macosArm64 runs tests + the prism-native dylib for verification only;
+      # nothing from it is consumed downstream, so no upload is needed.
+      - name: Upload slice frameworks
+        if: matrix.target == 'iosArm64' || matrix.target == 'iosSimulatorArm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-slice-${{ matrix.target }}
+          path: |
+            prism-ios/build/bin/${{ matrix.target }}/debugFramework/
+            prism-demo-core/build/bin/${{ matrix.target }}/debugFramework/
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
+
+  apple-finalize:
+    name: Apple Finalize
+    needs: apple-slice
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download iOS slice frameworks
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apple-slice-*
+          merge-multiple: true
+
+      - name: Inspect downloaded slice tree
+        run: |
+          echo "### Downloaded slice tree" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          find prism-ios/build/bin prism-demo-core/build/bin -maxdepth 5 -type d 2>/dev/null \
+            | sort >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assemble XCFrameworks
+        run: |
+          set -euo pipefail
+          START=$SECONDS
+
+          create_xcf() {
+            local module="$1" name="$2"
+            local out="${module}/build/XCFrameworks/debug/${name}.xcframework"
+            local arm64="${module}/build/bin/iosArm64/debugFramework/${name}.framework"
+            local sim="${module}/build/bin/iosSimulatorArm64/debugFramework/${name}.framework"
+
+            if [ ! -d "$arm64" ] || [ ! -d "$sim" ]; then
+              echo "::error::Missing input slice framework for ${name}: arm64=${arm64} sim=${sim}"
+              exit 1
+            fi
+
+            rm -rf "$out"
+            mkdir -p "$(dirname "$out")"
+            xcodebuild -create-xcframework \
+              -framework "$arm64" \
+              -framework "$sim" \
+              -output "$out"
+          }
+
+          create_xcf prism-ios       Prism
+          create_xcf prism-demo-core PrismDemo
+
+          echo "### XCFramework merge: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify XCFramework headers
         run: |
@@ -207,8 +300,22 @@ jobs:
         if: steps.cache-xcodegen.outputs.cache-hit == 'true'
         run: brew link --overwrite xcodegen 2>/dev/null || true
 
+      # Replicates `:downloadDemoAssets` (see root build.gradle.kts) without
+      # paying for a Gradle/JDK setup just to fetch a single 3.7 MB file.
+      # The SHA-256 must stay in sync with build.gradle.kts.
       - name: Download demo assets
-        run: ./gradlew downloadDemoAssets
+        run: |
+          set -euo pipefail
+          DEST=prism-demo-core/assets/DamagedHelmet.glb
+          URL=https://github.com/KhronosGroup/glTF-Sample-Assets/raw/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb
+          EXPECTED=a1e3b04de97b11de564ce6e53b95f02954a297f0008183ac63a4f5974f6b32d8
+          mkdir -p "$(dirname "$DEST")"
+          curl -fsSL "$URL" -o "$DEST"
+          ACTUAL=$(shasum -a 256 "$DEST" | cut -d' ' -f1)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::DamagedHelmet.glb checksum mismatch: expected $EXPECTED, got $ACTUAL"
+            exit 1
+          fi
 
       - name: Generate Xcode project
         run: cd prism-ios-demo && xcodegen generate
@@ -241,7 +348,7 @@ jobs:
           fi
           echo "### xcodebuild: $((SECONDS - START))s" >> "$GITHUB_STEP_SUMMARY"
           exit ${EXIT:-0}
-          
+
   flutter:
     name: Flutter Dart Analysis
     runs-on: ubuntu-latest
