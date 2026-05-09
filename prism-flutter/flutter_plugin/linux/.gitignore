@@ -1,0 +1,3 @@
+# libprism.so is dropped here by `:prism-flutter:bundleNativeLinux`.
+# CMake reads it as an IMPORTED target and bundles it into the host app.
+native/libprism.so

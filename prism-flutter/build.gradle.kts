@@ -225,3 +225,29 @@ tasks.register<Copy>("bundleNativeAndroidX64") {
 tasks.register("bundleNativeAndroid") {
   dependsOn("bundleNativeAndroidArm64", "bundleNativeAndroidX64")
 }
+
+// ---------------------------------------------------------------------------
+// Copy libprism.so (Kotlin/Native, linuxX64) into the Flutter Linux plugin's
+// bundled-libraries directory. CMakeLists.txt under flutter_plugin/linux/
+// reads from native/libprism.so and arranges for it to land in the host
+// app's lib/ directory at build time.
+// Run: ./gradlew :prism-flutter:bundleNativeLinux
+// ---------------------------------------------------------------------------
+tasks.register<Copy>("bundleNativeLinux") {
+  dependsOn(":prism-native:linkReleaseSharedLinuxX64")
+  from(prismNativeBuildDir.file("bin/linuxX64/releaseShared/libprism.so"))
+  into(layout.projectDirectory.dir("flutter_plugin/linux/native"))
+}
+
+// ---------------------------------------------------------------------------
+// Copy prism.dll (Kotlin/Native, mingwX64) into the Flutter Windows plugin's
+// bundled-libraries directory. CMakeLists.txt under flutter_plugin/windows/
+// reads from native/prism.dll and Flutter copies it next to the host
+// executable at build time.
+// Run: ./gradlew :prism-flutter:bundleNativeWindows
+// ---------------------------------------------------------------------------
+tasks.register<Copy>("bundleNativeWindows") {
+  dependsOn(":prism-native:linkReleaseSharedMingwX64")
+  from(prismNativeBuildDir.file("bin/mingwX64/releaseShared/prism.dll"))
+  into(layout.projectDirectory.dir("flutter_plugin/windows/native"))
+}
