@@ -60,7 +60,7 @@ jobs:
           cp -r docs/ _site/
           # Overlay freshly built WASM artifacts; hand-written files in docs/wasm/
           # (DamagedHelmet.glb, index.html, pbr.html) are preserved from the cp above.
-          cp prism-demo-core/build/dist/wasmJs/productionExecutable/* _site/wasm/
+          cp -R prism-demo-core/build/dist/wasmJs/productionExecutable/. _site/wasm/
           touch _site/.nojekyll
 
       - name: Configure Pages
