@@ -61,11 +61,15 @@ work lands.
   itself is small but standalone-useful: it lets headless FFI use
   cases work today.
 - 2026-05-09T09:49-0700 Place the bundled native lib at
-  `flutter_plugin/<linux|windows>/native/` and have CMake reference
-  it via an `IMPORTED` target plus
-  `prism_flutter_bundled_libraries`. This mirrors the Android
-  approach (`flutter_plugin/android/src/main/jniLibs/<arch>/`) where
-  Gradle drops the `.so` for AGP to bundle automatically.
+  `flutter_plugin/<linux|windows>/native/` and have CMake export the
+  absolute path through `prism_flutter_bundled_libraries` (the
+  variable Flutter's Linux/Windows build tooling reads to copy
+  runtime files into the host app). No CMake `IMPORTED` target is
+  involved — the `.so`/`.dll` is *runtime-loaded* by Dart's
+  `DynamicLibrary.open(...)`, not link-time-linked to the plugin
+  shared library. This mirrors the Android approach
+  (`flutter_plugin/android/src/main/jniLibs/<arch>/`) where Gradle
+  drops the `.so` for AGP to bundle automatically.
 - 2026-05-09T09:49-0700 Skip generating `prism-flutter-demo/example/`
   scaffolding for `linux/`/`windows/` in this PR. `flutter create`
   produces ~30 files of host-app boilerplate that aren't useful
@@ -73,8 +77,29 @@ work lands.
 
 ## Issues
 
-(none yet)
+- 2026-05-09T10:30-0700 First commit (`0709dd6`) had a broken
+  `target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)` line
+  in `linux/CMakeLists.txt` — the `PkgConfig::GTK` target was never
+  defined (no `find_package(PkgConfig)` / `pkg_check_modules(GTK ...)`
+  call), so a real Linux build would have failed at CMake-configure
+  time. Removed in follow-up commit. The `flutter` link target
+  already pulls in GTK headers transitively (matches the minimal
+  pattern used by `url_launcher_linux` and other Flutter Linux
+  plugins). Also dropped the unused `<gtk/gtk.h>` include from
+  `prism_flutter_plugin.cc`.
+- 2026-05-09T10:32-0700 Devlog and plan referred to a CMake
+  `IMPORTED` target for the bundled native library (Copilot review
+  flagged this). No `IMPORTED` target is created — the `.so`/`.dll`
+  is dropped via `prism_flutter_bundled_libraries` and runtime-loaded
+  by Dart's `DynamicLibrary.open(...)`. Plan and devlog updated to
+  match. Convention says plans are append-only, but in this case the
+  text described the implementation incorrectly (not a forward
+  intent), so the simplest fix was to correct the wording in place;
+  noting the edit here for traceability. Plan's "static lib" wording
+  for Windows was likewise corrected to "SHARED" to match the actual
+  `add_library(... SHARED ...)`.
 
 ## Commits
 
-(pending)
+- 0709dd6 — feat: scaffold Flutter Linux + Windows plugin platforms
+- HEAD — fix: drop broken GTK link, correct doc drift

@@ -31,13 +31,16 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
-target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # `libprism.so` is dropped into `native/` by the Gradle task
-# `:prism-flutter:bundleNativeLinux`. If it's missing, the build still
-# succeeds but the Dart runtime will get an ArgumentError at
-# DynamicLibrary.open('libprism.so') time and PrismEngine becomes a no-op.
+# `:prism-flutter:bundleNativeLinux`. The Flutter Linux build tool reads
+# `<plugin>_bundled_libraries` from the parent scope and copies each path
+# into the host app's `lib/` directory at install time. No CMake IMPORTED
+# target is involved — the .so is loaded at runtime by Dart's
+# `DynamicLibrary.open('libprism.so')`, not linked to the plugin at build
+# time. If it's missing, the build still succeeds but the Dart runtime will
+# get an ArgumentError and PrismEngine becomes a no-op.
 set(PRISM_NATIVE_LIB "${CMAKE_CURRENT_SOURCE_DIR}/native/libprism.so")
 if(EXISTS "${PRISM_NATIVE_LIB}")
   set(prism_flutter_bundled_libraries

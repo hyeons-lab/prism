@@ -1,3 +1,4 @@
 # libprism.so is dropped here by `:prism-flutter:bundleNativeLinux`.
-# CMake reads it as an IMPORTED target and bundles it into the host app.
+# CMake exports the path via `prism_flutter_bundled_libraries`, which the
+# Flutter Linux build tool copies into the host app's `lib/` directory.
 native/libprism.so

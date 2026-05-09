@@ -1,7 +1,6 @@
 #include "include/prism_flutter/prism_flutter_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
-#include <gtk/gtk.h>
 
 // Phase 1 scaffolding: the plugin registers itself with the Flutter engine
 // but does not yet expose a method channel or platform view. Dart talks to

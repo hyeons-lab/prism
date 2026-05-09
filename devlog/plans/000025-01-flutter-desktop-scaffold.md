@@ -54,9 +54,12 @@ example app builds.
 
 - `prism-flutter/flutter_plugin/linux/`
   - `CMakeLists.txt` — Flutter Linux plugin convention; declares
-    `prism_flutter_plugin` SHARED library, links a `libprism.so`
-    IMPORTED target, exports `prism_flutter_bundled_libraries` so
-    Flutter copies the .so into the host app.
+    `prism_flutter_plugin` SHARED library and exports
+    `prism_flutter_bundled_libraries` (a parent-scope variable read by
+    Flutter's Linux build tool) pointing at `native/libprism.so`.
+    No CMake `IMPORTED` target — the `.so` is loaded at runtime by
+    Dart's `DynamicLibrary.open(...)`, not link-time-linked to the
+    plugin.
   - `include/prism_flutter/prism_flutter_plugin.h` — public header for
     `prism_flutter_plugin_register_with_registrar()`.
   - `prism_flutter_plugin.cc` — minimal `FlPlugin` class that just
@@ -64,8 +67,8 @@ example app builds.
   - `.gitignore` for build outputs.
 - `prism-flutter/flutter_plugin/windows/`
   - `CMakeLists.txt` — Flutter Windows plugin convention; declares
-    plugin static lib, copies `prism.dll` into the bundled-libraries
-    list.
+    `prism_flutter_plugin` SHARED library and exports
+    `prism_flutter_bundled_libraries` pointing at `native/prism.dll`.
   - `include/prism_flutter/prism_flutter_plugin_c_api.h` — C API
     entry point for Flutter's plugin registrar.
   - `prism_flutter_plugin_c_api.cpp` — registers the Windows plugin.
