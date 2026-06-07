@@ -199,13 +199,12 @@ class WgpuRenderer(
   override fun initialize(engine: Engine) {
     if (!surfacePreConfigured) {
       val format = renderingContext.textureFormat
-      val alphaMode = CompositeAlphaMode.Opaque
       wgpuContext.surface.configure(
         SurfaceConfiguration(
           device = device,
           format = format,
           usage = GPUTextureUsage.RenderAttachment,
-          alphaMode = alphaMode,
+          alphaMode = chooseAlphaMode(wgpuContext.surface.supportedAlphaMode),
         )
       )
     }
@@ -1549,3 +1548,20 @@ class WgpuRenderer(
       TextureFormat.RGBA16_FLOAT -> GPUTextureFormat.RGBA16Float
     }
 }
+
+/**
+ * Picks a surface composite-alpha mode that the device actually supports. Prefers
+ * [CompositeAlphaMode.Opaque] (desktop/Metal), then [CompositeAlphaMode.Inherit], then
+ * [CompositeAlphaMode.Auto] — Android/Vulkan surfaces commonly advertise only `[Inherit, Auto]` and
+ * never `Opaque`. Falls back to any supported mode.
+ *
+ * wgpu treats configuring a surface with an unsupported alpha mode as a fatal (aborting) error, so
+ * the returned value must always be a member of [supported].
+ */
+internal fun chooseAlphaMode(supported: Set<CompositeAlphaMode>): CompositeAlphaMode =
+  when {
+    CompositeAlphaMode.Opaque in supported -> CompositeAlphaMode.Opaque
+    CompositeAlphaMode.Inherit in supported -> CompositeAlphaMode.Inherit
+    CompositeAlphaMode.Auto in supported -> CompositeAlphaMode.Auto
+    else -> supported.firstOrNull() ?: CompositeAlphaMode.Opaque
+  }
