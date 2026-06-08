@@ -1,0 +1,101 @@
+name: Publish to Maven Central
+
+# Publishes the reusable Prism Kotlin Multiplatform libraries (prism-math,
+# prism-core, prism-renderer, prism-scene, prism-ecs, prism-input, prism-assets,
+# prism-audio, prism-native-widgets, prism-compose) to Maven Central via the
+# vanniktech maven-publish plugin. Coordinates/POM/signing come from
+# gradle.properties (GROUP, VERSION_NAME, POM_*) and each module's
+# `mavenPublishing { }` block.
+#
+# Runs on macOS so the Apple klib targets (iosArm64, iosSimulatorArm64,
+# macosArm64) are included in the publication — they are silently dropped on a
+# Linux runner. Tagging and the GitHub Release for the iOS XCFramework are owned
+# by release.yml; this workflow only publishes Maven artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (publish to ~/.m2 only, no upload)'
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish KMP libraries
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25 (for toolchain)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up JDK 21 (default)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          add-job-summary: always
+
+      - name: Get Kotlin version
+        id: kotlin-version
+        run: |
+          KOTLIN=$(grep '^kotlin ' gradle/libs.versions.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$KOTLIN" ]; then
+            echo "::error::Failed to extract Kotlin version from libs.versions.toml"
+            exit 1
+          fi
+          echo "version=$KOTLIN" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Kotlin/Native toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ steps.kotlin-version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
+      - name: Setup wgpu4k
+        uses: ./.github/actions/setup-wgpu4k
+        with:
+          rust-targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      # Dry run: assemble every publication and write it into ~/.m2 without
+      # uploading. The Gradle analog of `cargo package`. Needs no secrets —
+      # vanniktech makes signing non-required for local publication and SNAPSHOTs.
+      - name: Publish to Maven Local (dry run)
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "=== DRY RUN: publishToMavenLocal (no upload) ==="
+          ./gradlew publishToMavenLocal --no-configuration-cache
+          echo "=== Artifacts written to ~/.m2/repository/com/hyeons-lab ==="
+          find ~/.m2/repository/com/hyeons-lab -name '*.pom' | sort
+
+      # Real publish: upload to the Central Portal. SNAPSHOT versions route to the
+      # snapshot repository; release versions create a manually-releasable
+      # deployment (no automatic release). Signing is required for releases —
+      # provide an ASCII-armored GPG key via the SIGNING_KEY* secrets.
+      - name: Publish to Maven Central
+        if: ${{ !inputs.dry_run }}
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          echo "=== PUBLISHING TO MAVEN CENTRAL ==="
+          ./gradlew publishToMavenCentral --no-configuration-cache
