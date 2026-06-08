@@ -124,15 +124,37 @@ jobs:
       - name: Commit, tag, and push
         env:
           VERSION: ${{ inputs.version }}
+          GIT_SSH_SIGNING_KEY: ${{ secrets.GIT_SSH_SIGNING_KEY }}
+          RELEASE_GIT_EMAIL: ${{ secrets.RELEASE_GIT_EMAIL }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # The commit author email comes from the RELEASE_GIT_EMAIL secret. It
+          # must match the email verified on the maintainer's GitHub account and
+          # tied to the SSH *Signing Key* for the commit/tag to show "Verified".
+          if [ -z "$RELEASE_GIT_EMAIL" ]; then
+            echo "::error::RELEASE_GIT_EMAIL secret is not set"
+            exit 1
+          fi
+
+          # SSH-sign the release commit + tag so GitHub marks them "Verified".
+          # Requires: the matching public key added to the GitHub account as a
+          # *Signing Key*. The key must have no passphrase (dedicated CI key).
+          SIGNING_KEY="${RUNNER_TEMP}/git_ssh_signing_key"
+          install -m 600 /dev/null "$SIGNING_KEY"
+          printf '%s\n' "$GIT_SSH_SIGNING_KEY" > "$SIGNING_KEY"
+          ssh-keygen -y -f "$SIGNING_KEY" > "${SIGNING_KEY}.pub"
+
+          git config user.name "David Berrios"
+          git config user.email "$RELEASE_GIT_EMAIL"
+          git config gpg.format ssh
+          git config user.signingkey "${SIGNING_KEY}.pub"
+          git config commit.gpgsign true
+          git config tag.gpgsign true
 
           git add Package.swift
           git diff --cached --quiet && echo "No changes to Package.swift" && exit 1
 
-          git commit -m "chore: update Package.swift for v${VERSION}"
-          git tag "v${VERSION}"
+          git commit -S -m "chore: update Package.swift for v${VERSION}"
+          git tag -s "v${VERSION}" -m "v${VERSION}"
           git push origin main "v${VERSION}"
 
       - name: Create GitHub Release
