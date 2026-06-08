@@ -1556,12 +1556,20 @@ class WgpuRenderer(
  * never `Opaque`. Falls back to any supported mode.
  *
  * wgpu treats configuring a surface with an unsupported alpha mode as a fatal (aborting) error, so
- * the returned value must always be a member of [supported].
+ * the returned value is always a member of [supported]. A configured surface always advertises at
+ * least one mode; [supported] being empty is a programming/driver error, so we fail fast with a
+ * clear message rather than return an unsupported default that would re-trigger the native abort.
+ *
+ * @throws IllegalArgumentException if [supported] is empty.
  */
-internal fun chooseAlphaMode(supported: Set<CompositeAlphaMode>): CompositeAlphaMode =
-  when {
+internal fun chooseAlphaMode(supported: Set<CompositeAlphaMode>): CompositeAlphaMode {
+  require(supported.isNotEmpty()) {
+    "Surface advertised no supported composite alpha modes; cannot configure surface."
+  }
+  return when {
     CompositeAlphaMode.Opaque in supported -> CompositeAlphaMode.Opaque
     CompositeAlphaMode.Inherit in supported -> CompositeAlphaMode.Inherit
     CompositeAlphaMode.Auto in supported -> CompositeAlphaMode.Auto
-    else -> supported.firstOrNull() ?: CompositeAlphaMode.Opaque
+    else -> supported.first()
   }
+}

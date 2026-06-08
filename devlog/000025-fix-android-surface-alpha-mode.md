@@ -37,6 +37,12 @@ crashes natively in `wgpuSurfaceConfigure`. Pick an alpha mode the surface actua
   platforms while unblocking Android.
 - 2026-06-07T13:05-07:00 Helper is a pure `internal` top-level function so it's unit-testable in
   commonTest without a GPU/device.
+- 2026-06-07T20:15-07:00 (PR review) `chooseAlphaMode` now `require`s a non-empty `supported` set and
+  drops the `?: Opaque` fallback. Reasoning: the empty-set branch returned `Opaque`, contradicting the
+  function's own "returned value is always a member of supported" contract and risking the same native
+  abort on a surface that doesn't support `Opaque`. A configured surface always advertises ≥1 mode, so
+  an empty set is a programming/driver error — fail fast with a clear message instead of returning an
+  unsupported default. Addresses Copilot review comment on WgpuRenderer.kt.
 
 ## Issues
 
@@ -49,4 +55,5 @@ crashes natively in `wgpuSurfaceConfigure`. Pick an alpha mode the surface actua
 
 ## Commits
 
-- HEAD — fix(renderer): select a supported surface alpha mode (fixes Android Vulkan crash)
+- f022333 — fix(renderer): select a supported surface alpha mode (fixes Android Vulkan crash)
+- HEAD — fix(renderer): fail fast when surface advertises no alpha modes (PR review)
