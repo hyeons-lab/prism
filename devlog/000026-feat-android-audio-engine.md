@@ -38,6 +38,16 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
   last requested `Music.volume` per path in `musicVolumes` and apply `track * master` in both
   `playMusic` and `setMasterVolume` (previously master overwrote every player, losing per-track
   levels). `musicVolumes` is cleared in `stopMusic` and `shutdown` so it doesn't leak stale state.
+- 2026-06-07T20:41-07:00 (PR review, round 2) Record SFX load failures. A non-zero async
+  load-complete status (or `load()==0`) now flags the path in `failedPaths` and drops it from
+  `soundIds`. `playSound` reports a permanent "failed to load" instead of warning "still loading"
+  forever, and `loadSound` retries the path (clearing the flag) since it's no longer in `soundIds`.
+- 2026-06-07T20:41-07:00 (PR review, round 2) Track all active *looping* streams per path in a list
+  so `stopSound` stops every one (previously only the most recent stream id was kept, so repeated
+  looping plays leaked streams that could never be stopped). One-shot streams are deliberately not
+  tracked: they self-terminate, SoundPool gives no per-stream completion callback, and it recycles
+  stream ids — so a retained one-shot id can go stale and `stop()` the wrong stream. `failedPaths`
+  is cleared in `shutdown`.
 
 ## Issues
 
@@ -47,4 +57,5 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
 ## Commits
 
 - bfa9c45 — feat(audio): add Android AudioEngine (SoundPool SFX + MediaPlayer music)
-- HEAD — fix(audio): gate SFX on load, harden MediaPlayer + per-track volume (PR review)
+- 6ae132f — fix(audio): gate SFX on load, harden MediaPlayer + per-track volume (PR review)
+- HEAD — fix(audio): record SFX load failures and track looping streams (PR review)

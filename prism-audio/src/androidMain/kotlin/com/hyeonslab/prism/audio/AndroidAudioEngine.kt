@@ -38,8 +38,11 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
       )
       .build()
 
-  /** Asset path -> SoundPool sample id (only populated for successful [SoundPool.load] calls). */
-  private val soundIds: MutableMap<String, Int> = mutableMapOf()
+  /**
+   * Asset path -> SoundPool sample id. Concurrent because the load-complete callback (possibly on
+   * another thread) removes an entry when its load fails so [loadSound] can retry the path.
+   */
+  private val soundIds: MutableMap<String, Int> = ConcurrentHashMap()
 
   /**
    * Sample ids that have finished loading successfully. Written from the SoundPool load-complete
@@ -47,8 +50,20 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
    */
   private val readySamples: MutableSet<Int> = ConcurrentHashMap.newKeySet()
 
-  /** Asset path -> most recent active stream id (for [stopSound]). */
-  private val activeStreams: MutableMap<String, Int> = mutableMapOf()
+  /**
+   * Paths whose most recent load attempt failed (sync `load()==0` or async non-zero status), so
+   * [playSound] can report a permanent failure instead of warning "still loading" forever. Cleared
+   * when [loadSound] retries the path.
+   */
+  private val failedPaths: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+  /**
+   * Asset path -> active *looping* stream ids (for [stopSound]). One-shot streams are intentionally
+   * not tracked: they stop themselves, SoundPool gives no per-stream completion callback, and it
+   * recycles stream ids — so a retained one-shot id can go stale and later [SoundPool.stop] the
+   * wrong stream. Only looping streams persist and need explicit stopping.
+   */
+  private val activeStreams: MutableMap<String, MutableList<Int>> = mutableMapOf()
 
   /** Asset path -> MediaPlayer for music. Only holds successfully-prepared players. */
   private val musicPlayers: MutableMap<String, MediaPlayer> = mutableMapOf()
@@ -63,13 +78,21 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
       if (status == 0) {
         readySamples.add(sampleId)
       } else {
-        logger.e { "SoundPool failed to load sampleId=$sampleId (status=$status)" }
+        // Drop the path->id mapping and flag it failed so playSound stops saying "still loading"
+        // and loadSound can retry the path.
+        val path = soundIds.entries.firstOrNull { it.value == sampleId }?.key
+        if (path != null) {
+          soundIds.remove(path)
+          failedPaths.add(path)
+        }
+        logger.e { "SoundPool failed to load sampleId=$sampleId (status=$status)${path?.let { " for $it" } ?: ""}" }
       }
     }
   }
 
   override fun loadSound(path: String): Sound {
     if (!soundIds.containsKey(path)) {
+      failedPaths.remove(path) // retrying — clear any prior failure flag
       try {
         appContext.assets.openFd(path).use { afd ->
           // load() returns 0 on failure; only record real sample ids so playSound can trust the map.
@@ -77,10 +100,12 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
           if (sampleId != 0) {
             soundIds[path] = sampleId
           } else {
+            failedPaths.add(path)
             logger.e { "SoundPool.load returned 0 (failed) for: $path" }
           }
         }
       } catch (e: Exception) {
+        failedPaths.add(path)
         logger.e(e) { "Failed to load sound: $path" }
       }
     }
@@ -88,6 +113,10 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
   }
 
   override fun playSound(sound: Sound) {
+    if (sound.path in failedPaths) {
+      logger.w { "playSound: sound failed to load: ${sound.path}" }
+      return
+    }
     val sampleId = soundIds[sound.path]
     if (sampleId == null) {
       logger.w { "playSound: sound not loaded: ${sound.path}" }
@@ -100,15 +129,16 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
     val volume = (sound.volume * masterVolume).coerceIn(0f, 1f)
     val loop = if (sound.loop) -1 else 0
     val streamId = soundPool.play(sampleId, volume, volume, 1, loop, sound.pitch)
-    if (streamId != 0) {
-      activeStreams[sound.path] = streamId
-    } else {
+    if (streamId == 0) {
       logger.w { "playSound: SoundPool.play returned 0 (not started): ${sound.path}" }
+    } else if (sound.loop) {
+      // Only looping streams are retained (see activeStreams) — one-shots stop themselves.
+      activeStreams.getOrPut(sound.path) { mutableListOf() }.add(streamId)
     }
   }
 
   override fun stopSound(sound: Sound) {
-    activeStreams.remove(sound.path)?.let { soundPool.stop(it) }
+    activeStreams.remove(sound.path)?.forEach { soundPool.stop(it) }
   }
 
   override fun loadMusic(path: String): Music = Music(id = path, path = path)
@@ -176,6 +206,7 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
     soundPool.release()
     soundIds.clear()
     readySamples.clear()
+    failedPaths.clear()
     activeStreams.clear()
     for (mp in musicPlayers.values) {
       runCatching { mp.stop() }
