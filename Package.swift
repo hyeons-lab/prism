@@ -10,8 +10,8 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "Prism",
-            url: "https://github.com/hyeons-lab/prism/releases/download/VERSION_PLACEHOLDER/Prism.xcframework.zip",
-            checksum: "0000000000000000000000000000000000000000000000000000000000000000"
+            url: "https://github.com/hyeons-lab/prism/releases/download/v0.1.0/Prism.xcframework.zip",
+            checksum: "a30f07a26adfdd3602903460ae1edb75dbbe6f172be3160dab89d75df344abb6"
         )
     ]
 )
