@@ -1,0 +1,3 @@
+# prism.dll is dropped here by `:prism-flutter:bundleNativeWindows`.
+# CMake bundles it into the host application's exe directory at build time.
+native/prism.dll

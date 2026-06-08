@@ -27,4 +27,13 @@ flutter:
         pluginClass: PrismFlutterPlugin
       macos:
         pluginClass: PrismFlutterPlugin
+      # Linux/Windows: Phase 1 scaffolding — the plugin loads and bundles
+      # libprism.so / prism.dll, but the platform view (a real GTK/HWND-backed
+      # wgpu surface) is a Phase 2 follow-up. Until then, PrismRenderView
+      # falls through to its "not yet available" placeholder on these targets
+      # while PrismEngine (FFI) is fully usable for headless integration.
+      linux:
+        pluginClass: PrismFlutterPlugin
+      windows:
+        pluginClass: PrismFlutterPluginCApi
     ffiPlugin: true
