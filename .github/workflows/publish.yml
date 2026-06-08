@@ -82,8 +82,15 @@ jobs:
         run: |
           echo "=== DRY RUN: publishToMavenLocal (no upload) ==="
           ./gradlew publishToMavenLocal --no-configuration-cache
-          echo "=== Artifacts written to ~/.m2/repository/com/hyeons-lab ==="
-          find ~/.m2/repository/com/hyeons-lab -name '*.pom' | sort
+          # Best-effort artifact listing — never fail the step on the report itself
+          # (the directory is absent if publishing wrote nothing, or if GROUP changes).
+          GROUP_DIR="$HOME/.m2/repository/com/hyeons-lab"
+          echo "=== Artifacts written to ${GROUP_DIR} ==="
+          if [ -d "$GROUP_DIR" ]; then
+            find "$GROUP_DIR" -name '*.pom' | sort
+          else
+            echo "::warning::No artifacts found under ${GROUP_DIR}"
+          fi
 
       # Real publish: upload to the Central Portal. SNAPSHOT versions route to the
       # snapshot repository; release versions create a manually-releasable

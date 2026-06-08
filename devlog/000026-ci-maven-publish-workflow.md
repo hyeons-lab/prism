@@ -56,9 +56,18 @@ crates.io (Rust); Prism is KMP, so the analog is Maven Central via the
   Maven Central, so those artifacts aren't externally resolvable until wgpu4k is
   published. prism-math / prism-core (no wgpu4k dep) are cleanly consumable.
 
+## Decisions
+
+- 2026-06-07T20:29-0700 (PR review) Made the dry-run artifact listing
+  best-effort: guard the `find` with `[ -d "$GROUP_DIR" ]` and emit a
+  `::warning::` instead of letting a missing directory fail the step. The listing
+  is only a report; the publish task itself is the source of truth for success.
+  Addresses Copilot review comment on publish.yml.
+
 ## Commits
 
-- HEAD — ci: add Maven Central publish workflow
+- f439ce7 — ci: add Maven Central publish workflow
+- HEAD — ci: make dry-run artifact listing non-fatal (PR review)
 
 ## Next Steps
 
