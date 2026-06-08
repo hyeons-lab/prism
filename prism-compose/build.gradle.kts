@@ -19,8 +19,10 @@ kotlin {
   iosArm64()
   iosSimulatorArm64()
   if (isMac) macosArm64()
-  linuxX64()
-  mingwX64()
+  // No linuxX64()/mingwX64(): Compose Multiplatform has no linux/windows-native
+  // target, so this module has no source for them. Declaring them produced
+  // empty NO-SOURCE compilations whose publication failed (missing klib) during
+  // publishToMavenCentral. JVM Desktop covers Linux/Windows for Compose.
 
   @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class) wasmJs { browser() }
 
