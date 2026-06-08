@@ -32,7 +32,11 @@ jobs:
           # gradle.properties); the workflow_dispatch input overrides it.
           VERSION="${{ inputs.version }}"
           if [ -z "$VERSION" ]; then
-            VERSION=$(grep -E '^VERSION_NAME=' gradle.properties | head -1 | cut -d'=' -f2- | tr -d '[:space:]')
+            # awk (single process, exits 0 even with no match) so the explicit
+            # empty-VERSION check below handles a missing key — a grep pipeline
+            # would trip the shell's -e/pipefail before we get there. Tolerates
+            # optional whitespace around '='.
+            VERSION=$(awk '/^[[:space:]]*VERSION_NAME[[:space:]]*=/ { sub(/^[^=]*=[[:space:]]*/, "", $0); gsub(/[[:space:]]/, "", $0); print; exit }' gradle.properties)
             echo "No version override; using artifact version from gradle.properties: ${VERSION}"
           else
             echo "Using version override from input: ${VERSION}"
@@ -41,12 +45,14 @@ jobs:
             echo "::error::Could not determine version (no input and no VERSION_NAME in gradle.properties)"
             exit 1
           fi
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::Invalid version format: ${VERSION}"
-            echo "Expected: semver (e.g. 0.1.0, 0.1.0-rc.1)"
+            echo "Expected: semver (e.g. 0.1.0, 0.1.0-rc.1, 1.2.3+build.5)"
             exit 1
           fi
-          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+          # Check the tag ref specifically, not any resolvable revision (a branch
+          # named vX.Y.Z would otherwise falsely report the tag as existing).
+          if git show-ref --verify --quiet "refs/tags/v${VERSION}"; then
             echo "::error::Tag v${VERSION} already exists"
             exit 1
           fi

@@ -31,6 +31,16 @@ optional override.
 - 2026-06-07T22:11-07:00 Expose the resolved version as a step output and thread
   it through downstream steps, rather than re-reading the file in each step —
   one resolution + validation point.
+- 2026-06-07T22:25-07:00 (PR review) Three hardening fixes to the Resolve step:
+  (1) extract `VERSION_NAME` with `awk` instead of a `grep | head | cut | tr`
+  pipeline — Actions runs bash with `-e -o pipefail`, so a missing key would trip
+  the pipeline before the explicit empty-VERSION error; `awk` is one process that
+  exits 0 with no match and tolerates whitespace around `=`. (2) Check tag
+  uniqueness with `git show-ref --verify --quiet refs/tags/v$VERSION` instead of
+  `git rev-parse v$VERSION`, which resolves any ref (a branch named `vX.Y.Z` would
+  false-positive). (3) Broaden the semver regex to accept hyphenated prerelease
+  (`1.2.3-alpha-1`) and build metadata (`1.2.3+build.5`), matching the "semver"
+  error wording.
 
 ## Issues
 
@@ -41,4 +51,5 @@ optional override.
 
 ## Commits
 
-- HEAD — ci: default release version from gradle.properties, allow override
+- 852baf6 — ci: default release version from gradle.properties, allow override
+- HEAD — ci: harden version resolution (awk, tag-ref check, semver regex) (PR review)
