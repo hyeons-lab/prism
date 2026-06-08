@@ -7,7 +7,7 @@ This file provides guidance to ai agents when working with code in this reposito
 Prism is a modular, cross-platform 3D game engine built with Kotlin Multiplatform (KMP). It targets JVM Desktop, Web (WASM), iOS, Android, and macOS/Linux/Windows native platforms with a single Kotlin codebase. The rendering backend uses **wgpu4k** for cross-platform GPU access (Vulkan, Metal, DX12, WebGPU).
 
 - **Group ID**: com.hyeons-lab
-- **Version**: 0.1.0-SNAPSHOT
+- **Version**: 0.1.0
 - **Docs**: PLAN.md (tech spec), BUILD_STATUS.md (milestone status)
 
 ## Build Commands

@@ -5,6 +5,7 @@ plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.skie)
+  alias(libs.plugins.maven.publish)
 }
 
 kotlin {
@@ -250,4 +251,12 @@ tasks.register<Copy>("bundleNativeWindows") {
   dependsOn(":prism-native:linkReleaseSharedMingwX64")
   from(prismNativeBuildDir.file("bin/mingwX64/releaseShared/prism.dll"))
   into(layout.projectDirectory.dir("flutter_plugin/windows/native"))
+}
+
+mavenPublishing {
+  publishToMavenCentral()
+  signAllPublications()
+  pom {
+    description.set("Flutter bridge for the Prism engine (MethodChannel + platform views, WASM)")
+  }
 }
