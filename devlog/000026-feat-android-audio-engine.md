@@ -26,6 +26,18 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
   behavior change to existing demos.
 - 2026-06-07T14:11-07:00 Devlog numbered 000026 (not 000025) to avoid colliding with the in-flight
   fix/android-surface-alpha-mode branch (PR #54) which already uses 000025. Renumber on merge if needed.
+- 2026-06-07T20:31-07:00 (PR review) Gate SFX playback on load completion. SoundPool.load is async,
+  so `playSound` now skips (with a warning) until the sample id appears in a `readySamples` set
+  populated by `setOnLoadCompleteListener`. `SoundPool.load`/`play` returning 0 are treated as
+  failures (not stored / logged) rather than silently succeeding.
+- 2026-06-07T20:31-07:00 (PR review) Never cache a half-initialized MediaPlayer: `playMusic` builds
+  the player in `prepareMusicPlayer`, which only inserts into `musicPlayers` after `prepare()`
+  succeeds and releases on failure. `isLooping` is set every play so a later call with a different
+  `Music.loop` takes effect.
+- 2026-06-07T20:31-07:00 (PR review) Preserve per-track music volume across master changes: store the
+  last requested `Music.volume` per path in `musicVolumes` and apply `track * master` in both
+  `playMusic` and `setMasterVolume` (previously master overwrote every player, losing per-track
+  levels). `musicVolumes` is cleared in `stopMusic` and `shutdown` so it doesn't leak stale state.
 
 ## Issues
 
@@ -34,4 +46,5 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
 
 ## Commits
 
-- HEAD — feat(audio): add Android AudioEngine (SoundPool SFX + MediaPlayer music)
+- bfa9c45 — feat(audio): add Android AudioEngine (SoundPool SFX + MediaPlayer music)
+- HEAD — fix(audio): gate SFX on load, harden MediaPlayer + per-track volume (PR review)
