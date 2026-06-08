@@ -38,7 +38,6 @@ repositories {
         content {
             includeGroup("io.ygdrasil")
             includeGroup("com.hyeons-lab")
-            includeGroupByRegex("engine\\.prism.*")
         }
     }
     google()
@@ -48,8 +47,10 @@ repositories {
 dependencies {
     // Prism KMP SDK modules only — no demo deps.
     // The host app provides DemoAndroidBridge + FlutterMethodHandler via PrismFlutterPlugin.configure().
-    implementation("engine.prism:prism-flutter-android:0.1.0-SNAPSHOT")
-    implementation("engine.prism:prism-native-widgets-android:0.1.0-SNAPSHOT")
+    // Versioned in lockstep with this plugin (see `version` above) — reference
+    // project.version so the prism SDK coordinates can't drift out of sync.
+    implementation("com.hyeons-lab:prism-flutter-android:${project.version}")
+    implementation("com.hyeons-lab:prism-native-widgets-android:${project.version}")
 
     implementation("io.ygdrasil:wgpu4k-android:0.2.0-SNAPSHOT")
     implementation("io.ygdrasil:wgpu4k-toolkit-android:0.2.0-SNAPSHOT")
