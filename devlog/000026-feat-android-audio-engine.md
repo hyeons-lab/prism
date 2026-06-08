@@ -48,6 +48,13 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
   tracked: they self-terminate, SoundPool gives no per-stream completion callback, and it recycles
   stream ids — so a retained one-shot id can go stale and `stop()` the wrong stream. `failedPaths`
   is cleared in `shutdown`.
+- 2026-06-07T21:10-07:00 (PR review, round 3) `setMasterVolume` now also re-applies `base * master`
+  to live looping SFX streams (via `SoundPool.setVolume`), not just MediaPlayers — so master changes
+  take effect on already-playing loops without a replay. `activeStreams` entries became
+  `ActiveStream(streamId, baseVolume)` to retain each stream's per-track volume for this.
+- 2026-06-07T21:10-07:00 (PR review, round 3) Split the load-failure log's optional " for <path>"
+  suffix into a local so the statement fits the 100-col ktfmt width and drops the nested
+  interpolation.
 
 ## Issues
 
@@ -58,4 +65,5 @@ game (voice-driven kids' shooter) that needs pop/hit/chime SFX.
 
 - bfa9c45 — feat(audio): add Android AudioEngine (SoundPool SFX + MediaPlayer music)
 - 6ae132f — fix(audio): gate SFX on load, harden MediaPlayer + per-track volume (PR review)
-- HEAD — fix(audio): record SFX load failures and track looping streams (PR review)
+- 770bae5 — fix(audio): record SFX load failures and track looping streams (PR review)
+- HEAD — fix(audio): apply master volume to live SFX streams, shorten log (PR review)

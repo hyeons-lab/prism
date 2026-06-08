@@ -57,13 +57,18 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
    */
   private val failedPaths: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
+  /** An active looping SFX stream and the per-track volume it was started with. */
+  private data class ActiveStream(val streamId: Int, val baseVolume: Float)
+
   /**
-   * Asset path -> active *looping* stream ids (for [stopSound]). One-shot streams are intentionally
-   * not tracked: they stop themselves, SoundPool gives no per-stream completion callback, and it
-   * recycles stream ids — so a retained one-shot id can go stale and later [SoundPool.stop] the
-   * wrong stream. Only looping streams persist and need explicit stopping.
+   * Asset path -> active *looping* streams (for [stopSound] and [setMasterVolume]). Each entry keeps
+   * the stream's per-track [ActiveStream.baseVolume] so a master-volume change can re-apply
+   * `base * master` to live streams. One-shot streams are intentionally not tracked: they stop
+   * themselves, SoundPool gives no per-stream completion callback, and it recycles stream ids, so a
+   * retained one-shot id can go stale and later stop/setVolume the wrong stream. Only looping
+   * streams persist and need explicit control.
    */
-  private val activeStreams: MutableMap<String, MutableList<Int>> = mutableMapOf()
+  private val activeStreams: MutableMap<String, MutableList<ActiveStream>> = mutableMapOf()
 
   /** Asset path -> MediaPlayer for music. Only holds successfully-prepared players. */
   private val musicPlayers: MutableMap<String, MediaPlayer> = mutableMapOf()
@@ -85,7 +90,8 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
           soundIds.remove(path)
           failedPaths.add(path)
         }
-        logger.e { "SoundPool failed to load sampleId=$sampleId (status=$status)${path?.let { " for $it" } ?: ""}" }
+        val forPath = if (path != null) " for $path" else ""
+        logger.e { "SoundPool failed to load sampleId=$sampleId (status=$status)$forPath" }
       }
     }
   }
@@ -132,13 +138,15 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
     if (streamId == 0) {
       logger.w { "playSound: SoundPool.play returned 0 (not started): ${sound.path}" }
     } else if (sound.loop) {
-      // Only looping streams are retained (see activeStreams) — one-shots stop themselves.
-      activeStreams.getOrPut(sound.path) { mutableListOf() }.add(streamId)
+      // Only looping streams are retained (see activeStreams); one-shots stop themselves. Keep the
+      // per-track base volume so setMasterVolume can re-apply base * master to the live stream.
+      val stream = ActiveStream(streamId, sound.volume.coerceIn(0f, 1f))
+      activeStreams.getOrPut(sound.path) { mutableListOf() }.add(stream)
     }
   }
 
   override fun stopSound(sound: Sound) {
-    activeStreams.remove(sound.path)?.forEach { soundPool.stop(it) }
+    activeStreams.remove(sound.path)?.forEach { soundPool.stop(it.streamId) }
   }
 
   override fun loadMusic(path: String): Music = Music(id = path, path = path)
@@ -156,7 +164,10 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
       .onFailure { logger.e(it) { "Failed to start music: ${music.path}" } }
   }
 
-  /** Builds and prepares a [MediaPlayer], caching it on success. Returns null (and releases) on failure. */
+  /**
+   * Builds and prepares a [MediaPlayer], caching it on success. Returns null (and releases) on
+   * failure.
+   */
   private fun prepareMusicPlayer(path: String): MediaPlayer? {
     val mp = MediaPlayer()
     return try {
@@ -191,6 +202,13 @@ class AndroidAudioEngine(context: Context, maxStreams: Int = 8) : AudioEngine {
     for ((path, mp) in musicPlayers) {
       val trackVolume = ((musicVolumes[path] ?: 1f) * masterVolume).coerceIn(0f, 1f)
       mp.setVolume(trackVolume, trackVolume)
+    }
+    // Also update live looping SFX streams so master changes take effect without a replay.
+    for (streams in activeStreams.values) {
+      for (stream in streams) {
+        val v = (stream.baseVolume * masterVolume).coerceIn(0f, 1f)
+        soundPool.setVolume(stream.streamId, v, v)
+      }
     }
   }
 
